@@ -1,0 +1,11 @@
+streamlit
+pillow
+pandas
+numpy
+influxdb
+plotly
+streamlit-aggrid
+streamlit-calendar
+opencv-python-headless
+
+
