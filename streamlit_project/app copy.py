@@ -15,7 +15,7 @@ import glob
 local_tz = pytz.timezone("America/New_York")
 st.set_page_config(layout="wide")
 
-sunset_root = "/home/dlavoie/Pictures/sunset_images/"
+sunset_root = "/home/dlavoie/Pictures/sunset_images/btv_echo_cam"
 all_files = glob.glob(os.path.join(sunset_root, "**", "*.jpg"), recursive=True)
 
 all_data = []

@@ -1,18 +1,18 @@
 # %%
 import importlib
-import sunset_process
-importlib.reload(sunset_process)
-from sunset_process import rank_sunset
+import sunset_code.helpers.sunset_process
+importlib.reload(sunset_code.helpers.sunset_process)
+from sunset_code.helpers.sunset_process import rank_sunset
 import os
 import glob
 import matplotlib.pyplot as plt
 import numpy as np
 from influxdb import InfluxDBClient
 from datetime import date, timedelta, datetime, timezone
-from generate_ranked_image import generate_ranked_image
-from sunset_predictor import grafana_push
+from sunset_code.helpers.generate_ranked_image import generate_ranked_image
+from sunset_code.sunset_predictor import grafana_push
 import pytz
-from sunset_predictor import sunset_time
+from sunset_code.sunset_predictor import sunset_time
 from datetime import datetime
 
 def filename_to_epoch(filename):

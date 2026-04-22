@@ -1,10 +1,7 @@
 # %%
-from matplotlib import pyplot as plt
 import cv2
 import numpy as np
 import os
-from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
-#from generate_ranked_image import generate_ranked_image
 
 def rank_sunset(frame):
     img = cv2.imread(frame)
@@ -57,7 +54,6 @@ def rank_sunset(frame):
     yellow_mask = (h >= 25) & (h <= 35) & (s >= 20)
     yellow_score = calculate_saturation_weighted_score(yellow_mask, s, total_pixels, power=2.0)
     # print(f"Yellow Score: {yellow_score}")  
-    
     
     #METRICS
     # 1. Warm Color Ratio (orange/red/yellow)
