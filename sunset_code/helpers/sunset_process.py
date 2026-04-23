@@ -209,7 +209,7 @@ def calculate_saturation_weighted_score(mask, s, total_pixels, power=2.0, bin_si
         return 0.0
     
     avg_saturation = s[mask].mean()
-    print(f"Average Saturation: {avg_saturation}")
+    #print(f"Average Saturation: {avg_saturation}")
     pixel_ratio = np.count_nonzero(mask) / total_pixels
     
     # Apply non-linear weighting: higher saturation values are amplified exponentially

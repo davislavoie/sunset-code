@@ -1,19 +1,58 @@
 # %%
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import importlib
 import sunset_code.helpers.sunset_process
 importlib.reload(sunset_code.helpers.sunset_process)
 from sunset_code.helpers.sunset_process import rank_sunset
-import os
 import glob
 import matplotlib.pyplot as plt
 import numpy as np
 from influxdb import InfluxDBClient
 from datetime import date, timedelta, datetime, timezone
 from sunset_code.helpers.generate_ranked_image import generate_ranked_image
-from sunset_code.sunset_predictor import grafana_push
+from sunset_code.helpers.helpers import influxdb_push, sunset_time
 import pytz
-from sunset_code.sunset_predictor import sunset_time
 from datetime import datetime
+from simple_term_menu import TerminalMenu
+
+#Before running delete all influx db data for respective camera tag
+#influx
+#use sunset_images
+#delete from "sunset_images" where "camera_tag" = 'your_camera_tag'
+
+
+def select_camera_tag(sunset_root_base):
+    """
+    Scans sunset_root_base for subdirectories (camera tags).
+    If multiple exist, prompts user to select one with arrow keys.
+    Returns the selected camera_tag and full path.
+    """
+    # Find all subdirectories in the sunset_root_base
+    subdirs = [d for d in os.listdir(sunset_root_base) 
+               if os.path.isdir(os.path.join(sunset_root_base, d))]
+    
+    if not subdirs:
+        print(f"[ERROR] No camera directories found in {sunset_root_base}")
+        return None, None
+    
+    if len(subdirs) == 1:
+        camera_tag = subdirs[0]
+        print(f"[INFO] Auto-selected camera tag: {camera_tag}")
+    else:
+        print(f"\n[INFO] Multiple camera directories found. Please select one:")
+        menu = TerminalMenu(subdirs, title="Select Camera Tag:")
+        selected_idx = menu.show()
+        if selected_idx is None:
+            print("[ERROR] No selection made.")
+            return None, None
+        camera_tag = subdirs[selected_idx]
+        print(f"[INFO] Selected camera tag: {camera_tag}")
+    
+    sunset_root = os.path.join(sunset_root_base, camera_tag)
+    return camera_tag, sunset_root
 
 def filename_to_epoch(filename):
     """Extract epoch time from filename formatted as 'prefix_MM-DD-YYYY.ext'."""
@@ -85,7 +124,14 @@ client.query('DELETE FROM "sunset_images"')
 print("[INFO] Cleared existing data from InfluxDB 'sunset_images' database.")
 
 # Input Directory
-sunset_root = "/home/dlavoie/Pictures/sunset_images/"
+sunset_root_base = "/home/dlavoie/Pictures/sunset_images/"
+camera_tag, sunset_root = select_camera_tag(sunset_root_base)
+
+if camera_tag is None:
+    raise SystemExit("[ERROR] No camera tag selected. Exiting.")
+
+print(f"[INFO] Using camera tag: {camera_tag}")
+print(f"[INFO] Using sunset root: {sunset_root}")
 
 
 sunset_list = ( 
@@ -107,9 +153,10 @@ group_scores = [[], [], [], [], [], [], [], [], [], []]
 all_images_scores = [[], [], [], [], [], [], [], [], [], []]
 
 for i in range(len(sunset_list)):
-    for img_path in glob.glob(sunset_list[i], recursive=True):
-        score, final_txt_img, name, hist_h, hist_s, hist_v, combined_mask_full_image, texts, bg_colors = rank_sunset(img_path)
-        result = (score, final_txt_img, name, hist_h, hist_s, hist_v, img_path)
+    for photo_filepath in glob.glob(sunset_list[i], recursive=True):
+        photo_filename = os.path.basename(photo_filepath)
+        score, final_txt_img, name, hist_h, hist_s, hist_v, combined_mask_full_image, texts, bg_colors = rank_sunset(photo_filepath)
+        result = (score, final_txt_img, photo_filename, hist_h, hist_s, hist_v, photo_filepath)
         group_scores[i].append(result)
         all_images_scores[i].append(result)
 
@@ -122,11 +169,11 @@ for idx, group in enumerate(all_images_scores):
 # group_scores[0][0] is the first image data in 06_*.jpg
 # group_scores[0][0][0] is the score of the first image in 06_*.jpg
 # group_scores[0][0][1] is the image itself 06_*.jpg
-# group_scores[0][0][2] is the name of the first image in 06_*.jpg
+# group_scores[0][0][2] is the photo_filename of the first image in 06_*.jpg
 # group_scores[0][0][3] is the hist_h of the first image in 06_*.jpg
 # group_scores[0][0][4] is the hist_s of the first image in 06_*.jpg
 # group_scores[0][0][5] is the hist_v of the first image in 06_*.jpg
-# group_scores[0][0][6] is the full path of the first image in 06_*.jpg
+# group_scores[0][0][6] is the photo_filepath (full path) of the first image in 06_*.jpg
 
 # Group images by date instead of by index
 # Extract date from each image and organize by date
@@ -137,11 +184,11 @@ for group_idx in range(len(group_scores)):
         if result is None:
             continue
         
-        img_path = result[6]
+        photo_filepath = result[6]
         # Extract date from filename (format: prefix_MM-DD-YYYY.jpg)
-        base_name = os.path.basename(img_path)
+        photo_filename = os.path.basename(photo_filepath)
         # Get date part (last part before extension)
-        date_part = base_name.rsplit('_', 1)[-1].replace('.jpg', '')
+        date_part = photo_filename.rsplit('_', 1)[-1].replace('.jpg', '')
         
         if date_part not in images_by_date:
             images_by_date[date_part] = {}
@@ -176,15 +223,15 @@ for group_idx in range(len(group_scores)):
         if result is not None:
             score = result[0]
             final_txt_img = result[1]
-            name = result[2]
+            photo_filename = result[2]
             hist_h = result[3]
             hist_s = result[4]
             hist_v = result[5]
-            img_path = result[6]
-            photo_dir = os.path.dirname(img_path)  # Get directory path without filename
+            photo_filepath = result[6]
+            photo_dir = os.path.dirname(photo_filepath)  # Get directory path without filename
 
             #Remove prefix
-            clean_name = name[3:]
+            clean_name = photo_filename[3:]
 
             # Clean up existing files with 11_ or 12_ prefix in the output directory
             for existing_file in glob.glob(os.path.join(photo_dir, "11_*.png")):
@@ -193,19 +240,19 @@ for group_idx in range(len(group_scores)):
                 os.remove(existing_file)
 
             #Generates and saves ranked image and histogram
-            histogram_path, score_image_path = generate_ranked_image(final_txt_img, score, name, hist_h, hist_s, hist_v, photo_dir)
+            histogram_filepath, score_image_filepath = generate_ranked_image(final_txt_img, score, photo_filename, hist_h, hist_s, hist_v, photo_dir)
             
-            #Histogram name
-            histogram_name = os.path.basename(histogram_path)
-            score_image_name = os.path.basename(score_image_path)
+            #Histogram filename
+            histogram_filename = os.path.basename(histogram_filepath)
+            score_image_filename = os.path.basename(score_image_filepath)
 
-            epoch_time = filename_to_epoch(img_path)
+            epoch_time = filename_to_epoch(photo_filepath)
 
             # Push to Grafana
-            print(f"[INFO] Pushing ranked image for {name} with score {score} at epoch time {epoch_time}")
+            print(f"[INFO] Pushing ranked image for {photo_filename} with score {score} at epoch time {epoch_time}")
 
-            grafana_push(histogram_path, epoch_time, histogram_name, score)
-            grafana_push(score_image_path, epoch_time, score_image_name, score)
+            influxdb_push(histogram_filepath, epoch_time, histogram_filename, camera_tag, score)
+            influxdb_push(score_image_filepath, epoch_time, score_image_filename, camera_tag, score)
 
 # #Push all images to influx with scoring data
 # Find the maximum length across all groups
@@ -219,14 +266,14 @@ for i in range(max_images):
             continue
         
         score = (all_images_scores[b][i][0])
-        name = all_images_scores[b][i][2]
-        img_path = all_images_scores[b][i][6]
-        photo_dir = os.path.dirname(img_path)
+        photo_filename = all_images_scores[b][i][2]
+        photo_filepath = all_images_scores[b][i][6]
+        photo_dir = os.path.dirname(photo_filepath)
 
-        epoch_time = filename_to_epoch(img_path)
+        epoch_time = filename_to_epoch(photo_filepath)
 
-        print(f"[INFO] Pushing image {name} with score {score} at epoch time {epoch_time}")
-        grafana_push(img_path, epoch_time, name, score)
+        print(f"[INFO] Pushing image {photo_filename} with score {score} at epoch time {epoch_time}")
+        influxdb_push(photo_filepath, epoch_time, photo_filename, camera_tag, score)
 
 
 

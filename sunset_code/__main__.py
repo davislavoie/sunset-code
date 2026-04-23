@@ -3,12 +3,10 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-
 from sunset_code.helpers.helpers import sunset_time, influxdb_push
 from sunset_code.helpers.get_photo import get_photo
 from sunset_code.helpers.sunset_process import rank_sunset
 from sunset_code.helpers.generate_ranked_image import generate_ranked_image
-
 from datetime import datetime
 import os
 import time
