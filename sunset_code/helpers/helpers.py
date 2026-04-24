@@ -48,7 +48,7 @@ def influxdb_push(photo_file, time_epoch, label, camera_tag, score=0):
     timestamp_iso = datetime.fromtimestamp(time_epoch, tz=timezone.utc).isoformat()
     date_str = datetime.fromtimestamp(time_epoch, tz=timezone.utc).strftime('%Y-%m-%d')
 
-    current_weather = weather_fetch(date=date_str, time_epoch = time_epoch)
+    #current_weather = weather_fetch(date=date_str, time_epoch = time_epoch)
 
     client = InfluxDBClient(host="localhost", port=8086, database="sunset_images")
     relative_path = os.path.relpath(photo_file, start=os.path.expanduser("~/Pictures"))
@@ -82,21 +82,21 @@ def influxdb_push(photo_file, time_epoch, label, camera_tag, score=0):
             "time": timestamp_iso,
             "fields": {
                 "url": url,
-                "score": str(score),
+                "score": float(score),
 
-                "temperature_2m": float(current_weather['temperature_2m'].values[0]),
-                "relative_humidity_2m": float(current_weather['relative_humidity_2m'].values[0]),
-                "dew_point_2m": float(current_weather['dew_point_2m'].values[0]),
-                "precipitation_probability": float(current_weather['precipitation_probability'].values[0]),
-                "precipitation": float(current_weather['precipitation'].values[0]),
-                "rain": float(current_weather['rain'].values[0]),
-                "showers": float(current_weather['showers'].values[0]),
-                "snowfall": float(current_weather['snowfall'].values[0]),
-                "cloud_cover_low": float(current_weather['cloud_cover_low'].values[0]),
-                "cloud_cover_mid": float(current_weather['cloud_cover_mid'].values[0]),
-                "cloud_cover_high": float(current_weather['cloud_cover_high'].values[0]),
-                "cloud_cover_total": float(current_weather['cloud_cover_total'].values[0]),
-                "visibility": float(current_weather['visibility'].values[0]),   
+                # "temperature_2m": float(current_weather['temperature_2m'].values[0]),
+                # "relative_humidity_2m": float(current_weather['relative_humidity_2m'].values[0]),
+                # "dew_point_2m": float(current_weather['dew_point_2m'].values[0]),
+                # "precipitation_probability": float(current_weather['precipitation_probability'].values[0]),
+                # "precipitation": float(current_weather['precipitation'].values[0]),
+                # "rain": float(current_weather['rain'].values[0]),
+                # "showers": float(current_weather['showers'].values[0]),
+                # "snowfall": float(current_weather['snowfall'].values[0]),
+                # "cloud_cover_low": float(current_weather['cloud_cover_low'].values[0]),
+                # "cloud_cover_mid": float(current_weather['cloud_cover_mid'].values[0]),
+                # "cloud_cover_high": float(current_weather['cloud_cover_high'].values[0]),
+                # "cloud_cover_total": float(current_weather['cloud_cover_total'].values[0]),
+                # "visibility": float(current_weather['visibility'].values[0]),   
             }
         }
     ]

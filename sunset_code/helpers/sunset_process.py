@@ -95,7 +95,7 @@ def rank_sunset(frame):
         pink_score * 9
     )
 
-    score = min(100, round(score, 2))  
+    score = min(100.0, round(score, 2))  
 
     ##IMAGE VISUALIZATION
     # Warm and pink pixel overlays

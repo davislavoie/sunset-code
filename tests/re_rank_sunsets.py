@@ -18,11 +18,6 @@ import pytz
 from datetime import datetime
 from simple_term_menu import TerminalMenu
 
-#Before running delete all influx db data for respective camera tag
-#influx
-#use sunset_images
-#delete from "sunset_images" where "camera_tag" = 'your_camera_tag'
-
 
 def select_camera_tag(sunset_root_base):
     """
@@ -118,10 +113,6 @@ def filename_to_epoch(filename):
 
 local_tz = pytz.timezone("America/New_York")
 client = InfluxDBClient(host="100.107.153.41", port=8086, database="sunset_images")
-results = client.query("SELECT * FROM sunset_images")
-#Delete all data
-client.query('DELETE FROM "sunset_images"')
-print("[INFO] Cleared existing data from InfluxDB 'sunset_images' database.")
 
 # Input Directory
 sunset_root_base = "/home/dlavoie/Pictures/sunset_images/"
@@ -130,7 +121,10 @@ camera_tag, sunset_root = select_camera_tag(sunset_root_base)
 if camera_tag is None:
     raise SystemExit("[ERROR] No camera tag selected. Exiting.")
 
-print(f"[INFO] Using camera tag: {camera_tag}")
+# Delete only data for the selected camera tag
+client.query(f'DELETE FROM "sunset_images" WHERE "camera" = \'{camera_tag}\'')
+print(f"[INFO] Cleared existing data for camera '{camera_tag}' from InfluxDB 'sunset_images' database.")
+
 print(f"[INFO] Using sunset root: {sunset_root}")
 
 

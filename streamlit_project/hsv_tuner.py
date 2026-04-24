@@ -43,14 +43,14 @@ def show_page():
     col1, col2 = st.columns(2)
     
     with col1:
-        if os.path.exists("color_wheel.jpg"):
-            img_cw = cv2.imread("color_wheel.jpg")
+        if os.path.exists("stock_images/color_wheel.jpg"):
+            img_cw = cv2.imread("stock_images/color_wheel.jpg")
             result_cw = apply_hsv_mask(img_cw, h_min, h_max, s_min, s_max, v_min, v_max)
             st.image(cv2.cvtColor(result_cw, cv2.COLOR_BGR2RGB), caption="Color Wheel (Masked)")
     
     with col2:
-        if os.path.exists("hsv_cone.jpg"):
-            img_cone = cv2.imread("hsv_cone.jpg")
+        if os.path.exists("stock_images/hsv_cone.jpg"):
+            img_cone = cv2.imread("stock_images/hsv_cone.jpg")
             result_cone = apply_hsv_mask(img_cone, h_min, h_max, s_min, s_max, v_min, v_max)
             st.image(cv2.cvtColor(result_cone, cv2.COLOR_BGR2RGB), caption="HSV Cone (Masked)")
 

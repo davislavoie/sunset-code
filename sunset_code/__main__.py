@@ -39,8 +39,8 @@ def main(youtube_url, lat, lon, altitude, timezone_str, camera_tag):
 
             print(f"[{photo_interval}] Score: {score} | Pushed to InfluxDB")
 
-            if float(score) > max_score:
-                max_score = float(score)
+            if score > max_score:
+                max_score = score
                 max_final_txt_img = final_txt_img
                 max_name = name
                 max_hist_h = hist_h
