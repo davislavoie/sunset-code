@@ -35,7 +35,7 @@ def main(youtube_url, lat, lon, altitude, timezone_str, camera_tag):
 
             score, final_txt_img, name, hist_h, hist_s, hist_v, combined_mask_full_image, texts, bg_colors = rank_sunset(photo_filename)
             
-            influxdb_push(photo_filename, epoch_time, photo_interval, score, camera_tag)
+            influxdb_push(photo_filename, epoch_time, photo_interval, camera_tag, score)
 
             print(f"[{photo_interval}] Score: {score} | Pushed to InfluxDB")
 
@@ -66,8 +66,8 @@ def main(youtube_url, lat, lon, altitude, timezone_str, camera_tag):
             score_image_name = os.path.basename(score_image_path)
 
             # Push ranked image to influx db
-            influxdb_push(histogram_path, max_epoch_time, histogram_name, camera_tag, str(max_score))
-            influxdb_push(score_image_path, max_epoch_time, score_image_name, camera_tag, str(max_score))
+            influxdb_push(histogram_path, max_epoch_time, histogram_name, camera_tag, max_score)
+            influxdb_push(score_image_path, max_epoch_time, score_image_name, camera_tag, max_score)
 
             print(f"[INFO] Generating ranked image for best sunset (score: {max_score})")
 

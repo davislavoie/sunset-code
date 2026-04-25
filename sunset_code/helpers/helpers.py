@@ -39,7 +39,7 @@ def sunset_time(day=date.today(), lat=44.477101, lon=-73.221253, altitude=200, t
     return intervals
 
 
-def influxdb_push(photo_file, time_epoch, label, camera_tag, score=0):
+def influxdb_push(photo_file, time_epoch, label, camera_tag, score=0.0):
 
     """ Push data to InfluxDB """
     
