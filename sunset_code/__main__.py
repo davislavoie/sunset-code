@@ -10,8 +10,6 @@ from sunset_code.helpers.generate_ranked_image import generate_ranked_image
 from datetime import datetime
 import os
 import time
-import numpy as np
-from matplotlib import pyplot as plt
 import traceback
 
 def main(youtube_url, lat, lon, altitude, timezone_str, camera_tag):
@@ -52,8 +50,8 @@ def main(youtube_url, lat, lon, altitude, timezone_str, camera_tag):
                 
         except Exception as e:
             print(f"[{photo_interval}] ERROR: {e}")
-            #Error feedback
-            print(f"Frame: {frame}, Photo Filename: {photo_filename}")
+            #Error feedback - removed Frame print to avoid massive array output
+            print(f"Photo Filename: {photo_filename}")
             traceback.print_exc()
 
     # Only generate ranked image if we have valid data

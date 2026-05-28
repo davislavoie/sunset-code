@@ -42,6 +42,14 @@ def show_page(sunset_data, all_data):
             # Get all images for the selected date
             date_images = [img for img in all_data if img["Date"] == st.session_state.selected_date]
             
+            # Separate regular images from ranked/histogram images
+            regular_images = [img for img in date_images if 'ranked' not in img['Label'].lower() and 'histogram' not in img['Label'].lower()]
+            special_images = [img for img in date_images if 'ranked' in img['Label'].lower() or 'histogram' in img['Label'].lower()]
+            
+            # Sort regular images by time, then append special images at the end
+            regular_images = sorted(regular_images, key=lambda x: x["Time"])
+            date_images = regular_images + special_images
+            
             if date_images:
                 # Ensure index is valid
                 if st.session_state.selected_index >= len(date_images):

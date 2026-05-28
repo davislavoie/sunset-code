@@ -117,7 +117,7 @@ elif page == "Ranked Images":
 elif page == "Score Tracker":
     score_tracker.show_page(sunset_data, all_data, ranked_images)
 elif page == "HSV Tuner":
-    hsv_tuner.show_page()
+    hsv_tuner.show_page(sunset_data, all_data)
 
 
 

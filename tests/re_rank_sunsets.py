@@ -19,6 +19,44 @@ from datetime import datetime
 from simple_term_menu import TerminalMenu
 
 
+def select_rerank_mode_and_month(sunset_root):
+    """
+    Prompts user to select re-rank mode: all or specific month. If month, shows available months from file tree.
+    Returns (mode, month) where mode is 'all' or 'month', and month is None or 'YYYY-MM'.
+    """
+    from simple_term_menu import TerminalMenu
+    import glob
+    import re
+    # Find all jpg files recursively
+    jpg_files = glob.glob(os.path.join(sunset_root, "**", "*.jpg"), recursive=True)
+    # Extract months from filenames (expects MM-DD-YYYY)
+    month_set = set()
+    for f in jpg_files:
+        base = os.path.basename(f)
+        match = re.search(r"(\d{2})-(\d{2})-(\d{4})", base)
+        if match:
+            mm, dd, yyyy = match.groups()
+            month_set.add(f"{yyyy}-{mm}")
+    months = sorted(list(month_set))
+    # Menu for all/month
+    options = ["Re-rank ALL", "Re-rank by MONTH"]
+    menu = TerminalMenu(options, title="Select re-rank mode:")
+    idx = menu.show()
+    if idx == 0:
+        return ("all", None)
+    elif idx == 1:
+        if not months:
+            print("[ERROR] No months found in images.")
+            return ("all", None)
+        month_menu = TerminalMenu(months, title="Select month (YYYY-MM):")
+        m_idx = month_menu.show()
+        if m_idx is None:
+            print("[ERROR] No month selected. Defaulting to ALL.")
+            return ("all", None)
+        return ("month", months[m_idx])
+    else:
+        return ("all", None)
+
 def select_camera_tag(sunset_root_base):
     """
     Scans sunset_root_base for subdirectories (camera tags).
@@ -49,11 +87,14 @@ def select_camera_tag(sunset_root_base):
     sunset_root = os.path.join(sunset_root_base, camera_tag)
     return camera_tag, sunset_root
 
-def filename_to_epoch(filename):
+def filename_to_epoch(filename, camera_tag=None):
+
     """Extract epoch time from filename formatted as 'prefix_MM-DD-YYYY.ext'."""
+
     base = os.path.basename(filename)
     base_no_ext = os.path.splitext(base)[0]  # e.g. "01_2h_pre_11-05-2025"
     parts = base_no_ext.split("_")
+
     if len(parts) < 2:
         print(f"[ERROR] Unexpected filename format: {filename}")
         return None
@@ -65,6 +106,7 @@ def filename_to_epoch(filename):
         print(f"[ERROR] Could not parse date from filename: {filename}")
         return None
 
+    #Grab lat and lon from camera tag
     intervals = sunset_time(day=day)
 
     # normalize tokens (common variants: '15min' -> '15m', '2hr' -> '2h', remove extra hyphens)
