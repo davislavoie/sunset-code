@@ -65,11 +65,14 @@ def influxdb_push(photo_file, time_epoch, label, camera_tag, score=0.0):
 
         delete_query = (
             f'DELETE FROM "sunset_images" '
-            f'WHERE "label" =~ /11_|12_/ '
+            f'WHERE "camera" = \'{camera_tag}\' '
+            f'AND "label" =~ /11_|12_/ '
             f'AND time >= {lower} AND time <= {upper}'
         )
-        client.query(delete_query)
-        print(f"[INFO] Deleted {label} from directory: {directory}")
+        print(f"[DEBUG] Executing delete query for time range {lower} to {upper}")
+        result = client.query(delete_query)
+        print(f"[DEBUG] Delete query result: {result}")
+        print(f"[INFO] Deleted old 11_/12_ entries from directory: {directory}")
 
     point = [
         {
@@ -102,9 +105,11 @@ def influxdb_push(photo_file, time_epoch, label, camera_tag, score=0.0):
     ]
 
     try:
-        client.write_points(point)
+        print(f"[DEBUG] Writing to InfluxDB: label={label}, time={timestamp_iso}, camera={camera_tag}")
+        result = client.write_points(point)
+        print(f"[DEBUG] Write result: {result}")
     except Exception as e:
-        print(f"[ERROR] Could not write points to InluxDB: {e}")
+        print(f"[ERROR] Could not write points to InfluxDB: {e}")
         return
 
     print(f"[INFO] Pushed to InfluxDB: {label} | Score: {score} | URL: {url}")

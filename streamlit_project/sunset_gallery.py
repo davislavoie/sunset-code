@@ -2,6 +2,9 @@ import streamlit as st
 
 def show_page(sunset_data, all_data):
 
+    # Sort by date and time, newest first (default)
+    sunset_data = sorted(sunset_data, key=lambda x: (x["Date"], x["Time"]), reverse=True)
+
     # Render gallery
     st.markdown("### All Sunset Images")
 
