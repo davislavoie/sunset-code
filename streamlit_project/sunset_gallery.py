@@ -1,129 +1,125 @@
 import streamlit as st
-from influxdb import InfluxDBClient
-from datetime import datetime
-from urllib.parse import quote, unquote
 
 def show_page(sunset_data, all_data):
+
+    # Sort by date and time, newest first (default)
+    sunset_data = sorted(sunset_data, key=lambda x: (x["Date"], x["Time"]), reverse=True)
 
     # Render gallery
     st.markdown("### All Sunset Images")
 
-    tab1, tab2 = st.tabs(["Sunset Gallery", "Zoomed Images"])
+    # Initialize session state
+    if "selected_date" not in st.session_state:
+        st.session_state.selected_date = None
+    if "selected_index" not in st.session_state:
+        st.session_state.selected_index = 0
 
     columns_num = 7
-    cols = st.columns(columns_num)
 
-    # Display sunset images in a grid in tab1
-    with tab1:
-        for key, value in enumerate(sunset_data):
-            with cols[key % columns_num]:
-                img_encoded = quote(value["Image"])
-                date_encoded = quote(value["Date"])
-                label_encoded = quote(value["Label"][3:])
+    # Group sunset_data into rows
+    rows = []
+    for i in range(0, len(sunset_data), columns_num):
+        rows.append(sunset_data[i:i + columns_num])
 
-                st.markdown(f"""
-                <div class="zoom-container">
-                    <div class="caption-top">{value['Date']}</div>
-                    <a href="?img={img_encoded}&date={date_encoded}&label={label_encoded}" target="_self">
-                        <img src="{value['Image']}" style="width: 100%; border-radius: 6px; cursor: pointer;" />
-                    </a>
-                    <div class="caption">Time: {value['Time']} | Score: {value['Score']}%</div>
-                </div>
-                """, unsafe_allow_html=True)
-
-    with tab2:
-        # FULL IMAGE DISPLAY
-        img_param = st.query_params.get("img", None)
-        date_str = st.query_params.get("date", None)
-        label = st.query_params.get("label", None)
-
-        if img_param:
-            expanded_url = unquote(img_param)
-
-            st.markdown('<a name="full"></a>', unsafe_allow_html=True)  # Scroll anchor
-            st.markdown("---")
-            st.markdown(f"### {label} from {date_str}")
-
-            if st.button("Hide Full Image"):
-                st.query_params.clear()
-                st.rerun()
-
-            st.markdown(f"""
-            <div style="text-align: center;">
-                <img src="{expanded_url}" style="width: 70%; border-radius: 8px;" />
-            </div>
-            """, unsafe_allow_html=True)
-
-            # SUB IMAGE DISPLAY
-            st.markdown("---")
-            st.markdown("### Pre/Post Sunset")
-
-        sub_cols = 5
-        sub_image_col = st.columns(sub_cols)
-        col_index = 0
-
-        for sub_value in all_data:
-            if sub_value["Date"] == date_str:
-                with sub_image_col[col_index % sub_cols]:
-                    sub_img_encoded = quote(sub_value["Image"])
-                    sub_label_encoded = quote(sub_value["Label"][3:])
-
-                    label = st.query_params.get("label", None)
-
-                    highlight_style = "border-radius: 6px;" 
-                    if sub_value["Image"] == expanded_url:
-                        highlight_style = "box-shadow: 0 0 0 4px #f39c12; border-radius: 6px;"  # highlight
-
-                    st.markdown(f"""
-                    <div class="zoom-container">
-                        <div class="caption-top">{sub_value['Label'][3:]}</div>
-                        <a href="?img={sub_img_encoded}&date={date_str}&label={sub_label_encoded}" target="_self">
-                            <img src="{sub_value['Image']}" style="width: 100%; cursor: pointer; {highlight_style}" />
-                        </a>
-                        <div class="caption">Time: {sub_value['Time']} | Score: {sub_value['Score']}%</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                col_index += 1
-
-
-
-            # Clean the URL hash after scroll
-            st.markdown("""
-            <script>
-            setTimeout(() => {
-                history.replaceState(null, "", window.location.pathname + window.location.search);
-            }, 500);
-            </script>
-            """, unsafe_allow_html=True)
-
+    # Display each row, inserting expanded view inline when needed
+    for row_idx, row in enumerate(rows):
+        cols = st.columns(columns_num)
+        row_has_selected = False
+        
+        for col_idx, value in enumerate(row):
+            key = row_idx * columns_num + col_idx
+            with cols[col_idx]:
+                st.markdown(f'<div class="caption-top">{value["Date"]}</div>', unsafe_allow_html=True)
+                st.image(value["Image"], use_container_width=True)
+                st.markdown(f'<div class="caption">Time: {value["Time"]} | Score: {value["Score"]:.1f}%</div>', unsafe_allow_html=True)
+                if st.button("View All", key=f"view_{key}", use_container_width=True):
+                    st.session_state.selected_date = value["Date"]
+                    st.session_state.selected_index = 0
+                    st.rerun()
+            
+            if value["Date"] == st.session_state.selected_date:
+                row_has_selected = True
+        
+        # Show expanded view inline right after this row if it contains the selected date
+        if row_has_selected and st.session_state.selected_date:
+            # Get all images for the selected date
+            date_images = [img for img in all_data if img["Date"] == st.session_state.selected_date]
+            
+            # Separate regular images from ranked/histogram images
+            regular_images = [img for img in date_images if 'ranked' not in img['Label'].lower() and 'histogram' not in img['Label'].lower()]
+            special_images = [img for img in date_images if 'ranked' in img['Label'].lower() or 'histogram' in img['Label'].lower()]
+            
+            # Sort regular images by time, then append special images at the end
+            regular_images = sorted(regular_images, key=lambda x: x["Time"])
+            date_images = regular_images + special_images
+            
+            if date_images:
+                # Ensure index is valid
+                if st.session_state.selected_index >= len(date_images):
+                    st.session_state.selected_index = 0
+                
+                current_img = date_images[st.session_state.selected_index]
+                
+                st.markdown("---")
+                
+                # Header with close button
+                col1, col2 = st.columns([6, 1])
+                with col1:
+                    st.markdown(f"### {current_img['Label'][3:]} - {st.session_state.selected_date}")
+                with col2:
+                    if st.button("✕ Close", use_container_width=True):
+                        st.session_state.selected_date = None
+                        st.rerun()
+                
+                # Navigation and info
+                nav_col1, nav_col2, nav_col3 = st.columns([1, 4, 1])
+                with nav_col1:
+                    if st.button("← Previous", use_container_width=True, disabled=(st.session_state.selected_index == 0)):
+                        st.session_state.selected_index -= 1
+                        st.rerun()
+                with nav_col2:
+                    st.markdown(f"<div style='text-align: center; color: #888;'>Image {st.session_state.selected_index + 1} of {len(date_images)} | Time: {current_img['Time']} | Score: {current_img['Score']:.1f}%</div>", unsafe_allow_html=True)
+                with nav_col3:
+                    if st.button("Next →", use_container_width=True, disabled=(st.session_state.selected_index >= len(date_images) - 1)):
+                        st.session_state.selected_index += 1
+                        st.rerun()
+                
+                # Main large image
+                img_col1, img_col2, img_col3 = st.columns([1, 4, 1])
+                with img_col2:
+                    st.image(current_img["Image"], use_container_width=True)
+                
+                st.markdown("---")
+                st.markdown("##### All images from this date:")
+                
+                # Thumbnail strip
+                thumb_cols = st.columns(len(date_images) if len(date_images) <= 10 else 10)
+                for idx, img in enumerate(date_images):
+                    col_idx = idx % len(thumb_cols)
+                    with thumb_cols[col_idx]:
+                        is_selected = idx == st.session_state.selected_index
+                        if st.button("", key=f"thumb_{idx}", use_container_width=True):
+                            st.session_state.selected_index = idx
+                            st.rerun()
+                        
+                        border_style = "border: 3px solid #f39c12;" if is_selected else "border: 2px solid transparent;"
+                        st.markdown(f'''
+                        <div style="text-align: center; {border_style} border-radius: 6px; padding: 2px; cursor: pointer;">
+                            <img src="{img['Image']}" style="width: 100%; border-radius: 4px;" />
+                            <div style="font-size: 0.7em; color: white; margin-top: 2px;">{img['Label'][3:]}</div>
+                        </div>
+                        ''', unsafe_allow_html=True)
+                
+                st.markdown("---")
 
     st.markdown("""
     <style>
-    .zoom-container {
-        overflow: visible;
-        margin-bottom: 16px;
-        text-align: center;
-    }
-
-    .zoom-container img {
-        transition: transform 0.3s ease;
-        display: block;
-        margin: 0 auto;
-        max-width: 100%;
-        height: auto;
-    }
-
-    .zoom-container:hover img {
-        transform: scale(1.03);
-    }
-
     .caption-top {
         font-size: 1em;
         font-weight: bold;
-        color: #333;
         margin-bottom: 6px;
         text-align: left;
-        padding-left: 10px;     
+        padding-left: 10px;
         color: white;
     }
 
@@ -132,6 +128,14 @@ def show_page(sunset_data, all_data):
         font-size: 0.9em;
         color: #555;
         text-align: center;
+    }
+    
+    /* Smaller View All buttons */
+    section[data-testid="stMain"] div[data-testid="column"] button[kind="secondary"] {
+        font-size: 11px !important;
+        padding: 2px 8px !important;
+        min-height: 24px !important;
+        height: 24px !important;
     }
     </style>
     """, unsafe_allow_html=True)

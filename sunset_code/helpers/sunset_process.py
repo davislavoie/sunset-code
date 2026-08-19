@@ -1,10 +1,7 @@
 # %%
-from matplotlib import pyplot as plt
 import cv2
 import numpy as np
 import os
-from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
-#from generate_ranked_image import generate_ranked_image
 
 def rank_sunset(frame):
     img = cv2.imread(frame)
@@ -58,7 +55,6 @@ def rank_sunset(frame):
     yellow_score = calculate_saturation_weighted_score(yellow_mask, s, total_pixels, power=2.0)
     # print(f"Yellow Score: {yellow_score}")  
     
-    
     #METRICS
     # 1. Warm Color Ratio (orange/red/yellow)
     warm_pixels = (h >= 0) & (h < 25) & (s >= 70)
@@ -99,7 +95,7 @@ def rank_sunset(frame):
         pink_score * 9
     )
 
-    score = min(100, round(score, 2))  
+    score = min(100.0, round(score, 2))  
 
     ##IMAGE VISUALIZATION
     # Warm and pink pixel overlays
@@ -213,7 +209,7 @@ def calculate_saturation_weighted_score(mask, s, total_pixels, power=2.0, bin_si
         return 0.0
     
     avg_saturation = s[mask].mean()
-    print(f"Average Saturation: {avg_saturation}")
+    #print(f"Average Saturation: {avg_saturation}")
     pixel_ratio = np.count_nonzero(mask) / total_pixels
     
     # Apply non-linear weighting: higher saturation values are amplified exponentially

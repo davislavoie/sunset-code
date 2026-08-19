@@ -7,5 +7,6 @@ plotly
 streamlit-aggrid
 streamlit-calendar
 opencv-python-headless
+requests
 
 
