@@ -143,14 +143,25 @@ main#content {
   letter-spacing: 0.03em;
 }
 
+.day-grid { grid-auto-rows: var(--cal-row-height, 110px); }
+
 .calendar-cell {
   position: relative;
-  aspect-ratio: 4 / 3;
   border-radius: 16px;
   background: var(--panel);
   border: 1px solid var(--border);
   overflow: hidden;
 }
+
+.cal-size-control {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.cal-size-control label { color: var(--muted); font-size: 0.85em; white-space: nowrap; }
+.cal-size-control input[type="range"] { width: 160px; }
 .calendar-cell.empty-cell { background: transparent; border: none; }
 .calendar-cell.has-image { cursor: pointer; transition: border-color 0.15s ease, transform 0.15s ease; }
 .calendar-cell.has-image:hover { border-color: var(--accent); transform: translateY(-2px); }

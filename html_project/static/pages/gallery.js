@@ -8,9 +8,11 @@ const MONTH_NAMES = [
 
 export function renderGallery(container, state) {
   if (!state.gallery) {
-    state.gallery = { year: null, month: null, selectedDate: null, selectedIndex: 0 };
+    state.gallery = { year: null, month: null, selectedDate: null, selectedIndex: 0, cellHeight: 110 };
   }
   const gallery = state.gallery;
+
+  document.documentElement.style.setProperty("--cal-row-height", `${gallery.cellHeight}px`);
 
   container.innerHTML = "";
 
@@ -40,6 +42,7 @@ export function renderGallery(container, state) {
   }
 
   container.appendChild(renderMonthHeader(container, state));
+  container.appendChild(renderSizeControl(state));
   container.appendChild(renderMonthGrid(container, state, byDate));
 
   if (gallery.selectedDate) {
@@ -90,6 +93,29 @@ function renderMonthHeader(container, state) {
   return header;
 }
 
+function renderSizeControl(state) {
+  const gallery = state.gallery;
+  const wrap = document.createElement("div");
+  wrap.className = "cal-size-control";
+
+  const label = document.createElement("label");
+  label.textContent = `Size: ${gallery.cellHeight}px`;
+
+  const slider = document.createElement("input");
+  slider.type = "range";
+  slider.min = 50;
+  slider.max = 220;
+  slider.value = gallery.cellHeight;
+  slider.addEventListener("input", () => {
+    gallery.cellHeight = Number(slider.value);
+    label.textContent = `Size: ${gallery.cellHeight}px`;
+    document.documentElement.style.setProperty("--cal-row-height", `${gallery.cellHeight}px`);
+  });
+
+  wrap.append(label, slider);
+  return wrap;
+}
+
 function renderMonthGrid(container, state, byDate) {
   const gallery = state.gallery;
   const wrap = document.createElement("div");
@@ -111,7 +137,7 @@ function renderMonthGrid(container, state, byDate) {
   const trailingBlanks = (7 - (totalCells % 7)) % 7;
 
   const grid = document.createElement("div");
-  grid.className = "calendar-grid";
+  grid.className = "calendar-grid day-grid";
 
   for (let i = 0; i < startWeekday; i++) {
     grid.appendChild(blankCell());
