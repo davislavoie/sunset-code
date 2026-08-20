@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sunset Dashboard</title>
+<link rel="stylesheet" href="style.css" />
+<script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <h2>Navigation</h2>
+
+      <h3>Camera Selection</h3>
+      <select id="camera-select"></select>
+
+      <hr />
+
+      <button class="nav-btn active" data-page="gallery">Sunset Calendar</button>
+      <button class="nav-btn" data-page="ranking">Ranked Images</button>
+      <button class="nav-btn" data-page="scoretracker">Score Tracker</button>
+      <button class="nav-btn" data-page="hsvtuner">HSV Tuner</button>
+    </aside>
+
+    <main id="content">
+      <div class="loading">Loading…</div>
+    </main>
+  </div>
+
+  <script src="app.js" type="module"></script>
+</body>
+</html>

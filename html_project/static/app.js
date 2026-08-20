@@ -1,0 +1,74 @@
+import { renderGallery } from "./pages/gallery.js";
+import { renderRanking } from "./pages/ranking.js";
+import { renderScoreTracker } from "./pages/scoretracker.js";
+import { renderHsvTuner } from "./pages/hsvtuner.js";
+
+const content = document.getElementById("content");
+const cameraSelect = document.getElementById("camera-select");
+const navButtons = document.querySelectorAll(".nav-btn");
+
+const pages = {
+  gallery: renderGallery,
+  ranking: renderRanking,
+  scoretracker: renderScoreTracker,
+  hsvtuner: renderHsvTuner,
+};
+
+// Mirrors app.py's session state: current page + fetched data for the selected camera
+const state = {
+  page: "gallery",
+  camera: null,
+  sunsetData: [],
+  allData: [],
+  rankedImages: [],
+};
+
+async function loadCameras() {
+  const res = await fetch("/api/cameras");
+  const cameras = await res.json();
+  cameraSelect.innerHTML = "";
+  for (const cam of cameras) {
+    const opt = document.createElement("option");
+    opt.value = cam;
+    opt.textContent = cam;
+    cameraSelect.appendChild(opt);
+  }
+  return cameras;
+}
+
+async function loadCameraData(camera) {
+  content.innerHTML = '<div class="loading">Loading…</div>';
+  const res = await fetch(`/api/data?camera=${encodeURIComponent(camera)}`);
+  const data = await res.json();
+  state.camera = camera;
+  state.sunsetData = data.sunset_data;
+  state.allData = data.all_data;
+  state.rankedImages = data.ranked_images;
+}
+
+function renderPage() {
+  content.innerHTML = "";
+  pages[state.page](content, state);
+}
+
+cameraSelect.addEventListener("change", async () => {
+  await loadCameraData(cameraSelect.value);
+  renderPage();
+});
+
+for (const btn of navButtons) {
+  btn.addEventListener("click", () => {
+    for (const b of navButtons) b.classList.remove("active");
+    btn.classList.add("active");
+    state.page = btn.dataset.page;
+    renderPage();
+  });
+}
+
+(async function init() {
+  const cameras = await loadCameras();
+  const defaultCamera = cameras[0] || "btv_echo_cam";
+  cameraSelect.value = defaultCamera;
+  await loadCameraData(defaultCamera);
+  renderPage();
+})();

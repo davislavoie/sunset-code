@@ -1,0 +1,4 @@
+flask
+influxdb
+pytz
+requests
