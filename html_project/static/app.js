@@ -6,6 +6,18 @@ import { renderHsvTuner } from "./pages/hsvtuner.js";
 const content = document.getElementById("content");
 const cameraSelect = document.getElementById("camera-select");
 const navButtons = document.querySelectorAll(".nav-btn");
+const layout = document.getElementById("layout");
+const collapseBtn = document.getElementById("collapse-btn");
+const expandBtn = document.getElementById("expand-btn");
+
+collapseBtn.addEventListener("click", () => {
+  layout.classList.add("sidebar-collapsed");
+  expandBtn.hidden = false;
+});
+expandBtn.addEventListener("click", () => {
+  layout.classList.remove("sidebar-collapsed");
+  expandBtn.hidden = true;
+});
 
 const pages = {
   gallery: renderGallery,
