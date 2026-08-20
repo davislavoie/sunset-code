@@ -1,25 +1,24 @@
-// Mirrors streamlit_project/sunset_gallery.py
+// Mirrors streamlit_project/sunset_gallery.py, rendered as an actual month calendar.
 
-const COLUMNS = 7;
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
 
 export function renderGallery(container, state) {
   if (!state.gallery) {
-    state.gallery = { selectedDate: null, selectedIndex: 0 };
+    state.gallery = { year: null, month: null, selectedDate: null, selectedIndex: 0 };
   }
   const gallery = state.gallery;
-
-  const sunsetData = [...state.sunsetData].sort((a, b) => {
-    const ak = a.Date + a.Time, bk = b.Date + b.Time;
-    return ak < bk ? 1 : ak > bk ? -1 : 0;
-  });
 
   container.innerHTML = "";
 
   const heading = document.createElement("h3");
-  heading.textContent = "All Sunset Images";
+  heading.textContent = "Sunset Calendar";
   container.appendChild(heading);
 
-  if (!sunsetData.length) {
+  if (!state.sunsetData.length) {
     const empty = document.createElement("div");
     empty.className = "empty";
     empty.textContent = "No data available.";
@@ -27,57 +26,138 @@ export function renderGallery(container, state) {
     return;
   }
 
-  const rows = [];
-  for (let i = 0; i < sunsetData.length; i += COLUMNS) {
-    rows.push(sunsetData.slice(i, i + COLUMNS));
+  // One entry per captured day, keyed by "YYYY-MM-DD"
+  const byDate = new Map();
+  for (const item of state.sunsetData) {
+    byDate.set(item.Date, item);
   }
 
-  for (const row of rows) {
-    const grid = document.createElement("div");
-    grid.className = "gallery-grid";
+  if (gallery.year === null) {
+    const latest = [...byDate.keys()].sort().at(-1);
+    const [y, m] = latest.split("-").map(Number);
+    gallery.year = y;
+    gallery.month = m - 1; // 0-indexed
+  }
 
-    let rowHasSelected = false;
+  container.appendChild(renderMonthHeader(container, state));
+  container.appendChild(renderMonthGrid(container, state, byDate));
 
-    for (const value of row) {
-      const card = document.createElement("div");
-      card.className = "thumb-card";
+  if (gallery.selectedDate) {
+    container.appendChild(renderDetail(container, state));
+  }
+}
 
-      const top = document.createElement("div");
-      top.className = "caption-top";
-      top.textContent = value.Date;
-      card.appendChild(top);
+function renderMonthHeader(container, state) {
+  const gallery = state.gallery;
+  const header = document.createElement("div");
+  header.className = "calendar-header";
 
+  const prevBtn = document.createElement("button");
+  prevBtn.className = "btn cal-arrow";
+  prevBtn.textContent = "‹";
+  prevBtn.title = "Previous month";
+  prevBtn.addEventListener("click", () => {
+    gallery.month -= 1;
+    if (gallery.month < 0) {
+      gallery.month = 11;
+      gallery.year -= 1;
+    }
+    renderGallery(container, state);
+  });
+
+  const title = document.createElement("div");
+  title.className = "calendar-title";
+  title.textContent = `${MONTH_NAMES[gallery.month]} ${gallery.year}`;
+
+  const nextBtn = document.createElement("button");
+  nextBtn.className = "btn cal-arrow";
+  nextBtn.textContent = "›";
+  nextBtn.title = "Next month";
+  nextBtn.addEventListener("click", () => {
+    gallery.month += 1;
+    if (gallery.month > 11) {
+      gallery.month = 0;
+      gallery.year += 1;
+    }
+    renderGallery(container, state);
+  });
+
+  header.append(prevBtn, title, nextBtn);
+  return header;
+}
+
+function renderMonthGrid(container, state, byDate) {
+  const gallery = state.gallery;
+  const wrap = document.createElement("div");
+
+  const weekdayRow = document.createElement("div");
+  weekdayRow.className = "calendar-grid weekday-row";
+  for (const wd of WEEKDAYS) {
+    const cell = document.createElement("div");
+    cell.className = "weekday-label";
+    cell.textContent = wd;
+    weekdayRow.appendChild(cell);
+  }
+  wrap.appendChild(weekdayRow);
+
+  const firstOfMonth = new Date(gallery.year, gallery.month, 1);
+  const startWeekday = firstOfMonth.getDay();
+  const daysInMonth = new Date(gallery.year, gallery.month + 1, 0).getDate();
+  const totalCells = startWeekday + daysInMonth;
+  const trailingBlanks = (7 - (totalCells % 7)) % 7;
+
+  const grid = document.createElement("div");
+  grid.className = "calendar-grid";
+
+  for (let i = 0; i < startWeekday; i++) {
+    grid.appendChild(blankCell());
+  }
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dateStr = `${gallery.year}-${String(gallery.month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const entry = byDate.get(dateStr);
+
+    const cell = document.createElement("div");
+    cell.className = "calendar-cell" + (entry ? " has-image" : "");
+
+    const dayLabel = document.createElement("div");
+    dayLabel.className = "day-number";
+    dayLabel.textContent = day;
+    cell.appendChild(dayLabel);
+
+    if (entry) {
       const img = document.createElement("img");
-      img.src = value.Image;
+      img.src = entry.Image;
       img.loading = "lazy";
-      card.appendChild(img);
+      cell.appendChild(img);
 
-      const caption = document.createElement("div");
-      caption.className = "caption";
-      caption.textContent = `Time: ${value.Time} | Score: ${value.Score.toFixed(1)}%`;
-      card.appendChild(caption);
+      const score = document.createElement("div");
+      score.className = "day-score";
+      score.textContent = `${entry.Score.toFixed(0)}%`;
+      cell.appendChild(score);
 
-      const viewBtn = document.createElement("button");
-      viewBtn.className = "view-all-btn";
-      viewBtn.textContent = "View All";
-      viewBtn.addEventListener("click", () => {
-        gallery.selectedDate = value.Date;
+      cell.addEventListener("click", () => {
+        gallery.selectedDate = dateStr;
         gallery.selectedIndex = 0;
         renderGallery(container, state);
       });
-      card.appendChild(viewBtn);
-
-      grid.appendChild(card);
-
-      if (value.Date === gallery.selectedDate) rowHasSelected = true;
     }
 
-    container.appendChild(grid);
-
-    if (rowHasSelected && gallery.selectedDate) {
-      container.appendChild(renderDetail(container, state));
-    }
+    grid.appendChild(cell);
   }
+
+  for (let i = 0; i < trailingBlanks; i++) {
+    grid.appendChild(blankCell());
+  }
+
+  wrap.appendChild(grid);
+  return wrap;
+}
+
+function blankCell() {
+  const cell = document.createElement("div");
+  cell.className = "calendar-cell empty-cell";
+  return cell;
 }
 
 function renderDetail(container, state) {

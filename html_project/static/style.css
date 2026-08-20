@@ -115,50 +115,87 @@ main#content {
 
 .loading, .empty { color: var(--muted); padding: 40px; text-align: center; }
 
-/* ---- Gallery page ---- */
-.gallery-grid {
+/* ---- Gallery page (month calendar) ---- */
+.calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  margin: 4px 0 20px;
+}
+.calendar-title { font-size: 1.3em; font-weight: 600; min-width: 220px; text-align: center; }
+.cal-arrow { font-size: 1.1em; padding: 4px 14px; }
+
+.calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 22px;
-  margin-bottom: 28px;
+  gap: 12px;
+  margin-bottom: 12px;
 }
 
-@media (max-width: 1100px) {
-  .gallery-grid { grid-template-columns: repeat(4, 1fr); }
-}
-@media (max-width: 700px) {
-  .gallery-grid { grid-template-columns: repeat(2, 1fr); }
+.weekday-row { margin-bottom: 4px; }
+.weekday-label {
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.8em;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
 
-.thumb-card {
+.calendar-cell {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  border-radius: 16px;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 10px;
+  overflow: hidden;
 }
+.calendar-cell.empty-cell { background: transparent; border: none; }
+.calendar-cell.has-image { cursor: pointer; transition: border-color 0.15s ease, transform 0.15s ease; }
+.calendar-cell.has-image:hover { border-color: var(--accent); transform: translateY(-2px); }
 
-.thumb-card img {
+.calendar-cell img {
+  position: absolute;
+  inset: 0;
   width: 100%;
-  border-radius: 4px;
-  display: block;
-  background: var(--panel);
-  aspect-ratio: 4 / 3;
+  height: 100%;
   object-fit: cover;
 }
 
-.caption-top { font-size: 1em; font-weight: bold; margin-bottom: 8px; }
-.caption { margin-top: 8px; font-size: 0.85em; color: var(--muted); text-align: center; }
-
-.view-all-btn {
-  width: 100%;
-  margin-top: 6px;
-  font-size: 11px;
-  padding: 3px 6px;
-  background: var(--panel);
+.day-number {
+  position: absolute;
+  top: 8px;
+  left: 10px;
+  font-size: 0.85em;
+  font-weight: 600;
   color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  cursor: pointer;
+  z-index: 2;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85);
+}
+.calendar-cell:not(.has-image) .day-number {
+  position: static;
+  color: var(--muted);
+  text-shadow: none;
+  padding: 10px;
+}
+
+.day-score {
+  position: absolute;
+  bottom: 8px;
+  right: 10px;
+  font-size: 0.75em;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.55);
+  color: var(--text);
+  z-index: 2;
+}
+
+@media (max-width: 900px) {
+  .calendar-grid { gap: 6px; }
+  .day-number, .day-score { font-size: 0.65em; }
 }
 
 .detail {
