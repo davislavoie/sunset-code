@@ -69,10 +69,14 @@ function renderMonthHeader(container, state) {
   title.className = "calendar-title";
   title.textContent = `${MONTH_NAMES[gallery.month]} ${gallery.year}`;
 
+  const now = new Date();
+  const isCurrentMonth = gallery.year === now.getFullYear() && gallery.month === now.getMonth();
+
   const nextBtn = document.createElement("button");
   nextBtn.className = "btn cal-arrow";
   nextBtn.textContent = "›";
   nextBtn.title = "Next month";
+  nextBtn.disabled = isCurrentMonth;
   nextBtn.addEventListener("click", () => {
     gallery.month += 1;
     if (gallery.month > 11) {
@@ -130,6 +134,11 @@ function renderMonthGrid(container, state, byDate) {
       img.src = entry.Image;
       img.loading = "lazy";
       cell.appendChild(img);
+
+      const time = document.createElement("div");
+      time.className = "day-time";
+      time.textContent = entry.Time;
+      cell.appendChild(time);
 
       const score = document.createElement("div");
       score.className = "day-score";
