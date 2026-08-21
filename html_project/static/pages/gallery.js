@@ -56,6 +56,7 @@ export function renderGallery(container, state) {
         renderGallery(container, state);
       },
     });
+    mount.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 }
 

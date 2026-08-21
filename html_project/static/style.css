@@ -38,13 +38,12 @@ body {
   border-right: 1px solid var(--border);
   padding: 20px 16px;
   overflow: hidden auto;
-  transition: width 0.2s ease, padding 0.2s ease;
+  transform: translateX(0);
+  transition: transform 0.2s ease;
 }
 
 .layout.sidebar-collapsed .sidebar {
-  width: 0;
-  padding: 0;
-  border-right: none;
+  transform: translateX(-260px);
 }
 
 .sidebar-inner {
