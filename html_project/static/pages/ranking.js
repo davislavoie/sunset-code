@@ -108,9 +108,6 @@ export function renderRanking(container, state) {
         calendarBtn.textContent = "Hide";
       }
     });
-
-    const hr = document.createElement("hr");
-    container.appendChild(hr);
   }
 }
 
