@@ -82,7 +82,7 @@ body {
 }
 
 .sidebar h2 { margin: 0; font-size: 1.3em; }
-.sidebar-header { margin-top: 4px; margin-bottom: 16px; }
+.sidebar-header { margin-top: 64px; margin-bottom: 16px; }
 .sidebar h3 { margin: 0 0 8px; font-size: 1em; color: var(--muted); }
 
 .sidebar select {
