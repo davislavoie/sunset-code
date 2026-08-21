@@ -10,21 +10,23 @@
 <body>
   <div class="layout" id="layout">
     <aside class="sidebar" id="sidebar">
-      <button id="collapse-btn" class="icon-btn collapse-btn" title="Collapse sidebar">«</button>
+      <div class="sidebar-inner">
+        <button id="collapse-btn" class="icon-btn collapse-btn" title="Collapse sidebar">«</button>
 
-      <div class="sidebar-header">
-        <h2>Navigation</h2>
+        <div class="sidebar-header">
+          <h2>Navigation</h2>
+        </div>
+
+        <h3>Camera Selection</h3>
+        <select id="camera-select"></select>
+
+        <hr />
+
+        <button class="nav-btn active" data-page="gallery">Sunset Calendar</button>
+        <button class="nav-btn" data-page="ranking">Ranked Images</button>
+        <button class="nav-btn" data-page="scoretracker">Score Tracker</button>
+        <button class="nav-btn" data-page="hsvtuner">HSV Tuner</button>
       </div>
-
-      <h3>Camera Selection</h3>
-      <select id="camera-select"></select>
-
-      <hr />
-
-      <button class="nav-btn active" data-page="gallery">Sunset Calendar</button>
-      <button class="nav-btn" data-page="ranking">Ranked Images</button>
-      <button class="nav-btn" data-page="scoretracker">Score Tracker</button>
-      <button class="nav-btn" data-page="hsvtuner">HSV Tuner</button>
     </aside>
 
     <button id="expand-btn" class="icon-btn expand-btn" title="Expand sidebar" hidden>»</button>

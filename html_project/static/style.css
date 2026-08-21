@@ -47,12 +47,11 @@ body {
   border-right: none;
 }
 
-.sidebar > * {
-  transition: opacity 0.12s ease;
+.sidebar-inner {
+  width: 228px;
 }
 
-.layout.sidebar-collapsed .sidebar > * {
-  opacity: 0;
+.layout.sidebar-collapsed .sidebar-inner {
   pointer-events: none;
 }
 
