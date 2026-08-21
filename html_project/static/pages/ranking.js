@@ -2,6 +2,7 @@
 
 import { openLightbox, closeLightbox } from "../lightbox.js";
 import { mountDayDetail } from "../dayDetail.js";
+import { loadImageIntoTuner } from "./hsvtuner.js";
 
 export function renderRanking(container, state) {
   if (!state.ranking) {
@@ -96,6 +97,10 @@ export function renderRanking(container, state) {
           onClose: () => {
             daySession = null;
             calendarBtn.textContent = "Show in Calendar";
+          },
+          onLoadToHsv: async (url) => {
+            await loadImageIntoTuner(state, url);
+            state.goToPage("hsvtuner");
           },
         });
         calendarBtn.textContent = "Hide";

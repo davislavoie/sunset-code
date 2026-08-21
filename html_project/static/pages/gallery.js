@@ -1,6 +1,7 @@
 // Mirrors streamlit_project/sunset_gallery.py, rendered as an actual month calendar.
 
 import { mountDayDetail } from "../dayDetail.js";
+import { loadImageIntoTuner } from "./hsvtuner.js";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTH_NAMES = [
@@ -54,6 +55,10 @@ export function renderGallery(container, state) {
       onClose: () => {
         gallery.selectedDate = null;
         renderGallery(container, state);
+      },
+      onLoadToHsv: async (url) => {
+        await loadImageIntoTuner(state, url);
+        state.goToPage("hsvtuner");
       },
     });
     const scrollToBottom = () => mount.scrollIntoView({ behavior: "smooth", block: "end" });

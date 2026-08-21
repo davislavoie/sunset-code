@@ -4,7 +4,7 @@
 
 import { makeZoomable } from "./lightbox.js";
 
-export function mountDayDetail(mountEl, date, allData, { onClose, initialIndex = 0 } = {}) {
+export function mountDayDetail(mountEl, date, allData, { onClose, initialIndex = 0, onLoadToHsv } = {}) {
   let index = initialIndex;
 
   const dateImages = allData.filter((img) => img.Date === date);
@@ -30,6 +30,18 @@ export function mountDayDetail(mountEl, date, allData, { onClose, initialIndex =
     const title = document.createElement("h4");
     title.textContent = `${current.Label.slice(3)} - ${date}`;
     header.appendChild(title);
+
+    const actions = document.createElement("div");
+    actions.className = "detail-header-actions";
+
+    if (onLoadToHsv) {
+      const hsvBtn = document.createElement("button");
+      hsvBtn.className = "btn";
+      hsvBtn.textContent = "Load to HSV Tuner";
+      hsvBtn.addEventListener("click", () => onLoadToHsv(current.Image));
+      actions.appendChild(hsvBtn);
+    }
+
     const closeBtn = document.createElement("button");
     closeBtn.className = "btn";
     closeBtn.textContent = "✕ Close";
@@ -37,7 +49,9 @@ export function mountDayDetail(mountEl, date, allData, { onClose, initialIndex =
       mountEl.innerHTML = "";
       if (onClose) onClose();
     });
-    header.appendChild(closeBtn);
+    actions.appendChild(closeBtn);
+
+    header.appendChild(actions);
     wrap.appendChild(header);
 
     const nav = document.createElement("div");

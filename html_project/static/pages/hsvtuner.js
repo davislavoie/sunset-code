@@ -4,18 +4,32 @@ import { drawResized, maskCanvas, loadImage } from "../hsv.js";
 
 const MAX_WIDTH = 800;
 
-export function renderHsvTuner(container, state) {
+function ensureHsvState(state) {
   if (!state.hsvtuner) {
     state.hsvtuner = {
       h_min: 0, h_max: 179,
       s_min: 0, s_max: 255,
       v_min: 0, v_max: 255,
-      galleryUrl: null,
-      galleryImg: null,
+      loadedImages: [], // [{ url, canvas }] -- canvas holds the decoded/resized source frame
       uploadImg: null,
     };
   }
-  const t = state.hsvtuner;
+  return state.hsvtuner;
+}
+
+/** Fetches a gallery image (via the same-origin proxy) and appends it to the
+ * tuner's stack of loaded images. Used both by the tuner's own "Load Image"
+ * button and by the "Load to HSV Tuner" button on the day-detail view. */
+export async function loadImageIntoTuner(state, url) {
+  const t = ensureHsvState(state);
+  const img = await loadImage(`/api/image-proxy?url=${encodeURIComponent(url)}`);
+  const canvas = document.createElement("canvas");
+  drawResized(img, canvas, MAX_WIDTH);
+  t.loadedImages.push({ url, canvas });
+}
+
+export function renderHsvTuner(container, state) {
+  const t = ensureHsvState(state);
 
   container.innerHTML = "";
 
@@ -32,7 +46,6 @@ export function renderHsvTuner(container, state) {
   sliderCol.className = "hsv-sliders";
   sliderCol.innerHTML = `<h4>HSV Range Controls</h4>`;
 
-  const sliderRefs = {};
   const pairs = [
     ["Hue Min", "h_min", 0, 179], ["Hue Max", "h_max", 0, 179],
     ["Sat Min", "s_min", 0, 255], ["Sat Max", "s_max", 0, 255],
@@ -55,7 +68,6 @@ export function renderHsvTuner(container, state) {
         lab.textContent = `${label}: ${t[key]}`;
         updateAll();
       });
-      sliderRefs[key] = input;
       cell.append(lab, input);
       row.appendChild(cell);
     }
@@ -95,7 +107,7 @@ export function renderHsvTuner(container, state) {
 
   container.appendChild(document.createElement("hr"));
 
-  // --- Gallery loader ---
+  // --- Gallery loader (supports loading multiple images, stacked) ---
   const galleryHeading = document.createElement("h4");
   galleryHeading.textContent = "Load Image from Gallery";
   container.appendChild(galleryHeading);
@@ -118,17 +130,16 @@ export function renderHsvTuner(container, state) {
     o.textContent = opt.text;
     gallerySelect.appendChild(o);
   }
-  if (t.galleryUrl) gallerySelect.value = t.galleryUrl;
 
   const loadBtn = document.createElement("button");
   loadBtn.className = "btn";
   loadBtn.textContent = "Load Image";
-  const clearBtn = document.createElement("button");
-  clearBtn.className = "btn";
-  clearBtn.textContent = "Clear";
-  clearBtn.disabled = !t.galleryUrl;
+  const clearAllBtn = document.createElement("button");
+  clearAllBtn.className = "btn";
+  clearAllBtn.textContent = "Clear All";
+  clearAllBtn.disabled = t.loadedImages.length === 0;
 
-  loaderRow.append(gallerySelect, loadBtn, clearBtn);
+  loaderRow.append(gallerySelect, loadBtn, clearAllBtn);
   container.appendChild(loaderRow);
 
   const galleryStatus = document.createElement("div");
@@ -136,37 +147,43 @@ export function renderHsvTuner(container, state) {
   galleryStatus.style.margin = "4px 0 12px";
   container.appendChild(galleryStatus);
 
-  const gallerySourceCanvas = document.createElement("canvas");
   const galleryPane = document.createElement("div");
   container.appendChild(galleryPane);
+
+  function renderGalleryPane() {
+    galleryPane.innerHTML = "";
+    t.loadedImages.forEach((entry, idx) => {
+      const block = buildSideBySideBlock(`Gallery Image ${idx + 1}`, entry.canvas, () => {
+        t.loadedImages.splice(idx, 1);
+        renderGalleryPane();
+        clearAllBtn.disabled = t.loadedImages.length === 0;
+      });
+      galleryPane.appendChild(block);
+    });
+    updateAll();
+  }
 
   loadBtn.addEventListener("click", async () => {
     const url = gallerySelect.value;
     if (!url) return;
-    t.galleryUrl = url;
     galleryStatus.textContent = "Loading image from gallery…";
     try {
-      const img = await loadImage(`/api/image-proxy?url=${encodeURIComponent(url)}`);
-      drawResized(img, gallerySourceCanvas, MAX_WIDTH);
-      t.galleryImg = gallerySourceCanvas;
+      await loadImageIntoTuner(state, url);
       galleryStatus.textContent = "";
-      clearBtn.disabled = false;
-      renderSideBySide(galleryPane, "Gallery Image", gallerySourceCanvas, updateAll);
+      clearAllBtn.disabled = false;
+      renderGalleryPane();
     } catch (e) {
       galleryStatus.textContent = `Error loading image: ${e}`;
     }
   });
 
-  clearBtn.addEventListener("click", () => {
-    t.galleryUrl = null;
-    t.galleryImg = null;
-    galleryPane.innerHTML = "";
-    clearBtn.disabled = true;
+  clearAllBtn.addEventListener("click", () => {
+    t.loadedImages = [];
+    renderGalleryPane();
+    clearAllBtn.disabled = true;
   });
 
-  if (t.galleryImg) {
-    renderSideBySide(galleryPane, "Gallery Image", t.galleryImg, updateAll);
-  }
+  renderGalleryPane();
 
   container.appendChild(document.createElement("hr"));
 
@@ -189,11 +206,13 @@ export function renderHsvTuner(container, state) {
     const img = await loadImage(URL.createObjectURL(file));
     drawResized(img, uploadSourceCanvas, MAX_WIDTH);
     t.uploadImg = uploadSourceCanvas;
-    renderSideBySide(uploadPane, "Uploaded Image", uploadSourceCanvas, updateAll);
+    uploadPane.innerHTML = "";
+    uploadPane.appendChild(buildSideBySideBlock("Uploaded Image", uploadSourceCanvas));
+    updateAll();
   });
 
   if (t.uploadImg) {
-    renderSideBySide(uploadPane, "Uploaded Image", t.uploadImg, updateAll);
+    uploadPane.appendChild(buildSideBySideBlock("Uploaded Image", t.uploadImg));
   }
 
   // --- Mask refresh ---
@@ -205,17 +224,29 @@ export function renderHsvTuner(container, state) {
     for (const { sourceCanvas, destCanvas } of refCanvases) {
       remaskOne(sourceCanvas, destCanvas);
     }
-    const galleryDest = galleryPane.querySelector("canvas.masked");
-    if (galleryDest && t.galleryImg) remaskOne(t.galleryImg, galleryDest);
+    const galleryMasked = galleryPane.querySelectorAll("canvas.masked");
+    galleryMasked.forEach((canvasEl, idx) => {
+      if (t.loadedImages[idx]) remaskOne(t.loadedImages[idx].canvas, canvasEl);
+    });
     const uploadDest = uploadPane.querySelector("canvas.masked");
     if (uploadDest && t.uploadImg) remaskOne(t.uploadImg, uploadDest);
   }
 }
 
-function renderSideBySide(pane, label, sourceCanvas, onReady) {
-  pane.innerHTML = "";
+function buildSideBySideBlock(label, sourceCanvas, onRemove) {
   const wrap = document.createElement("div");
-  wrap.className = "side-by-side";
+  wrap.className = "side-by-side-block";
+
+  if (onRemove) {
+    const removeBtn = document.createElement("button");
+    removeBtn.className = "btn remove-loaded-btn";
+    removeBtn.textContent = "✕ Remove";
+    removeBtn.addEventListener("click", onRemove);
+    wrap.appendChild(removeBtn);
+  }
+
+  const row = document.createElement("div");
+  row.className = "side-by-side";
 
   const origFig = document.createElement("figure");
   const origCanvas = document.createElement("canvas");
@@ -233,8 +264,8 @@ function renderSideBySide(pane, label, sourceCanvas, onReady) {
   maskCaption.textContent = `${label} (Masked)`;
   maskFig.append(maskCanvasEl, maskCaption);
 
-  wrap.append(origFig, maskFig);
-  pane.appendChild(wrap);
+  row.append(origFig, maskFig);
+  wrap.appendChild(row);
 
-  onReady();
+  return wrap;
 }

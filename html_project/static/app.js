@@ -49,6 +49,9 @@ const state = {
   sunsetData: [],
   allData: [],
   rankedImages: [],
+  goToPage(pageName) {
+    goToPage(pageName);
+  },
 };
 
 async function loadCameras() {
@@ -79,18 +82,19 @@ function renderPage() {
   pages[state.page](content, state);
 }
 
+function goToPage(pageName) {
+  for (const b of navButtons) b.classList.toggle("active", b.dataset.page === pageName);
+  state.page = pageName;
+  renderPage();
+}
+
 cameraSelect.addEventListener("change", async () => {
   await loadCameraData(cameraSelect.value);
   renderPage();
 });
 
 for (const btn of navButtons) {
-  btn.addEventListener("click", () => {
-    for (const b of navButtons) b.classList.remove("active");
-    btn.classList.add("active");
-    state.page = btn.dataset.page;
-    renderPage();
-  });
+  btn.addEventListener("click", () => goToPage(btn.dataset.page));
 }
 
 (async function init() {

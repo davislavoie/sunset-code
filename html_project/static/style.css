@@ -276,6 +276,11 @@ main#content {
   align-items: center;
 }
 
+.detail-header-actions {
+  display: flex;
+  gap: 10px;
+}
+
 .detail-nav {
   display: flex;
   align-items: center;
@@ -351,7 +356,10 @@ button {
   line-height: 1;
   cursor: pointer;
   z-index: 2;
+  opacity: 0;
+  transition: opacity 0.15s ease, background 0.15s ease;
 }
+.ranked-img-cell:hover .fullscreen-toggle-btn { opacity: 1; }
 .fullscreen-toggle-btn:hover { background: rgba(0, 0, 0, 0.75); }
 
 .metric-label { color: var(--muted); font-size: 0.85em; }
@@ -416,6 +424,15 @@ table th, table td {
   flex: 2; background: var(--panel); color: var(--text); border: 1px solid var(--border);
   border-radius: 6px; padding: 6px 10px;
 }
+
+.side-by-side-block {
+  padding: 14px 0;
+  margin-top: 8px;
+  border-top: 1px solid var(--border);
+}
+.side-by-side-block:first-child { border-top: none; }
+
+.remove-loaded-btn { margin-bottom: 8px; }
 
 .side-by-side { display: flex; gap: 16px; margin-top: 12px; }
 .side-by-side figure { flex: 1; margin: 0; text-align: center; }
