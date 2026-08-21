@@ -309,27 +309,28 @@ main#content {
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 6px 0;
+  padding: 10px 0;
   border-bottom: 1px solid var(--border);
 }
 .year-month-row-label {
-  flex: 0 0 90px;
+  flex: 0 0 100px;
   font-weight: 600;
   color: var(--muted);
 }
 .year-month-row-strip {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 6px;
   flex: 1;
 }
 .year-month-row-empty { color: var(--muted); font-size: 0.85em; }
 
 .year-mini-cell {
-  flex: 0 0 auto;
-  width: 34px;
-  height: 34px;
-  border-radius: 4px;
+  flex: 1 1 90px;
+  min-width: 70px;
+  max-width: 160px;
+  aspect-ratio: 1;
+  border-radius: 6px;
   overflow: hidden;
   cursor: pointer;
 }
