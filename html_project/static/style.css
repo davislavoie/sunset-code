@@ -18,23 +18,25 @@ body {
 }
 
 .layout {
-  display: flex;
   min-height: 100vh;
 }
 
 .sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
   width: 260px;
-  flex: 0 0 260px;
+  z-index: 15;
   background: var(--sidebar);
   border-right: 1px solid var(--border);
   padding: 20px 16px;
-  overflow: hidden;
-  transition: width 0.2s ease, flex-basis 0.2s ease, padding 0.2s ease;
+  overflow-y: auto;
+  transition: width 0.2s ease, padding 0.2s ease;
 }
 
 .layout.sidebar-collapsed .sidebar {
   width: 0;
-  flex: 0 0 0;
   padding: 0;
   border-right: none;
 }
@@ -108,9 +110,14 @@ body {
 .nav-btn.active { border-color: var(--accent); color: var(--accent); }
 
 main#content {
-  flex: 1;
+  margin-left: 260px;
   padding: 24px 32px;
   overflow-x: hidden;
+  transition: margin-left 0.2s ease;
+}
+
+.layout.sidebar-collapsed main#content {
+  margin-left: 0;
 }
 
 .loading, .empty { color: var(--muted); padding: 40px; text-align: center; }
