@@ -62,11 +62,11 @@ body {
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: 6px;
-  width: 28px;
-  height: 28px;
+  width: 36px;
+  height: 36px;
   line-height: 1;
   cursor: pointer;
-  font-size: 0.9em;
+  font-size: 1.2em;
   flex: 0 0 auto;
 }
 .icon-btn:hover { border-color: var(--accent); }
@@ -75,9 +75,6 @@ body {
   position: fixed;
   top: 32px;
   left: 10px;
-  width: 36px;
-  height: 36px;
-  font-size: 1.2em;
   z-index: 20;
 }
 
