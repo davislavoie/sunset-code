@@ -57,10 +57,11 @@ export function renderGallery(container, state) {
       },
     });
     const scrollToBottom = () => mount.scrollIntoView({ behavior: "smooth", block: "end" });
-    scrollToBottom();
     const mainImg = mount.querySelector(".detail-main-img img");
     if (mainImg && !mainImg.complete) {
       mainImg.addEventListener("load", scrollToBottom, { once: true });
+    } else {
+      scrollToBottom();
     }
   }
 }

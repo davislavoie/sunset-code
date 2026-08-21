@@ -22,10 +22,15 @@ expandBtn.addEventListener("click", (e) => {
   expandBtn.hidden = true;
 });
 
-// Clicking anywhere outside the sidebar collapses it while it's open.
+// Clicking blank space outside the sidebar collapses it while it's open.
+// Clicks on actual controls (buttons, inputs, images, clickable cells/thumbs)
+// are left alone so interacting with the page doesn't also close it.
+const INTERACTIVE_SELECTOR = "button, a, input, select, textarea, img, .calendar-cell.has-image, .thumb";
+
 document.addEventListener("click", (e) => {
   if (layout.classList.contains("sidebar-collapsed")) return;
   if (sidebar.contains(e.target)) return;
+  if (e.target.closest(INTERACTIVE_SELECTOR)) return;
   layout.classList.add("sidebar-collapsed");
   expandBtn.hidden = false;
 });
@@ -90,7 +95,7 @@ for (const btn of navButtons) {
 
 (async function init() {
   const cameras = await loadCameras();
-  const defaultCamera = cameras[0] || "btv_echo_cam";
+  const defaultCamera = cameras.includes("btv_echo_cam") ? "btv_echo_cam" : cameras[0] || "btv_echo_cam";
   cameraSelect.value = defaultCamera;
   await loadCameraData(defaultCamera);
   renderPage();
