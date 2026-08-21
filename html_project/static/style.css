@@ -125,7 +125,16 @@ main#content {
 
 .loading, .empty { color: var(--muted); padding: 40px; text-align: center; }
 
-/* ---- Gallery page (month calendar) ---- */
+/* ---- Gallery page (day/week/month/year views) ---- */
+.view-tabs {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+.view-tab-group { display: flex; gap: 8px; }
+.view-tab-btn.active { border-color: var(--accent); color: var(--accent); }
+
 .calendar-header {
   display: flex;
   align-items: center;
@@ -235,6 +244,85 @@ main#content {
   .day-number, .day-score { font-size: 0.65em; }
   .day-time { display: none; }
 }
+
+/* ---- Day view ---- */
+.day-view-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 20px;
+}
+.day-view-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
+}
+.day-view-card img {
+  width: 100%;
+  border-radius: 8px;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  cursor: zoom-in;
+}
+.day-view-caption { margin-top: 8px; font-size: 0.85em; color: var(--muted); text-align: center; }
+.day-view-caption strong { color: var(--text); }
+
+/* ---- Week view ---- */
+.week-view-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 10px;
+}
+.week-day-col {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.week-day-header {
+  text-align: center;
+  font-size: 0.8em;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.week-day-thumb { width: 100%; border-radius: 6px; cursor: zoom-in; }
+.week-day-empty { color: var(--muted); text-align: center; font-size: 0.85em; padding: 12px 0; }
+
+@media (max-width: 900px) {
+  .week-view-grid { grid-template-columns: repeat(7, minmax(60px, 1fr)); gap: 4px; }
+  .week-day-col { padding: 4px; }
+  .week-day-header { font-size: 0.65em; }
+}
+
+/* ---- Year view ---- */
+.year-view-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 20px;
+}
+.year-month-box {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+}
+.year-month-label { font-weight: 600; margin-bottom: 8px; text-align: center; }
+.year-mini-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+.year-mini-cell { aspect-ratio: 1; border-radius: 2px; overflow: hidden; background: transparent; }
+.year-mini-cell.has-image { background: var(--border); cursor: pointer; }
+.year-mini-cell img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* ---- Today button ---- */
+.today-btn { font-weight: 600; }
 
 /* ---- Fullscreen lightbox ---- */
 .zoomable { cursor: zoom-in; }

@@ -1,7 +1,9 @@
-// Mirrors streamlit_project/sunset_gallery.py, rendered as an actual month calendar.
+// Mirrors streamlit_project/sunset_gallery.py, rendered as an actual calendar
+// with Day / Week / Month / Year views.
 
 import { mountDayDetail } from "../dayDetail.js";
 import { loadImageIntoTuner } from "./hsvtuner.js";
+import { makeZoomable } from "../lightbox.js";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTH_NAMES = [
@@ -9,9 +11,30 @@ const MONTH_NAMES = [
   "July", "August", "September", "October", "November", "December",
 ];
 
+function toISODate(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function fromISODate(s) {
+  const [y, m, d] = s.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function shiftDate(isoStr, deltaDays) {
+  const d = fromISODate(isoStr);
+  d.setDate(d.getDate() + deltaDays);
+  return toISODate(d);
+}
+
 export function renderGallery(container, state) {
   if (!state.gallery) {
-    state.gallery = { year: null, month: null, selectedDate: null, cellHeight: 110 };
+    state.gallery = {
+      viewMode: "month",
+      year: null, month: null,
+      focusDate: null,
+      expandedDate: null,
+      cellHeight: 110,
+    };
   }
   const gallery = state.gallery;
 
@@ -42,35 +65,335 @@ export function renderGallery(container, state) {
     const [y, m] = latest.split("-").map(Number);
     gallery.year = y;
     gallery.month = m - 1; // 0-indexed
+    gallery.focusDate = latest;
   }
 
-  container.appendChild(renderMonthHeader(container, state));
-  container.appendChild(renderSizeControl(state));
-  container.appendChild(renderMonthGrid(container, state, byDate));
+  container.appendChild(renderViewTabs(container, state));
 
-  if (gallery.selectedDate) {
-    const mount = document.createElement("div");
-    container.appendChild(mount);
-    mountDayDetail(mount, gallery.selectedDate, state.allData, {
-      onClose: () => {
-        gallery.selectedDate = null;
-        renderGallery(container, state);
-      },
-      onLoadToHsv: async (url) => {
-        await loadImageIntoTuner(state, url);
-        state.goToPage("hsvtuner");
-      },
-    });
-    const scrollToBottom = () => mount.scrollIntoView({ behavior: "smooth", block: "end" });
-    const mainImg = mount.querySelector(".detail-main-img img");
-    if (mainImg && !mainImg.complete) {
-      mainImg.addEventListener("load", scrollToBottom, { once: true });
-    } else {
-      scrollToBottom();
+  if (gallery.viewMode === "day") {
+    container.appendChild(renderDayView(container, state));
+  } else if (gallery.viewMode === "week") {
+    container.appendChild(renderWeekView(container, state));
+  } else if (gallery.viewMode === "year") {
+    container.appendChild(renderYearView(container, state, byDate));
+  } else {
+    container.appendChild(renderMonthHeader(container, state));
+    container.appendChild(renderSizeControl(state));
+    container.appendChild(renderMonthGrid(container, state, byDate));
+
+    if (gallery.expandedDate) {
+      const mount = document.createElement("div");
+      container.appendChild(mount);
+      mountDayDetail(mount, gallery.expandedDate, state.allData, {
+        onClose: () => {
+          gallery.expandedDate = null;
+          renderGallery(container, state);
+        },
+        onLoadToHsv: async (url) => {
+          await loadImageIntoTuner(state, url);
+          state.goToPage("hsvtuner");
+        },
+      });
+      const scrollToBottom = () => mount.scrollIntoView({ behavior: "smooth", block: "end" });
+      const mainImg = mount.querySelector(".detail-main-img img");
+      if (mainImg && !mainImg.complete) {
+        mainImg.addEventListener("load", scrollToBottom, { once: true });
+      } else {
+        scrollToBottom();
+      }
     }
   }
 }
 
+function renderViewTabs(container, state) {
+  const gallery = state.gallery;
+  const row = document.createElement("div");
+  row.className = "view-tabs";
+
+  const tabGroup = document.createElement("div");
+  tabGroup.className = "view-tab-group";
+  for (const [key, label] of [["day", "Day"], ["week", "Week"], ["month", "Month"], ["year", "Year"]]) {
+    const btn = document.createElement("button");
+    btn.className = "btn view-tab-btn" + (gallery.viewMode === key ? " active" : "");
+    btn.textContent = label;
+    btn.addEventListener("click", () => {
+      gallery.viewMode = key;
+      gallery.expandedDate = null;
+      renderGallery(container, state);
+    });
+    tabGroup.appendChild(btn);
+  }
+  row.appendChild(tabGroup);
+
+  const todayBtn = document.createElement("button");
+  todayBtn.className = "btn today-btn";
+  todayBtn.textContent = "Today";
+  todayBtn.addEventListener("click", () => {
+    const now = new Date();
+    gallery.year = now.getFullYear();
+    gallery.month = now.getMonth();
+    gallery.focusDate = toISODate(now);
+    renderGallery(container, state);
+  });
+  row.appendChild(todayBtn);
+
+  return row;
+}
+
+// ---------------------------------------------------------------------------
+// Day view -- every capture from a single day, with its stats, all at once.
+// ---------------------------------------------------------------------------
+function renderDayView(container, state) {
+  const gallery = state.gallery;
+  const wrap = document.createElement("div");
+
+  const header = document.createElement("div");
+  header.className = "calendar-header";
+
+  const prevBtn = document.createElement("button");
+  prevBtn.className = "btn cal-arrow";
+  prevBtn.textContent = "‹";
+  prevBtn.addEventListener("click", () => {
+    gallery.focusDate = shiftDate(gallery.focusDate, -1);
+    renderGallery(container, state);
+  });
+
+  const title = document.createElement("div");
+  title.className = "calendar-title";
+  title.textContent = fromISODate(gallery.focusDate).toLocaleDateString(undefined, {
+    weekday: "long", year: "numeric", month: "long", day: "numeric",
+  });
+
+  const isToday = gallery.focusDate === toISODate(new Date());
+  const nextBtn = document.createElement("button");
+  nextBtn.className = "btn cal-arrow";
+  nextBtn.textContent = "›";
+  nextBtn.disabled = isToday;
+  nextBtn.addEventListener("click", () => {
+    gallery.focusDate = shiftDate(gallery.focusDate, 1);
+    renderGallery(container, state);
+  });
+
+  header.append(prevBtn, title, nextBtn);
+  wrap.appendChild(header);
+
+  const dayImages = state.allData
+    .filter((img) => img.Date === gallery.focusDate)
+    .sort((a, b) => (a.Time > b.Time ? 1 : a.Time < b.Time ? -1 : 0));
+
+  if (!dayImages.length) {
+    const empty = document.createElement("div");
+    empty.className = "empty";
+    empty.textContent = "No captures for this day.";
+    wrap.appendChild(empty);
+    return wrap;
+  }
+
+  const grid = document.createElement("div");
+  grid.className = "day-view-grid";
+  for (const img of dayImages) {
+    const card = document.createElement("div");
+    card.className = "day-view-card";
+
+    const imageEl = document.createElement("img");
+    imageEl.src = img.Image;
+    imageEl.loading = "lazy";
+    makeZoomable(imageEl);
+    card.appendChild(imageEl);
+
+    const caption = document.createElement("div");
+    caption.className = "day-view-caption";
+    const displayLabel = /^(07_|11_|12_)/.test(img.Label) ? img.Label.slice(3) : img.Label;
+    caption.innerHTML = `<strong>${displayLabel}</strong><br>${img.Time} &middot; Score: ${img.Score.toFixed(1)}%`;
+    card.appendChild(caption);
+
+    grid.appendChild(card);
+  }
+  wrap.appendChild(grid);
+  return wrap;
+}
+
+// ---------------------------------------------------------------------------
+// Week view -- 7 columns (one per weekday), each a vertical filmstrip of
+// that day's captures in chronological order.
+// ---------------------------------------------------------------------------
+function renderWeekView(container, state) {
+  const gallery = state.gallery;
+  const wrap = document.createElement("div");
+
+  const focus = fromISODate(gallery.focusDate);
+  const weekStart = new Date(focus);
+  weekStart.setDate(focus.getDate() - focus.getDay());
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
+
+  const now = new Date();
+  const todayWeekStart = new Date(now);
+  todayWeekStart.setDate(now.getDate() - now.getDay());
+  const isCurrentWeek = toISODate(weekStart) === toISODate(todayWeekStart);
+
+  const header = document.createElement("div");
+  header.className = "calendar-header";
+
+  const prevBtn = document.createElement("button");
+  prevBtn.className = "btn cal-arrow";
+  prevBtn.textContent = "‹";
+  prevBtn.addEventListener("click", () => {
+    gallery.focusDate = shiftDate(gallery.focusDate, -7);
+    renderGallery(container, state);
+  });
+
+  const title = document.createElement("div");
+  title.className = "calendar-title";
+  const fmt = (d) => d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  title.textContent = `${fmt(weekStart)} – ${fmt(weekEnd)}`;
+
+  const nextBtn = document.createElement("button");
+  nextBtn.className = "btn cal-arrow";
+  nextBtn.textContent = "›";
+  nextBtn.disabled = isCurrentWeek;
+  nextBtn.addEventListener("click", () => {
+    gallery.focusDate = shiftDate(gallery.focusDate, 7);
+    renderGallery(container, state);
+  });
+
+  header.append(prevBtn, title, nextBtn);
+  wrap.appendChild(header);
+
+  const grid = document.createElement("div");
+  grid.className = "week-view-grid";
+
+  for (let i = 0; i < 7; i++) {
+    const dayDate = new Date(weekStart);
+    dayDate.setDate(weekStart.getDate() + i);
+    const dateStr = toISODate(dayDate);
+
+    const col = document.createElement("div");
+    col.className = "week-day-col";
+
+    const colHeader = document.createElement("div");
+    colHeader.className = "week-day-header";
+    colHeader.textContent = `${WEEKDAYS[i]} ${dayDate.getDate()}`;
+    col.appendChild(colHeader);
+
+    const dayImages = state.allData
+      .filter((img) => img.Date === dateStr)
+      .sort((a, b) => (a.Time > b.Time ? 1 : a.Time < b.Time ? -1 : 0));
+
+    if (dayImages.length) {
+      for (const img of dayImages) {
+        const thumb = document.createElement("img");
+        thumb.className = "week-day-thumb";
+        thumb.src = img.Image;
+        thumb.loading = "lazy";
+        thumb.title = `${img.Time} — Score: ${img.Score.toFixed(1)}%`;
+        makeZoomable(thumb);
+        col.appendChild(thumb);
+      }
+    } else {
+      const none = document.createElement("div");
+      none.className = "week-day-empty";
+      none.textContent = "—";
+      col.appendChild(none);
+    }
+
+    grid.appendChild(col);
+  }
+  wrap.appendChild(grid);
+  return wrap;
+}
+
+// ---------------------------------------------------------------------------
+// Year view -- 12 mini-months, each a tiny 7-col grid of thumbnail cells.
+// ---------------------------------------------------------------------------
+function renderYearView(container, state, byDate) {
+  const gallery = state.gallery;
+  const wrap = document.createElement("div");
+
+  const header = document.createElement("div");
+  header.className = "calendar-header";
+
+  const prevBtn = document.createElement("button");
+  prevBtn.className = "btn cal-arrow";
+  prevBtn.textContent = "‹";
+  prevBtn.addEventListener("click", () => {
+    gallery.year -= 1;
+    renderGallery(container, state);
+  });
+
+  const title = document.createElement("div");
+  title.className = "calendar-title";
+  title.textContent = `${gallery.year}`;
+
+  const nextBtn = document.createElement("button");
+  nextBtn.className = "btn cal-arrow";
+  nextBtn.textContent = "›";
+  nextBtn.disabled = gallery.year >= new Date().getFullYear();
+  nextBtn.addEventListener("click", () => {
+    gallery.year += 1;
+    renderGallery(container, state);
+  });
+
+  header.append(prevBtn, title, nextBtn);
+  wrap.appendChild(header);
+
+  const monthsGrid = document.createElement("div");
+  monthsGrid.className = "year-view-grid";
+
+  for (let m = 0; m < 12; m++) {
+    const monthBox = document.createElement("div");
+    monthBox.className = "year-month-box";
+
+    const monthLabel = document.createElement("div");
+    monthLabel.className = "year-month-label";
+    monthLabel.textContent = MONTH_NAMES[m];
+    monthBox.appendChild(monthLabel);
+
+    const miniGrid = document.createElement("div");
+    miniGrid.className = "year-mini-grid";
+
+    const startWeekday = new Date(gallery.year, m, 1).getDay();
+    const daysInMonth = new Date(gallery.year, m + 1, 0).getDate();
+
+    for (let i = 0; i < startWeekday; i++) {
+      const blank = document.createElement("div");
+      blank.className = "year-mini-cell empty";
+      miniGrid.appendChild(blank);
+    }
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dateStr = `${gallery.year}-${String(m + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+      const entry = byDate.get(dateStr);
+
+      const cell = document.createElement("div");
+      cell.className = "year-mini-cell" + (entry ? " has-image" : "");
+
+      if (entry) {
+        const img = document.createElement("img");
+        img.src = entry.Image;
+        img.loading = "lazy";
+        img.title = `${dateStr} — ${entry.Score.toFixed(0)}%`;
+        cell.appendChild(img);
+        cell.addEventListener("click", () => {
+          gallery.viewMode = "day";
+          gallery.focusDate = dateStr;
+          renderGallery(container, state);
+        });
+      }
+
+      miniGrid.appendChild(cell);
+    }
+
+    monthBox.appendChild(miniGrid);
+    monthsGrid.appendChild(monthBox);
+  }
+  wrap.appendChild(monthsGrid);
+  return wrap;
+}
+
+// ---------------------------------------------------------------------------
+// Month view (the original calendar grid)
+// ---------------------------------------------------------------------------
 function renderMonthHeader(container, state) {
   const gallery = state.gallery;
   const header = document.createElement("div");
@@ -86,7 +409,7 @@ function renderMonthHeader(container, state) {
       gallery.month = 11;
       gallery.year -= 1;
     }
-    gallery.selectedDate = null;
+    gallery.expandedDate = null;
     renderGallery(container, state);
   });
 
@@ -108,7 +431,7 @@ function renderMonthHeader(container, state) {
       gallery.month = 0;
       gallery.year += 1;
     }
-    gallery.selectedDate = null;
+    gallery.expandedDate = null;
     renderGallery(container, state);
   });
 
@@ -195,7 +518,7 @@ function renderMonthGrid(container, state, byDate) {
       cell.appendChild(score);
 
       cell.addEventListener("click", () => {
-        gallery.selectedDate = dateStr;
+        gallery.expandedDate = dateStr;
         renderGallery(container, state);
       });
     }
@@ -216,4 +539,3 @@ function blankCell() {
   cell.className = "calendar-cell empty-cell";
   return cell;
 }
-
