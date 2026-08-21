@@ -12,7 +12,7 @@
 
 hr {
   border: none;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid rgba(255, 255, 255, 0.16);
   margin: 16px 0;
 }
 
@@ -96,7 +96,7 @@ body {
   display: block;
   width: 100%;
   padding: 8px 10px;
-  margin-bottom: 8px;
+  margin-bottom: 16px;
   background: var(--panel);
   color: var(--text);
   border: 1px solid var(--border);

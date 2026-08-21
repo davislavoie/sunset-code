@@ -7,16 +7,27 @@ const content = document.getElementById("content");
 const cameraSelect = document.getElementById("camera-select");
 const navButtons = document.querySelectorAll(".nav-btn");
 const layout = document.getElementById("layout");
+const sidebar = document.getElementById("sidebar");
 const collapseBtn = document.getElementById("collapse-btn");
 const expandBtn = document.getElementById("expand-btn");
 
-collapseBtn.addEventListener("click", () => {
+collapseBtn.addEventListener("click", (e) => {
+  e.stopPropagation();
   layout.classList.add("sidebar-collapsed");
   expandBtn.hidden = false;
 });
-expandBtn.addEventListener("click", () => {
+expandBtn.addEventListener("click", (e) => {
+  e.stopPropagation();
   layout.classList.remove("sidebar-collapsed");
   expandBtn.hidden = true;
+});
+
+// Clicking anywhere outside the sidebar collapses it while it's open.
+document.addEventListener("click", (e) => {
+  if (layout.classList.contains("sidebar-collapsed")) return;
+  if (sidebar.contains(e.target)) return;
+  layout.classList.add("sidebar-collapsed");
+  expandBtn.hidden = false;
 });
 
 const pages = {
