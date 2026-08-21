@@ -86,6 +86,7 @@ function renderMonthHeader(container, state) {
       gallery.month = 11;
       gallery.year -= 1;
     }
+    gallery.selectedDate = null;
     renderGallery(container, state);
   });
 
@@ -107,6 +108,7 @@ function renderMonthHeader(container, state) {
       gallery.month = 0;
       gallery.year += 1;
     }
+    gallery.selectedDate = null;
     renderGallery(container, state);
   });
 
