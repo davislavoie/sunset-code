@@ -10,6 +10,12 @@
 
 * { box-sizing: border-box; }
 
+hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 16px 0;
+}
+
 body {
   margin: 0;
   background: var(--bg);
@@ -84,12 +90,6 @@ body {
   border: 1px solid var(--border);
   border-radius: 6px;
   margin-bottom: 12px;
-}
-
-.sidebar hr {
-  border: none;
-  border-top: 1px solid var(--border);
-  margin: 16px 0;
 }
 
 .nav-btn {
@@ -232,6 +232,33 @@ main#content {
   .day-number, .day-score { font-size: 0.65em; }
   .day-time { display: none; }
 }
+
+/* ---- Fullscreen lightbox ---- */
+.zoomable { cursor: zoom-in; }
+
+.lightbox-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s ease;
+}
+.lightbox-overlay.open { opacity: 1; visibility: visible; }
+
+.lightbox-img {
+  max-width: 92vw;
+  max-height: 92vh;
+  border-radius: 8px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
+  cursor: default;
+}
+
+.show-in-calendar-btn { margin-top: 10px; }
 
 .detail {
   border-top: 1px solid var(--border);

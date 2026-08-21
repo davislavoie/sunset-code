@@ -1,5 +1,8 @@
 // Mirrors streamlit_project/ranking_tab.py
 
+import { makeZoomable } from "../lightbox.js";
+import { mountDayDetail } from "../dayDetail.js";
+
 export function renderRanking(container, state) {
   if (!state.ranking) {
     state.ranking = { sortBy: "Score", order: "Highest to Lowest" };
@@ -71,9 +74,33 @@ export function renderRanking(container, state) {
       <div><strong>Time:</strong> ${row.Time || "N/A"}</div>
       <div><strong>Label:</strong> ${rawUrl ? rawLabel : "No raw image"}</div>
     `;
+    const calendarBtn = document.createElement("button");
+    calendarBtn.className = "btn show-in-calendar-btn";
+    calendarBtn.textContent = "Show in Calendar";
+    info.appendChild(calendarBtn);
     rowEl.appendChild(info);
 
     container.appendChild(rowEl);
+
+    const detailMount = document.createElement("div");
+    container.appendChild(detailMount);
+    let daySession = null;
+
+    calendarBtn.addEventListener("click", () => {
+      if (daySession) {
+        daySession.close();
+        daySession = null;
+        calendarBtn.textContent = "Show in Calendar";
+      } else {
+        daySession = mountDayDetail(detailMount, row.Date, state.allData, {
+          onClose: () => {
+            daySession = null;
+            calendarBtn.textContent = "Show in Calendar";
+          },
+        });
+        calendarBtn.textContent = "Hide";
+      }
+    });
 
     const hr = document.createElement("hr");
     container.appendChild(hr);
@@ -86,6 +113,7 @@ function imgCell(url) {
     const img = document.createElement("img");
     img.src = url;
     img.loading = "lazy";
+    makeZoomable(img);
     cell.appendChild(img);
   }
   return cell;

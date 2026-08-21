@@ -1,5 +1,7 @@
 // Mirrors streamlit_project/sunset_gallery.py, rendered as an actual month calendar.
 
+import { mountDayDetail } from "../dayDetail.js";
+
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
@@ -8,7 +10,7 @@ const MONTH_NAMES = [
 
 export function renderGallery(container, state) {
   if (!state.gallery) {
-    state.gallery = { year: null, month: null, selectedDate: null, selectedIndex: 0, cellHeight: 110 };
+    state.gallery = { year: null, month: null, selectedDate: null, cellHeight: 110 };
   }
   const gallery = state.gallery;
 
@@ -46,7 +48,14 @@ export function renderGallery(container, state) {
   container.appendChild(renderMonthGrid(container, state, byDate));
 
   if (gallery.selectedDate) {
-    container.appendChild(renderDetail(container, state));
+    const mount = document.createElement("div");
+    container.appendChild(mount);
+    mountDayDetail(mount, gallery.selectedDate, state.allData, {
+      onClose: () => {
+        gallery.selectedDate = null;
+        renderGallery(container, state);
+      },
+    });
   }
 }
 
@@ -173,7 +182,6 @@ function renderMonthGrid(container, state, byDate) {
 
       cell.addEventListener("click", () => {
         gallery.selectedDate = dateStr;
-        gallery.selectedIndex = 0;
         renderGallery(container, state);
       });
     }
@@ -195,95 +203,3 @@ function blankCell() {
   return cell;
 }
 
-function renderDetail(container, state) {
-  const gallery = state.gallery;
-
-  const dateImages = state.allData.filter((img) => img.Date === gallery.selectedDate);
-  const regular = dateImages
-    .filter((img) => !img.Label.toLowerCase().includes("ranked") && !img.Label.toLowerCase().includes("histogram"))
-    .sort((a, b) => (a.Time > b.Time ? 1 : -1));
-  const special = dateImages.filter(
-    (img) => img.Label.toLowerCase().includes("ranked") || img.Label.toLowerCase().includes("histogram")
-  );
-  const images = [...regular, ...special];
-
-  const wrap = document.createElement("div");
-  wrap.className = "detail";
-
-  if (!images.length) return wrap;
-
-  if (gallery.selectedIndex >= images.length) gallery.selectedIndex = 0;
-  const current = images[gallery.selectedIndex];
-
-  const header = document.createElement("div");
-  header.className = "detail-header";
-  const title = document.createElement("h4");
-  title.textContent = `${current.Label.slice(3)} - ${gallery.selectedDate}`;
-  header.appendChild(title);
-  const closeBtn = document.createElement("button");
-  closeBtn.className = "btn";
-  closeBtn.textContent = "✕ Close";
-  closeBtn.addEventListener("click", () => {
-    gallery.selectedDate = null;
-    renderGallery(container, state);
-  });
-  header.appendChild(closeBtn);
-  wrap.appendChild(header);
-
-  const nav = document.createElement("div");
-  nav.className = "detail-nav";
-  const prevBtn = document.createElement("button");
-  prevBtn.className = "btn";
-  prevBtn.textContent = "← Previous";
-  prevBtn.disabled = gallery.selectedIndex === 0;
-  prevBtn.addEventListener("click", () => {
-    gallery.selectedIndex -= 1;
-    renderGallery(container, state);
-  });
-  const info = document.createElement("div");
-  info.className = "info";
-  info.textContent = `Image ${gallery.selectedIndex + 1} of ${images.length} | Time: ${current.Time} | Score: ${current.Score.toFixed(1)}%`;
-  const nextBtn = document.createElement("button");
-  nextBtn.className = "btn";
-  nextBtn.textContent = "Next →";
-  nextBtn.disabled = gallery.selectedIndex >= images.length - 1;
-  nextBtn.addEventListener("click", () => {
-    gallery.selectedIndex += 1;
-    renderGallery(container, state);
-  });
-  nav.append(prevBtn, info, nextBtn);
-  wrap.appendChild(nav);
-
-  const mainImgWrap = document.createElement("div");
-  mainImgWrap.className = "detail-main-img";
-  const mainImg = document.createElement("img");
-  mainImg.src = current.Image;
-  mainImgWrap.appendChild(mainImg);
-  wrap.appendChild(mainImgWrap);
-
-  const stripHeading = document.createElement("h5");
-  stripHeading.textContent = "All images from this date:";
-  wrap.appendChild(stripHeading);
-
-  const strip = document.createElement("div");
-  strip.className = "thumb-strip";
-  images.forEach((img, idx) => {
-    const thumb = document.createElement("div");
-    thumb.className = "thumb" + (idx === gallery.selectedIndex ? " selected" : "");
-    const thumbImg = document.createElement("img");
-    thumbImg.src = img.Image;
-    thumbImg.loading = "lazy";
-    const label = document.createElement("div");
-    label.className = "label";
-    label.textContent = img.Label.slice(3);
-    thumb.append(thumbImg, label);
-    thumb.addEventListener("click", () => {
-      gallery.selectedIndex = idx;
-      renderGallery(container, state);
-    });
-    strip.appendChild(thumb);
-  });
-  wrap.appendChild(strip);
-
-  return wrap;
-}
