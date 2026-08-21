@@ -363,6 +363,10 @@ function renderYearView(container, state, byDate) {
     const strip = document.createElement("div");
     strip.className = "year-month-row-strip";
 
+    const detailMount = document.createElement("div");
+    let daySession = null;
+    let openDate = null;
+
     const daysInMonth = new Date(gallery.year, m + 1, 0).getDate();
     for (let day = 1; day <= daysInMonth; day++) {
       const dateStr = `${gallery.year}-${String(m + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
@@ -370,7 +374,7 @@ function renderYearView(container, state, byDate) {
       if (!entry) continue; // skip days with no captures entirely
 
       const cell = document.createElement("div");
-      cell.className = "year-mini-cell has-image";
+      cell.className = "year-mini-cell has-image" + (dateStr === openDate ? " selected" : "");
 
       const img = document.createElement("img");
       img.src = entry.Image;
@@ -378,9 +382,28 @@ function renderYearView(container, state, byDate) {
       img.title = `${dateStr} — ${entry.Score.toFixed(0)}%`;
       cell.appendChild(img);
       cell.addEventListener("click", () => {
-        gallery.viewMode = "day";
-        gallery.focusDate = dateStr;
-        renderGallery(container, state);
+        if (daySession && openDate === dateStr) {
+          daySession.close();
+          daySession = null;
+          openDate = null;
+          cell.classList.remove("selected");
+          return;
+        }
+        for (const c of strip.children) c.classList.remove("selected");
+        if (daySession) daySession.close();
+        openDate = dateStr;
+        cell.classList.add("selected");
+        daySession = mountDayDetail(detailMount, dateStr, state.allData, {
+          onClose: () => {
+            daySession = null;
+            openDate = null;
+            cell.classList.remove("selected");
+          },
+          onLoadToHsv: async (url) => {
+            await loadImageIntoTuner(state, url);
+            state.goToPage("hsvtuner");
+          },
+        });
       });
 
       strip.appendChild(cell);
@@ -395,6 +418,7 @@ function renderYearView(container, state, byDate) {
 
     row.appendChild(strip);
     monthsGrid.appendChild(row);
+    monthsGrid.appendChild(detailMount);
   }
   wrap.appendChild(monthsGrid);
   return wrap;
