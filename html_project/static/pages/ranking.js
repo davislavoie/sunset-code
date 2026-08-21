@@ -64,10 +64,12 @@ export function renderRanking(container, state) {
     rowEl.appendChild(imgCell(row["HSV Image"]));
 
     const metric = document.createElement("div");
+    metric.className = "score-cell";
     metric.innerHTML = `<div class="metric-label">Score</div><div class="metric-value">${row.Score.toFixed(2)}%</div>`;
     rowEl.appendChild(metric);
 
     const info = document.createElement("div");
+    info.className = "info-cell";
     const rawUrl = row["Raw Image"];
     const rawLabel = rawUrl ? rawUrl.split("/").pop().split(".")[0] : "No raw image";
     info.innerHTML = `
