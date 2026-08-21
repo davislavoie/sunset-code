@@ -26,6 +26,16 @@ function shiftDate(isoStr, deltaDays) {
   return toISODate(d);
 }
 
+// Labels are formatted like "01_2h_pre_...", "07_sunset_...", "11_ranked_...",
+// "12_histogram_..." -- the leading number is the true capture order.
+function labelOrder(label) {
+  return parseInt(label.slice(0, 2), 10);
+}
+
+function byLabelOrder(a, b) {
+  return labelOrder(a.Label) - labelOrder(b.Label);
+}
+
 export function renderGallery(container, state) {
   if (!state.gallery) {
     state.gallery = {
@@ -179,7 +189,7 @@ function renderDayView(container, state) {
 
   const dayImages = state.allData
     .filter((img) => img.Date === gallery.focusDate)
-    .sort((a, b) => (a.Time > b.Time ? 1 : a.Time < b.Time ? -1 : 0));
+    .sort(byLabelOrder);
 
   if (!dayImages.length) {
     const empty = document.createElement("div");
@@ -278,7 +288,7 @@ function renderWeekView(container, state) {
 
     const dayImages = state.allData
       .filter((img) => img.Date === dateStr)
-      .sort((a, b) => (a.Time > b.Time ? 1 : a.Time < b.Time ? -1 : 0));
+      .sort(byLabelOrder);
 
     if (dayImages.length) {
       for (const img of dayImages) {
@@ -304,7 +314,8 @@ function renderWeekView(container, state) {
 }
 
 // ---------------------------------------------------------------------------
-// Year view -- 12 mini-months, each a tiny 7-col grid of thumbnail cells.
+// Year view -- one row per month, month name on the left, then only the days
+// that actually have a capture, laid out left-to-right (missing days skipped).
 // ---------------------------------------------------------------------------
 function renderYearView(container, state, byDate) {
   const gallery = state.gallery;
@@ -338,54 +349,52 @@ function renderYearView(container, state, byDate) {
   wrap.appendChild(header);
 
   const monthsGrid = document.createElement("div");
-  monthsGrid.className = "year-view-grid";
+  monthsGrid.className = "year-view-list";
 
   for (let m = 0; m < 12; m++) {
-    const monthBox = document.createElement("div");
-    monthBox.className = "year-month-box";
+    const row = document.createElement("div");
+    row.className = "year-month-row";
 
     const monthLabel = document.createElement("div");
-    monthLabel.className = "year-month-label";
+    monthLabel.className = "year-month-row-label";
     monthLabel.textContent = MONTH_NAMES[m];
-    monthBox.appendChild(monthLabel);
+    row.appendChild(monthLabel);
 
-    const miniGrid = document.createElement("div");
-    miniGrid.className = "year-mini-grid";
+    const strip = document.createElement("div");
+    strip.className = "year-month-row-strip";
 
-    const startWeekday = new Date(gallery.year, m, 1).getDay();
     const daysInMonth = new Date(gallery.year, m + 1, 0).getDate();
-
-    for (let i = 0; i < startWeekday; i++) {
-      const blank = document.createElement("div");
-      blank.className = "year-mini-cell empty";
-      miniGrid.appendChild(blank);
-    }
-
     for (let day = 1; day <= daysInMonth; day++) {
       const dateStr = `${gallery.year}-${String(m + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
       const entry = byDate.get(dateStr);
+      if (!entry) continue; // skip days with no captures entirely
 
       const cell = document.createElement("div");
-      cell.className = "year-mini-cell" + (entry ? " has-image" : "");
+      cell.className = "year-mini-cell has-image";
 
-      if (entry) {
-        const img = document.createElement("img");
-        img.src = entry.Image;
-        img.loading = "lazy";
-        img.title = `${dateStr} — ${entry.Score.toFixed(0)}%`;
-        cell.appendChild(img);
-        cell.addEventListener("click", () => {
-          gallery.viewMode = "day";
-          gallery.focusDate = dateStr;
-          renderGallery(container, state);
-        });
-      }
+      const img = document.createElement("img");
+      img.src = entry.Image;
+      img.loading = "lazy";
+      img.title = `${dateStr} — ${entry.Score.toFixed(0)}%`;
+      cell.appendChild(img);
+      cell.addEventListener("click", () => {
+        gallery.viewMode = "day";
+        gallery.focusDate = dateStr;
+        renderGallery(container, state);
+      });
 
-      miniGrid.appendChild(cell);
+      strip.appendChild(cell);
     }
 
-    monthBox.appendChild(miniGrid);
-    monthsGrid.appendChild(monthBox);
+    if (!strip.children.length) {
+      const none = document.createElement("div");
+      none.className = "year-month-row-empty";
+      none.textContent = "No captures";
+      strip.appendChild(none);
+    }
+
+    row.appendChild(strip);
+    monthsGrid.appendChild(row);
   }
   wrap.appendChild(monthsGrid);
   return wrap;
