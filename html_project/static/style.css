@@ -37,7 +37,7 @@ body {
   background: var(--sidebar);
   border-right: 1px solid var(--border);
   padding: 20px 16px;
-  overflow-y: auto;
+  overflow: hidden auto;
   transition: width 0.2s ease, padding 0.2s ease;
 }
 
@@ -47,14 +47,19 @@ body {
   border-right: none;
 }
 
+.sidebar > * {
+  transition: opacity 0.12s ease;
+}
+
 .layout.sidebar-collapsed .sidebar > * {
-  display: none;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .collapse-btn {
   position: absolute;
-  top: 32px;
-  left: 10px;
+  top: 18px;
+  right: 16px;
 }
 
 .icon-btn {
@@ -73,13 +78,13 @@ body {
 
 .expand-btn {
   position: fixed;
-  top: 32px;
+  top: 18px;
   left: 10px;
   z-index: 20;
 }
 
 .sidebar h2 { margin: 0; font-size: 1.3em; }
-.sidebar-header { margin-top: 68px; margin-bottom: 16px; }
+.sidebar-header { margin-top: 4px; margin-bottom: 16px; }
 .sidebar h3 { margin: 0 0 8px; font-size: 1em; color: var(--muted); }
 
 .sidebar select {
