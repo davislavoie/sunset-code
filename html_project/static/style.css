@@ -73,8 +73,11 @@ body {
 
 .expand-btn {
   position: fixed;
-  top: 16px;
-  left: 14px;
+  top: 32px;
+  left: 10px;
+  width: 36px;
+  height: 36px;
+  font-size: 1.2em;
   z-index: 20;
 }
 
