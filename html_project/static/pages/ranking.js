@@ -1,6 +1,6 @@
 // Mirrors streamlit_project/ranking_tab.py
 
-import { makeZoomable } from "../lightbox.js";
+import { openLightbox, closeLightbox } from "../lightbox.js";
 import { mountDayDetail } from "../dayDetail.js";
 
 export function renderRanking(container, state) {
@@ -110,11 +110,33 @@ export function renderRanking(container, state) {
 function imgCell(url) {
   const cell = document.createElement("div");
   if (url) {
+    cell.className = "ranked-img-cell";
+
     const img = document.createElement("img");
     img.src = url;
     img.loading = "lazy";
-    makeZoomable(img);
     cell.appendChild(img);
+
+    const fsBtn = document.createElement("button");
+    fsBtn.className = "fullscreen-toggle-btn";
+    fsBtn.textContent = "⛶";
+    fsBtn.title = "View fullscreen";
+    fsBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (fsBtn.textContent === "✕") {
+        closeLightbox();
+        return;
+      }
+      openLightbox(url, {
+        onClose: () => {
+          fsBtn.textContent = "⛶";
+          fsBtn.title = "View fullscreen";
+        },
+      });
+      fsBtn.textContent = "✕";
+      fsBtn.title = "Close fullscreen";
+    });
+    cell.appendChild(fsBtn);
   }
   return cell;
 }

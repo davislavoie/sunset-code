@@ -78,6 +78,7 @@ export function mountDayDetail(mountEl, date, allData, { onClose, initialIndex =
 
     const strip = document.createElement("div");
     strip.className = "thumb-strip";
+    strip.style.gridTemplateColumns = `repeat(${images.length}, 1fr)`;
     images.forEach((img, idx) => {
       const thumb = document.createElement("div");
       thumb.className = "thumb" + (idx === index ? " selected" : "");
