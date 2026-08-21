@@ -1,0 +1,12 @@
+opencv-python-headless
+numpy
+matplotlib
+yt-dlp
+astral
+influxdb
+openmeteo-requests
+pandas
+requests-cache
+retry-requests
+timezonefinder
+pytz

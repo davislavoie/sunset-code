@@ -1,0 +1,71 @@
+services:
+  influxdb:
+    image: influxdb:1.8
+    restart: unless-stopped
+    environment:
+      INFLUXDB_DB: sunset_images
+    volumes:
+      - influxdb_data:/var/lib/influxdb
+    ports:
+      - "8086:8086"
+
+  imageserver:
+    image: python:3.12-slim
+    restart: unless-stopped
+    working_dir: /pictures
+    command: ["python3", "-m", "http.server", "8080"]
+    volumes:
+      - pictures_data:/pictures
+    ports:
+      - "8080:8080"
+
+  capture-bolton_summit_cam:
+    build:
+      context: .
+      dockerfile: sunset_code/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - influxdb
+      - imageserver
+    env_file:
+      - config/bolton_summit_cam.env
+    environment:
+      INFLUXDB_HOST: influxdb
+      INFLUXDB_PORT: "8086"
+      PICTURES_DIR: /pictures
+      IMAGE_BASE_URL: ${IMAGE_BASE_URL:-http://localhost:8080}
+    volumes:
+      - pictures_data:/pictures
+
+  capture-btv_echo_cam:
+    build:
+      context: .
+      dockerfile: sunset_code/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - influxdb
+      - imageserver
+    env_file:
+      - config/btv_echo_cam.env
+    environment:
+      INFLUXDB_HOST: influxdb
+      INFLUXDB_PORT: "8086"
+      PICTURES_DIR: /pictures
+      IMAGE_BASE_URL: ${IMAGE_BASE_URL:-http://localhost:8080}
+    volumes:
+      - pictures_data:/pictures
+
+  dashboard:
+    build: ./html_project
+    restart: unless-stopped
+    depends_on:
+      - influxdb
+    environment:
+      INFLUXDB_HOST: influxdb
+      INFLUXDB_PORT: "8086"
+    ports:
+      - "8502:8502"
+
+volumes:
+  influxdb_data:
+  pictures_data:

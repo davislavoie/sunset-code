@@ -35,7 +35,8 @@ def image_push(frame, filename, influx_tag):
     month = date.today().strftime("%m") + "-" + date.today().strftime("%B")
     day =  date.today().strftime("%m-%d-%Y")
 
-    photo_dir = f"/home/dlavoie/Pictures/sunset_images/{influx_tag}/{year}/{month}/{day}"
+    pictures_dir = os.environ.get("PICTURES_DIR", os.path.expanduser("~/Pictures"))
+    photo_dir = os.path.join(pictures_dir, "sunset_images", influx_tag, year, month, day)
     os.makedirs(photo_dir, exist_ok=True)
 
     photo_filepath = os.path.join(photo_dir, filename)    

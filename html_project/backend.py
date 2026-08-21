@@ -1,13 +1,17 @@
 from flask import Flask, jsonify, request, send_from_directory, Response
 from influxdb import InfluxDBClient
 from datetime import datetime
+import os
 import pytz
 import time
 import requests
 
 app = Flask(__name__, static_folder="static", static_url_path="")
 
-client = InfluxDBClient(host="100.107.153.41", port=8086, database="sunset_images")
+INFLUXDB_HOST = os.environ.get("INFLUXDB_HOST", "100.107.153.41")
+INFLUXDB_PORT = int(os.environ.get("INFLUXDB_PORT", 8086))
+
+client = InfluxDBClient(host=INFLUXDB_HOST, port=INFLUXDB_PORT, database="sunset_images")
 local_tz = pytz.timezone("America/New_York")
 
 CACHE_TTL = 300  # seconds, mirrors @st.cache_data(ttl=300) in streamlit_project/app.py
