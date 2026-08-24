@@ -290,7 +290,21 @@ main#content {
   text-transform: uppercase;
   margin-bottom: 4px;
 }
-.week-day-thumb { width: 100%; border-radius: 6px; cursor: zoom-in; }
+.week-day-thumb-wrap {
+  position: relative;
+}
+.week-day-thumb { width: 100%; border-radius: 6px; cursor: zoom-in; display: block; }
+.week-thumb-score {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  font-size: 0.65em;
+  font-weight: 600;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.6);
+  color: var(--text);
+}
 .week-day-empty { color: var(--muted); text-align: center; font-size: 0.85em; padding: 12px 0; }
 .week-day-stats {
   display: flex;
