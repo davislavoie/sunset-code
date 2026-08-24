@@ -1111,3 +1111,78 @@ input[type=file] { color: var(--text); }
     grid-template-columns: 1fr;
   }
 }
+
+/* Config card actions */
+.config-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.btn-small {
+  padding: 6px 12px;
+  font-size: 0.85em;
+  border-radius: 4px;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+}
+
+.btn-small:hover {
+  border-color: var(--accent);
+}
+
+.btn-edit {
+  background: rgba(52, 152, 219, 0.2);
+  border-color: rgba(52, 152, 219, 0.5);
+}
+
+.btn-edit:hover {
+  background: rgba(52, 152, 219, 0.3);
+}
+
+.btn-delete {
+  background: rgba(231, 76, 60, 0.2);
+  border-color: rgba(231, 76, 60, 0.5);
+}
+
+.btn-delete:hover {
+  background: rgba(231, 76, 60, 0.3);
+}
+
+.btn-cancel {
+  background: var(--panel);
+}
+
+/* Edit modal */
+.edit-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.edit-modal-content {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 500px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.edit-modal-content h3 {
+  margin: 0 0 16px;
+  color: var(--accent);
+}

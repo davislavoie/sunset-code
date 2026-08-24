@@ -195,6 +195,57 @@ def add_camera_config():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/api/camera-configs/<camera_tag>", methods=["PUT"])
+def update_camera_config(camera_tag):
+    """Update an existing camera configuration file."""
+    data = request.json
+    editable_fields = ["YOUTUBE_URL", "LAT", "LON", "ALTITUDE", "TIMEZONE", "MODE"]
+
+    filename = f"{camera_tag}.env"
+    filepath = get_config_dir() / filename
+
+    if not filepath.exists():
+        return jsonify({"error": f"Config file {filename} not found"}), 404
+
+    try:
+        # Read existing config
+        existing = parse_env_file(filepath)
+
+        # Update only provided fields
+        for field in editable_fields:
+            if field in data:
+                existing[field] = data[field]
+
+        # Ensure CAMERA_TAG stays the same
+        existing["CAMERA_TAG"] = camera_tag
+
+        # Write back
+        with open(filepath, "w") as f:
+            for key, value in existing.items():
+                if not key.startswith("_"):
+                    f.write(f"{key}={value}\n")
+
+        return jsonify({"success": True, "filename": filename})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/camera-configs/<camera_tag>", methods=["DELETE"])
+def delete_camera_config(camera_tag):
+    """Delete a camera configuration file."""
+    filename = f"{camera_tag}.env"
+    filepath = get_config_dir() / filename
+
+    if not filepath.exists():
+        return jsonify({"error": f"Config file {filename} not found"}), 404
+
+    try:
+        filepath.unlink()
+        return jsonify({"success": True, "deleted": filename})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/add-compose-service", methods=["POST"])
 def add_compose_service():
     """Add a new capture service to the docker-compose file."""

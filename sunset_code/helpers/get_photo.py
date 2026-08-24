@@ -4,15 +4,32 @@ import cv2
 from datetime import date
 
 
-def get_photo(photo_interval, youtube_url, influx_tag):
-    
-    """ Grab image from youtube livestream, save and return  """
+def get_video_url(stream_url):
+    """
+    Get the actual video stream URL.
+    First tries yt-dlp (works for YouTube, Twitch, etc).
+    If that fails, returns the URL directly (for HLS/RTSP/MJPEG streams).
+    """
+    # Try yt-dlp first
+    try:
+        ydl_opts = {'format': 'best', 'quiet': True}
+        with YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(stream_url, download=False)
+            video_url = info['url']
+            print(f"[INFO] yt-dlp extracted stream URL")
+            return video_url
+    except Exception as e:
+        print(f"[INFO] yt-dlp failed ({e}), trying direct URL")
 
-    ydl_opts = {'format': 'best'}
+    # Fall back to direct URL (HLS .m3u8, RTSP, MJPEG, etc)
+    return stream_url
 
-    with YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(youtube_url, download=False)
-        video_url = info['url']
+
+def get_photo(photo_interval, stream_url, influx_tag):
+
+    """ Grab image from video stream, save and return """
+
+    video_url = get_video_url(stream_url)
 
     cap = cv2.VideoCapture(video_url)
     success, frame = cap.read()
@@ -25,7 +42,7 @@ def get_photo(photo_interval, youtube_url, influx_tag):
 
     else:
         print("Failed to grab frame.")
-        cap.release()  
+        cap.release()
         return None, None
 
 

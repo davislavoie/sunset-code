@@ -33,8 +33,8 @@ export function renderConfig(container) {
           <input type="text" name="CAMERA_TAG" placeholder="my_new_cam" required pattern="^[a-zA-Z0-9_-]+$">
         </label>
         <label>
-          <span>YouTube URL</span>
-          <input type="url" name="YOUTUBE_URL" placeholder="https://www.youtube.com/watch?v=..." required>
+          <span>Stream URL</span>
+          <input type="url" name="YOUTUBE_URL" placeholder="https://www.youtube.com/watch?v=... or direct stream URL" required>
         </label>
       </div>
       <div class="form-row">
@@ -166,7 +166,7 @@ async function loadConfigs(container) {
           </div>
           <div class="config-details">
             <div class="config-detail">
-              <span class="config-label">YouTube URL</span>
+              <span class="config-label">Stream URL</span>
               <a href="${config.YOUTUBE_URL || ''}" target="_blank" class="config-value config-url">${config.YOUTUBE_URL || 'N/A'}</a>
             </div>
             <div class="config-detail">
@@ -186,7 +186,32 @@ async function loadConfigs(container) {
               <span class="config-value">${(config.MODE || 'sunset').charAt(0).toUpperCase() + (config.MODE || 'sunset').slice(1)}</span>
             </div>
           </div>
+          <div class="config-actions">
+            <button class="btn btn-small btn-edit" data-tag="${tag}">Edit</button>
+            <button class="btn btn-small btn-delete" data-tag="${tag}">Delete</button>
+          </div>
         `;
+
+        // Edit button handler
+        card.querySelector('.btn-edit').addEventListener('click', () => {
+          showEditModal(config, container);
+        });
+
+        // Delete button handler
+        card.querySelector('.btn-delete').addEventListener('click', async () => {
+          if (!confirm(`Delete camera "${tag}"? This cannot be undone.`)) return;
+          try {
+            const res = await fetch(`/api/camera-configs/${tag}`, { method: 'DELETE' });
+            const result = await res.json();
+            if (res.ok) {
+              loadConfigs(container);
+            } else {
+              alert(result.error || 'Failed to delete');
+            }
+          } catch (err) {
+            alert('Error: ' + err.message);
+          }
+        });
       }
 
       container.appendChild(card);
@@ -194,4 +219,100 @@ async function loadConfigs(container) {
   } catch (err) {
     container.innerHTML = `<div class="empty">Failed to load configs: ${err.message}</div>`;
   }
+}
+
+function showEditModal(config, configsContainer) {
+  // Remove existing modal if any
+  const existing = document.querySelector('.edit-modal');
+  if (existing) existing.remove();
+
+  const modal = document.createElement('div');
+  modal.className = 'edit-modal';
+  modal.innerHTML = `
+    <div class="edit-modal-content">
+      <h3>Edit ${config.CAMERA_TAG}</h3>
+      <form id="edit-camera-form" class="add-camera-form">
+        <div class="form-row">
+          <label>
+            <span>Stream URL</span>
+            <input type="url" name="YOUTUBE_URL" value="${config.YOUTUBE_URL || ''}" required>
+          </label>
+        </div>
+        <div class="form-row">
+          <label>
+            <span>Latitude</span>
+            <input type="number" name="LAT" step="any" value="${config.LAT || ''}" required>
+          </label>
+          <label>
+            <span>Longitude</span>
+            <input type="number" name="LON" step="any" value="${config.LON || ''}" required>
+          </label>
+        </div>
+        <div class="form-row">
+          <label>
+            <span>Altitude (meters)</span>
+            <input type="number" name="ALTITUDE" value="${config.ALTITUDE || ''}" required>
+          </label>
+          <label>
+            <span>Timezone</span>
+            <input type="text" name="TIMEZONE" value="${config.TIMEZONE || 'America/New_York'}" required>
+          </label>
+        </div>
+        <div class="form-row">
+          <label>
+            <span>Mode</span>
+            <select name="MODE" required>
+              <option value="sunset" ${(config.MODE || 'sunset') === 'sunset' ? 'selected' : ''}>Sunset</option>
+              <option value="sunrise" ${config.MODE === 'sunrise' ? 'selected' : ''}>Sunrise</option>
+            </select>
+          </label>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary">Save Changes</button>
+          <button type="button" class="btn btn-cancel">Cancel</button>
+          <span id="edit-status"></span>
+        </div>
+      </form>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  // Close on cancel or backdrop click
+  modal.querySelector('.btn-cancel').addEventListener('click', () => modal.remove());
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) modal.remove();
+  });
+
+  // Handle form submit
+  const form = modal.querySelector('#edit-camera-form');
+  const status = modal.querySelector('#edit-status');
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    status.textContent = 'Saving...';
+
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData.entries());
+
+    try {
+      const res = await fetch(`/api/camera-configs/${config.CAMERA_TAG}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const result = await res.json();
+
+      if (res.ok) {
+        modal.remove();
+        loadConfigs(configsContainer);
+      } else {
+        status.textContent = result.error || 'Failed to save';
+        status.className = 'status-error';
+      }
+    } catch (err) {
+      status.textContent = 'Error: ' + err.message;
+      status.className = 'status-error';
+    }
+  });
 }
