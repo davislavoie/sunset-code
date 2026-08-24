@@ -242,6 +242,12 @@ function renderWeekView(container, state) {
   todayWeekStart.setDate(now.getDate() - now.getDay());
   const isCurrentWeek = toISODate(weekStart) === toISODate(todayWeekStart);
 
+  // Build lookup for sunset data (one entry per day)
+  const sunsetByDate = new Map();
+  for (const item of state.sunsetData) {
+    sunsetByDate.set(item.Date, item);
+  }
+
   const header = document.createElement("div");
   header.className = "calendar-header";
 
@@ -286,11 +292,20 @@ function renderWeekView(container, state) {
     colHeader.textContent = `${WEEKDAYS[i]} ${dayDate.getDate()}`;
     col.appendChild(colHeader);
 
+    const sunsetEntry = sunsetByDate.get(dateStr);
     const dayImages = state.allData
       .filter((img) => img.Date === dateStr)
       .sort(byLabelOrder);
 
     if (dayImages.length) {
+      // Show time and score from sunset entry
+      if (sunsetEntry) {
+        const stats = document.createElement("div");
+        stats.className = "week-day-stats";
+        stats.innerHTML = `<span class="week-day-time">${sunsetEntry.Time}</span><span class="week-day-score">${sunsetEntry.Score.toFixed(0)}%</span>`;
+        col.appendChild(stats);
+      }
+
       for (const img of dayImages) {
         const thumb = document.createElement("img");
         thumb.className = "week-day-thumb";
