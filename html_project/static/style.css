@@ -631,3 +631,268 @@ input[type=file] { color: var(--text); }
 #content ul li {
   margin-bottom: 4px;
 }
+
+/* ---- Mobile styles ---- */
+@media (max-width: 768px) {
+  /* Sidebar overlay on mobile instead of pushing content */
+  .sidebar {
+    width: 280px;
+    box-shadow: 4px 0 20px rgba(0, 0, 0, 0.5);
+  }
+
+  .layout.sidebar-collapsed .sidebar {
+    transform: translateX(-280px);
+  }
+
+  /* Content takes full width on mobile */
+  main#content {
+    margin-left: 0;
+    padding: 16px;
+  }
+
+  .layout:not(.sidebar-collapsed) main#content {
+    margin-left: 0;
+  }
+
+  /* Always show expand button on mobile when collapsed */
+  .expand-btn {
+    width: 44px;
+    height: 44px;
+    font-size: 1.4em;
+  }
+
+  /* Larger touch targets */
+  .nav-btn {
+    padding: 12px 14px;
+    font-size: 1em;
+  }
+
+  .btn, .icon-btn {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* View tabs wrap on mobile */
+  .view-tabs {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .view-tab-group {
+    flex-wrap: wrap;
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Calendar header stacks */
+  .calendar-header {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .calendar-title {
+    min-width: unset;
+    width: 100%;
+    font-size: 1.1em;
+  }
+
+  /* Smaller calendar grid */
+  .calendar-grid {
+    gap: 4px;
+  }
+
+  .day-grid {
+    grid-auto-rows: 60px;
+  }
+
+  .calendar-cell {
+    border-radius: 8px;
+  }
+
+  .day-number {
+    font-size: 0.7em;
+    padding: 2px 5px;
+    top: 4px;
+    left: 4px;
+  }
+
+  .day-score {
+    font-size: 0.6em;
+    padding: 2px 4px;
+    bottom: 4px;
+    right: 4px;
+  }
+
+  /* Week view: 4 columns on mobile */
+  .week-view-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+  }
+
+  .week-day-col {
+    padding: 6px;
+  }
+
+  /* Year view adjustments */
+  .year-month-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .year-month-row-label {
+    flex: none;
+  }
+
+  .year-month-row-strip {
+    grid-template-columns: repeat(4, 1fr);
+    width: 100%;
+  }
+
+  /* Day view grid */
+  .day-view-grid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 12px;
+  }
+
+  /* Detail view */
+  .detail-header {
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-start;
+  }
+
+  .detail-nav {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .thumb-strip {
+    grid-template-columns: repeat(4, 1fr) !important;
+  }
+
+  /* Ranking page */
+  .ranking-row {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .ranking-controls {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .score-cell {
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 12px;
+  }
+
+  .score-cell .metric-value {
+    font-size: 1.8em;
+  }
+
+  /* Fullscreen button always visible on mobile (no hover) */
+  .fullscreen-toggle-btn {
+    opacity: 1;
+  }
+
+  /* Score tracker */
+  .axis-controls {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .point-detail {
+    flex-direction: column;
+  }
+
+  .point-detail .images {
+    flex-direction: column;
+  }
+
+  .stats-row {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  /* HSV tuner */
+  .hsv-layout {
+    flex-direction: column;
+  }
+
+  .hsv-sliders {
+    min-width: unset;
+  }
+
+  .slider-pair {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .side-by-side {
+    flex-direction: column;
+  }
+
+  .ref-images {
+    flex-direction: column;
+  }
+
+  /* Tables scroll horizontally */
+  table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Info tables on Ranking Explained */
+  .info-table td, .info-table th {
+    padding: 10px 12px;
+    font-size: 0.85em;
+  }
+
+  .formula-box {
+    padding: 12px 14px;
+    font-size: 0.95em;
+    overflow-x: auto;
+  }
+
+  .formula-box code {
+    white-space: nowrap;
+  }
+}
+
+/* Extra small screens */
+@media (max-width: 480px) {
+  main#content {
+    padding: 12px;
+  }
+
+  .calendar-grid {
+    gap: 3px;
+  }
+
+  .day-grid {
+    grid-auto-rows: 50px;
+  }
+
+  .week-view-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .year-month-row-strip {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .day-view-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .thumb-strip {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+
+  h2 {
+    font-size: 1.3em;
+  }
+}
