@@ -63,6 +63,8 @@ services:
     environment:
       INFLUXDB_HOST: influxdb
       INFLUXDB_PORT: "8086"
+    volumes:
+      - ./config:/app/config:ro
     ports:
       - "8502:8502"
 

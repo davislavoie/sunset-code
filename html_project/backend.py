@@ -11,8 +11,8 @@ import re
 
 app = Flask(__name__, static_folder="static", static_url_path="")
 
-# Config directory - look for it relative to the project root
-CONFIG_DIR = Path(__file__).parent.parent / "config"
+# Config directory - in Docker it's mounted at /app/config, otherwise relative to project root
+CONFIG_DIR = Path("/app/config") if Path("/app/config").exists() else Path(__file__).parent.parent / "config"
 
 INFLUXDB_HOST = os.environ.get("INFLUXDB_HOST", "100.107.153.41")
 INFLUXDB_PORT = int(os.environ.get("INFLUXDB_PORT", 8086))
