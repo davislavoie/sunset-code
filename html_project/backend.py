@@ -11,8 +11,12 @@ import re
 
 app = Flask(__name__, static_folder="static", static_url_path="")
 
-# Config directory - in Docker it's mounted at /app/config, otherwise relative to project root
-CONFIG_DIR = Path("/app/config") if Path("/app/config").exists() else Path(__file__).parent.parent / "config"
+# Config directory - check /app/config first (Docker mount), fallback to relative path
+def get_config_dir():
+    docker_path = Path("/app/config")
+    if docker_path.exists():
+        return docker_path
+    return Path(__file__).parent.parent / "config"
 
 INFLUXDB_HOST = os.environ.get("INFLUXDB_HOST", "100.107.153.41")
 INFLUXDB_PORT = int(os.environ.get("INFLUXDB_PORT", 8086))
@@ -139,8 +143,8 @@ def parse_env_file(filepath):
 def camera_configs():
     """Return all camera configurations from config/*.env files."""
     configs = []
-    if CONFIG_DIR.exists():
-        for env_file in CONFIG_DIR.glob("*.env"):
+    if get_config_dir().exists():
+        for env_file in get_config_dir().glob("*.env"):
             try:
                 config = parse_env_file(env_file)
                 config["_filename"] = env_file.name
@@ -165,13 +169,13 @@ def add_camera_config():
         return jsonify({"error": "CAMERA_TAG must be alphanumeric with underscores/hyphens only"}), 400
 
     filename = f"{camera_tag}.env"
-    filepath = CONFIG_DIR / filename
+    filepath = get_config_dir() / filename
 
     if filepath.exists():
         return jsonify({"error": f"Config file {filename} already exists"}), 409
 
     try:
-        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+        get_config_dir().mkdir(parents=True, exist_ok=True)
         with open(filepath, "w") as f:
             for field in required_fields:
                 f.write(f"{field}={data[field]}\n")
