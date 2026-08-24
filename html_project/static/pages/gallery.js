@@ -298,11 +298,12 @@ function renderWeekView(container, state) {
       .sort(byLabelOrder);
 
     if (dayImages.length) {
-      // Show time and score from sunset entry
+      // Show time from sunset entry and max score from all images
+      const maxScore = Math.max(...dayImages.map((img) => img.Score));
       if (sunsetEntry) {
         const stats = document.createElement("div");
         stats.className = "week-day-stats";
-        stats.innerHTML = `<span class="week-day-time">${sunsetEntry.Time}</span><span class="week-day-score">${sunsetEntry.Score.toFixed(0)}%</span>`;
+        stats.innerHTML = `<span class="week-day-time">${sunsetEntry.Time}</span><span class="week-day-score">${maxScore.toFixed(0)}%</span>`;
         col.appendChild(stats);
       }
 
