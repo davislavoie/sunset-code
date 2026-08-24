@@ -89,6 +89,18 @@ docker compose up -d --build
 
 Then open `http://<host>:8502/`. To add a third camera, drop a new `config/<name>.env` file and add a matching `capture-<name>` service in `docker-compose.yml` (copy one of the existing `capture-*` blocks).
 
+#### Using an existing InfluxDB and photos folder
+
+If you already have InfluxDB running on the host and photos stored locally (not in Docker volumes), copy the example override file and customize it:
+
+```bash
+cp docker-compose.override.yml.example docker-compose.override.yml
+# edit docker-compose.override.yml:
+#   - change /home/YOUR_USER/Pictures/sunset_images to your actual photos path
+```
+
+Docker Compose automatically merges `docker-compose.override.yml` with the base config. The override disables the containerized InfluxDB and points services to your existing setup via `host.docker.internal`. The override file is gitignored so your local paths won't be committed.
+
 Notes on how this fits together:
 - `INFLUXDB_HOST`/`INFLUXDB_PORT` are set to Docker's internal service name (`influxdb`) for server-to-server traffic (capture containers and the dashboard backend talking to InfluxDB) — this never needs to be reachable from a browser.
 - `IMAGE_BASE_URL` is different: it gets baked into every image URL written to InfluxDB, and those URLs are loaded directly by browsers (`<img src="...">`), so it must be an address reachable from wherever you're viewing the dashboard, not a Docker-internal name.

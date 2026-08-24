@@ -1,0 +1,48 @@
+# Copy this to docker-compose.override.yml and customize for your setup.
+# Docker Compose automatically merges override files with the base config.
+#
+# This example shows how to use an existing InfluxDB and local photos folder
+# instead of Docker-managed volumes.
+
+services:
+  # Disable the containerized InfluxDB (use existing instance on host)
+  influxdb:
+    profiles: ["disabled"]
+
+  imageserver:
+    volumes:
+      - /home/YOUR_USER/Pictures/sunset_images:/pictures:ro
+
+  capture-bolton_summit_cam:
+    depends_on:
+      influxdb:
+        condition: service_started
+        required: false
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      INFLUXDB_HOST: host.docker.internal
+    volumes:
+      - /home/YOUR_USER/Pictures/sunset_images:/pictures
+
+  capture-btv_echo_cam:
+    depends_on:
+      influxdb:
+        condition: service_started
+        required: false
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      INFLUXDB_HOST: host.docker.internal
+    volumes:
+      - /home/YOUR_USER/Pictures/sunset_images:/pictures
+
+  dashboard:
+    depends_on:
+      influxdb:
+        condition: service_started
+        required: false
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      INFLUXDB_HOST: host.docker.internal

@@ -15,7 +15,7 @@ services:
     working_dir: /pictures
     command: ["python3", "-m", "http.server", "8080"]
     volumes:
-      - pictures_data:/pictures
+      - pictures_data:/pictures:ro
     ports:
       - "8080:8080"
 
