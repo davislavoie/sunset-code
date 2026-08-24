@@ -566,3 +566,68 @@ table th, table td {
 .side-by-side figcaption { color: var(--muted); font-size: 0.85em; margin-top: 4px; }
 
 input[type=file] { color: var(--text); }
+
+/* ---- Ranking Explained page ---- */
+#content section {
+  margin-bottom: 32px;
+}
+
+#content section h3 {
+  margin-top: 0;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+}
+
+#content section h4 {
+  margin: 20px 0 10px;
+  color: var(--muted);
+}
+
+.info-table {
+  background: var(--panel);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.info-table th {
+  background: rgba(255, 255, 255, 0.05);
+  font-weight: 600;
+}
+
+.info-table td, .info-table th {
+  padding: 12px 16px;
+}
+
+.color-swatch {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  vertical-align: middle;
+  margin-right: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.formula-box {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 6px;
+  padding: 16px 20px;
+  margin: 16px 0;
+  font-size: 1.1em;
+}
+
+.formula-box code {
+  color: var(--accent);
+  font-family: "Fira Code", "Consolas", monospace;
+}
+
+#content ul {
+  padding-left: 24px;
+  line-height: 1.8;
+}
+
+#content ul li {
+  margin-bottom: 4px;
+}
