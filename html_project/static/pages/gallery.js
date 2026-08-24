@@ -307,13 +307,23 @@ function renderWeekView(container, state) {
       }
 
       for (const img of dayImages) {
+        const thumbWrap = document.createElement("div");
+        thumbWrap.className = "week-day-thumb-wrap";
+
         const thumb = document.createElement("img");
         thumb.className = "week-day-thumb";
         thumb.src = img.Image;
         thumb.loading = "lazy";
         thumb.title = `${img.Time} — Score: ${img.Score.toFixed(1)}%`;
         makeZoomable(thumb);
-        col.appendChild(thumb);
+        thumbWrap.appendChild(thumb);
+
+        const scoreLabel = document.createElement("div");
+        scoreLabel.className = "week-thumb-score";
+        scoreLabel.textContent = `${img.Score.toFixed(0)}%`;
+        thumbWrap.appendChild(scoreLabel);
+
+        col.appendChild(thumbWrap);
       }
     } else {
       const none = document.createElement("div");
