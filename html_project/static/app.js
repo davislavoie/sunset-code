@@ -12,16 +12,35 @@ const sidebar = document.getElementById("sidebar");
 const collapseBtn = document.getElementById("collapse-btn");
 const expandBtn = document.getElementById("expand-btn");
 
-collapseBtn.addEventListener("click", (e) => {
-  e.stopPropagation();
+const MOBILE_BREAKPOINT = 768;
+
+function collapseSidebar() {
   layout.classList.add("sidebar-collapsed");
   expandBtn.hidden = false;
+}
+
+function expandSidebar() {
+  layout.classList.remove("sidebar-collapsed");
+  expandBtn.hidden = true;
+}
+
+function isMobile() {
+  return window.innerWidth <= MOBILE_BREAKPOINT;
+}
+
+collapseBtn.addEventListener("click", (e) => {
+  e.stopPropagation();
+  collapseSidebar();
 });
 expandBtn.addEventListener("click", (e) => {
   e.stopPropagation();
-  layout.classList.remove("sidebar-collapsed");
-  expandBtn.hidden = true;
+  expandSidebar();
 });
+
+// Auto-collapse sidebar on mobile
+if (isMobile()) {
+  collapseSidebar();
+}
 
 // Clicking blank space outside the sidebar collapses it while it's open.
 // Clicks on actual controls (buttons, inputs, images, clickable cells/thumbs)
@@ -96,10 +115,14 @@ function goToPage(pageName) {
 cameraSelect.addEventListener("change", async () => {
   await loadCameraData(cameraSelect.value);
   renderPage();
+  if (isMobile()) collapseSidebar();
 });
 
 for (const btn of navButtons) {
-  btn.addEventListener("click", () => goToPage(btn.dataset.page));
+  btn.addEventListener("click", () => {
+    goToPage(btn.dataset.page);
+    if (isMobile()) collapseSidebar();
+  });
 }
 
 (async function init() {
