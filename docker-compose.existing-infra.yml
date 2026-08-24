@@ -2,6 +2,14 @@
 # Run with: docker-compose -f docker-compose.existing-infra.yml up -d --build
 
 services:
+  influxdb:
+    image: influxdb:1.8
+    restart: unless-stopped
+    volumes:
+      - influxdb-storage:/var/lib/influxdb
+    ports:
+      - "8086:8086"
+
   imageserver:
     image: python:3.12-slim
     restart: unless-stopped
@@ -17,12 +25,12 @@ services:
       context: .
       dockerfile: sunset_code/Dockerfile
     restart: unless-stopped
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    depends_on:
+      - influxdb
     env_file:
       - config/bolton_summit_cam.env
     environment:
-      INFLUXDB_HOST: host.docker.internal
+      INFLUXDB_HOST: influxdb
       INFLUXDB_PORT: "8086"
       PICTURES_DIR: /pictures
       IMAGE_BASE_URL: ${IMAGE_BASE_URL:-http://localhost:8080}
@@ -34,12 +42,12 @@ services:
       context: .
       dockerfile: sunset_code/Dockerfile
     restart: unless-stopped
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    depends_on:
+      - influxdb
     env_file:
       - config/btv_echo_cam.env
     environment:
-      INFLUXDB_HOST: host.docker.internal
+      INFLUXDB_HOST: influxdb
       INFLUXDB_PORT: "8086"
       PICTURES_DIR: /pictures
       IMAGE_BASE_URL: ${IMAGE_BASE_URL:-http://localhost:8080}
@@ -49,10 +57,14 @@ services:
   dashboard:
     build: ./html_project
     restart: unless-stopped
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    depends_on:
+      - influxdb
     environment:
-      INFLUXDB_HOST: host.docker.internal
+      INFLUXDB_HOST: influxdb
       INFLUXDB_PORT: "8086"
     ports:
       - "8502:8502"
+
+volumes:
+  influxdb-storage:
+    external: true
