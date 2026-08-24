@@ -63,8 +63,24 @@ export function renderConfig(container) {
       </div>
     </form>
     <div class="add-camera-note">
-      <strong>Note:</strong> After adding a camera, you'll need to add a matching service
-      to your docker-compose file and restart Docker to begin capturing.
+      <strong>Next Steps:</strong> After adding a camera config, add a matching service to your docker-compose file:
+      <pre class="code-block">  capture-YOUR_CAMERA_TAG:
+    build:
+      context: .
+      dockerfile: sunset_code/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - influxdb
+    env_file:
+      - config/YOUR_CAMERA_TAG.env
+    environment:
+      INFLUXDB_HOST: influxdb
+      INFLUXDB_PORT: "8086"
+      PICTURES_DIR: /pictures
+      IMAGE_BASE_URL: \${IMAGE_BASE_URL:-http://localhost:8080}
+    volumes:
+      - /home/YOUR_USER/Pictures:/pictures</pre>
+      Then restart: <code>docker compose -f docker-compose.existing-infra.yml up -d --build</code>
     </div>
   `;
   container.appendChild(addSection);
