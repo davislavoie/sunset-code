@@ -21,8 +21,14 @@ An automated pipeline that captures sunset photos from YouTube livestream cams, 
 ## Project layout
 
 ```
+docker-compose.yml                 # full self-contained stack (see "Docker Compose" below)
+.env.example                       # copy to .env -- sets IMAGE_BASE_URL for compose
+
 sunset_code/
   __main__.py                      # capture loop entrypoint (per-camera, via config/*.env)
+  Dockerfile                       # build context = repo root (needs sunset_code importable)
+  entrypoint.sh                    # loops __main__ daily so the container stays running
+  requirements.txt
   helpers/
     get_photo.py                   # grab + save a frame from the livestream
     sunset_process.py              # HSV-based sunset scoring (rank_sunset)
@@ -51,6 +57,7 @@ tests/
 
 html_project/
   backend.py                       # Flask API: /api/cameras, /api/data, /api/image-proxy
+  Dockerfile
   requirements.txt
   static/
     index.html                    # sidebar (camera select + nav) + main content area
@@ -67,7 +74,40 @@ html_project/
 
 ## Running it
 
-### Capture + scoring pipeline (`sunset_code/`)
+### Docker Compose (full stack, recommended for a new machine)
+
+Spins up everything the `html_project/` dashboard needs from scratch: InfluxDB, an image HTTP server, one capture container per camera in `config/`, and the dashboard itself.
+
+```bash
+cp .env.example .env
+# edit .env: set IMAGE_BASE_URL to an address other devices can actually reach
+# (your Tailscale IP, LAN IP, or hostname -- not "localhost" unless you're
+# only ever viewing the dashboard from this same machine)
+
+docker compose up -d --build
+```
+
+Then open `http://<host>:8502/`. To add a third camera, drop a new `config/<name>.env` file and add a matching `capture-<name>` service in `docker-compose.yml` (copy one of the existing `capture-*` blocks).
+
+#### Using an existing InfluxDB and photos folder
+
+If you already have InfluxDB running on the host and photos stored locally (not in Docker volumes), copy the example override file and customize it:
+
+```bash
+cp docker-compose.override.yml.example docker-compose.override.yml
+# edit docker-compose.override.yml:
+#   - change /home/YOUR_USER/Pictures/sunset_images to your actual photos path
+```
+
+Docker Compose automatically merges `docker-compose.override.yml` with the base config. The override disables the containerized InfluxDB and points services to your existing setup via `host.docker.internal`. The override file is gitignored so your local paths won't be committed.
+
+Notes on how this fits together:
+- `INFLUXDB_HOST`/`INFLUXDB_PORT` are set to Docker's internal service name (`influxdb`) for server-to-server traffic (capture containers and the dashboard backend talking to InfluxDB) — this never needs to be reachable from a browser.
+- `IMAGE_BASE_URL` is different: it gets baked into every image URL written to InfluxDB, and those URLs are loaded directly by browsers (`<img src="...">`), so it must be an address reachable from wherever you're viewing the dashboard, not a Docker-internal name.
+- Captured images live in the `pictures_data` named volume, shared between the capture containers (write) and `imageserver` (serve). InfluxDB's data lives in the `influxdb_data` volume. Both persist across `docker compose down`/`up`; use `docker compose down -v` to wipe them.
+- `sunset_code`'s capture loop (`__main__.py`) normally runs once per day via a systemd timer and exits; `entrypoint.sh` wraps it in a loop (run → sleep 1h → repeat) so the container stays up and naturally picks up the next day's cycle instead of needing cron/systemd inside the container.
+
+### Capture + scoring pipeline (`sunset_code/`, without Docker)
 
 Runs once a day per camera, sleeping until each capture interval before grabbing a frame, scoring it, and pushing to InfluxDB:
 
@@ -76,9 +116,9 @@ set -a; source config/bolton_summit_cam.env; set +a
 python -m sunset_code
 ```
 
-Set up one systemd service (or scheduled task) per camera `.env` file to run multiple cams. This expects an InfluxDB instance reachable at `localhost:8086` (database `sunset_images`) and writes captured images under `~/Pictures/sunset_images/<camera_tag>/<year>/<month>/<day>/` (hardcoded in `get_photo.py`).
+Set up one systemd service (or scheduled task) per camera `.env` file to run multiple cams. Configurable via environment variables (all optional, default to the original bare-metal deployment's values): `INFLUXDB_HOST` (default `localhost`), `INFLUXDB_PORT` (default `8086`), `PICTURES_DIR` (default `~/Pictures`, images land under `<PICTURES_DIR>/sunset_images/<camera_tag>/<year>/<month>/<day>/`), and `IMAGE_BASE_URL` (default `http://100.107.153.41:8080`, the base URL baked into each image's InfluxDB record).
 
-Dependencies (no `requirements.txt` provided for this folder): `opencv-python`, `numpy`, `matplotlib`, `yt-dlp`, `astral`, `influxdb`, `openmeteo-requests`, `pandas`, `requests-cache`, `retry-requests`, `timezonefinder`, `pytz`.
+Dependencies: `sunset_code/requirements.txt`.
 
 ### Batch re-ranking (`tests/re_rank_sunsets.py`)
 
@@ -118,13 +158,12 @@ pip install -r requirements.txt
 python backend.py
 ```
 
-Then open `http://<host>:8502/`. There's no build step — `static/` is plain HTML/CSS/ES modules served directly by Flask. The four pages (`pages/gallery.js`, `pages/ranking.js`, `pages/scoretracker.js`, `pages/hsvtuner.js`) are 1:1 ports of the Streamlit pages of the same purpose, reading from the same `/api/data` JSON the Flask backend builds with the same query/grouping logic as `app.py`'s `fetch_camera_data`. The HSV tuner does real per-pixel HSV masking on `<canvas>` (see `hsv.js`) instead of OpenCV; gallery-sourced images are fetched through `/api/image-proxy` (a same-origin proxy) so the canvas can read their pixels without hitting cross-origin restrictions.
+Then open `http://<host>:8502/`. There's no build step — `static/` is plain HTML/CSS/ES modules served directly by Flask. The four pages (`pages/gallery.js`, `pages/ranking.js`, `pages/scoretracker.js`, `pages/hsvtuner.js`) are 1:1 ports of the Streamlit pages of the same purpose, reading from the same `/api/data` JSON the Flask backend builds with the same query/grouping logic as `app.py`'s `fetch_camera_data`. The HSV tuner does real per-pixel HSV masking on `<canvas>` (see `hsv.js`) instead of OpenCV; gallery-sourced images are fetched through `/api/image-proxy` (a same-origin proxy) so the canvas can read their pixels without hitting cross-origin restrictions. Its InfluxDB connection is configurable via `INFLUXDB_HOST`/`INFLUXDB_PORT` (default `100.107.153.41`/`8086`, matching the original deployment).
 
 ## Notes / known rough edges
 
-- Several values are hardcoded for the original deployment: the InfluxDB host, the local photo directory (`~/Pictures/sunset_images/...`), and the image-server host/port baked into the InfluxDB `url` field.
+- `streamlit_project/app.py` and `tests/re_rank_sunsets.py` still hardcode the InfluxDB host (`100.107.153.41`) and, for the latter, the local photo directory (`/home/dlavoie/Pictures/...`) — only `sunset_code/`'s capture pipeline and `html_project/`'s backend were made configurable (via `INFLUXDB_HOST`, `INFLUXDB_PORT`, `PICTURES_DIR`, `IMAGE_BASE_URL`) as part of getting the Docker Compose setup working on other machines.
 - Weather enrichment (`open_metro_weater_api.py`) is wired up but currently disabled — its call and all weather fields are commented out in `helpers.py`, so `ranking_tab.py`'s weather lookups always resolve to `N/A`.
-- `sunset_code/` has no `requirements.txt`; its dependencies must be installed manually (see above).
 - The Sunset Calendar gallery renders every historical capture at full resolution with no pagination or thumbnail generation, which is the main cause of it feeling sluggish as the image history grows — see the note below.
 - `.cache.sqlite` is the `requests_cache` cache used by the weather API client.
 

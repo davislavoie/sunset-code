@@ -50,9 +50,14 @@ def influxdb_push(photo_file, time_epoch, label, camera_tag, score=0.0):
 
     #current_weather = weather_fetch(date=date_str, time_epoch = time_epoch)
 
-    client = InfluxDBClient(host="localhost", port=8086, database="sunset_images")
-    relative_path = os.path.relpath(photo_file, start=os.path.expanduser("~/Pictures"))
-    url = f"http://100.107.153.41:8080/{relative_path}"
+    influxdb_host = os.environ.get("INFLUXDB_HOST", "localhost")
+    influxdb_port = int(os.environ.get("INFLUXDB_PORT", 8086))
+    pictures_dir = os.environ.get("PICTURES_DIR", os.path.expanduser("~/Pictures"))
+    image_base_url = os.environ.get("IMAGE_BASE_URL", "http://100.107.153.41:8080")
+
+    client = InfluxDBClient(host=influxdb_host, port=influxdb_port, database="sunset_images")
+    relative_path = os.path.relpath(photo_file, start=pictures_dir)
+    url = f"{image_base_url}/{relative_path}"
 
     #For re rankings 
     # Check if this is a ranked image (11_ or 12_ prefix)
