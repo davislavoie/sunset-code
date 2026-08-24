@@ -57,6 +57,15 @@ export function renderConfig(container) {
           <input type="text" name="TIMEZONE" value="America/New_York" required>
         </label>
       </div>
+      <div class="form-row">
+        <label>
+          <span>Mode</span>
+          <select name="MODE" required>
+            <option value="sunset" selected>Sunset</option>
+            <option value="sunrise">Sunrise</option>
+          </select>
+        </label>
+      </div>
       <div class="form-actions">
         <button type="submit" class="btn btn-primary">Add Camera</button>
         <span id="form-status"></span>
@@ -171,6 +180,10 @@ async function loadConfigs(container) {
             <div class="config-detail">
               <span class="config-label">Timezone</span>
               <span class="config-value">${config.TIMEZONE || 'N/A'}</span>
+            </div>
+            <div class="config-detail">
+              <span class="config-label">Mode</span>
+              <span class="config-value">${(config.MODE || 'sunset').charAt(0).toUpperCase() + (config.MODE || 'sunset').slice(1)}</span>
             </div>
           </div>
         `;

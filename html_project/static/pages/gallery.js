@@ -26,7 +26,7 @@ function shiftDate(isoStr, deltaDays) {
   return toISODate(d);
 }
 
-// Labels are formatted like "01_2h_pre_...", "07_sunset_...", "11_ranked_...",
+// Labels are formatted like "01_2h_pre_...", "07_sunset_..." or "07_sunrise_...", "11_ranked_...",
 // "12_histogram_..." -- the leading number is the true capture order.
 function labelOrder(label) {
   return parseInt(label.slice(0, 2), 10);

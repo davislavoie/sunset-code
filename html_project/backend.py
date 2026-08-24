@@ -169,7 +169,7 @@ def camera_configs():
 def add_camera_config():
     """Create a new camera configuration file."""
     data = request.json
-    required_fields = ["CAMERA_TAG", "YOUTUBE_URL", "LAT", "LON", "ALTITUDE", "TIMEZONE"]
+    required_fields = ["CAMERA_TAG", "YOUTUBE_URL", "LAT", "LON", "ALTITUDE", "TIMEZONE", "MODE"]
 
     for field in required_fields:
         if field not in data:

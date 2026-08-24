@@ -87,7 +87,7 @@ def select_camera_tag(sunset_root_base):
     sunset_root = os.path.join(sunset_root_base, camera_tag)
     return camera_tag, sunset_root
 
-def filename_to_epoch(filename, camera_tag=None):
+def filename_to_epoch(filename, camera_tag=None, mode='sunset'):
 
     """Extract epoch time from filename formatted as 'prefix_MM-DD-YYYY.ext'."""
 
@@ -107,7 +107,7 @@ def filename_to_epoch(filename, camera_tag=None):
         return None
 
     #Grab lat and lon from camera tag
-    intervals = sunset_time(day=day)
+    intervals = sunset_time(day=day, mode=mode)
 
     # normalize tokens (common variants: '15min' -> '15m', '2hr' -> '2h', remove extra hyphens)
     norm_tokens = []
@@ -168,6 +168,15 @@ client.query(f'DELETE FROM "sunset_images" WHERE "camera" = \'{camera_tag}\'')
 print(f"[INFO] Cleared existing data for camera '{camera_tag}' from InfluxDB 'sunset_images' database.")
 
 print(f"[INFO] Using sunset root: {sunset_root}")
+
+# Detect mode from existing filenames (sunrise vs sunset)
+sample_files = glob.glob(os.path.join(sunset_root, "**", "07_*.jpg"), recursive=True)
+detected_mode = 'sunset'
+for f in sample_files:
+    if '07_sunrise' in os.path.basename(f):
+        detected_mode = 'sunrise'
+        break
+print(f"[INFO] Detected mode: {detected_mode}")
 
 
 sunset_list = ( 
@@ -282,7 +291,7 @@ for group_idx in range(len(group_scores)):
             histogram_filename = os.path.basename(histogram_filepath)
             score_image_filename = os.path.basename(score_image_filepath)
 
-            epoch_time = filename_to_epoch(photo_filepath)
+            epoch_time = filename_to_epoch(photo_filepath, mode=detected_mode)
 
             # Push to Grafana
             print(f"[INFO] Pushing ranked image for {photo_filename} with score {score} at epoch time {epoch_time}")
@@ -306,7 +315,7 @@ for i in range(max_images):
         photo_filepath = all_images_scores[b][i][6]
         photo_dir = os.path.dirname(photo_filepath)
 
-        epoch_time = filename_to_epoch(photo_filepath)
+        epoch_time = filename_to_epoch(photo_filepath, mode=detected_mode)
 
         print(f"[INFO] Pushing image {photo_filename} with score {score} at epoch time {epoch_time}")
         influxdb_push(photo_filepath, epoch_time, photo_filename, camera_tag, score)

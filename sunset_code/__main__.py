@@ -12,8 +12,8 @@ import os
 import time
 import traceback
 
-def main(youtube_url, lat, lon, altitude, timezone_str, camera_tag):
-    intervals = sunset_time(lat=lat, lon=lon, altitude=altitude, timezone_str=timezone_str)
+def main(youtube_url, lat, lon, altitude, timezone_str, camera_tag, mode='sunset'):
+    intervals = sunset_time(lat=lat, lon=lon, altitude=altitude, timezone_str=timezone_str, mode=mode)
     max_score = -1
     max_final_txt_img = None
 
@@ -92,8 +92,9 @@ if __name__ == "__main__":
     lon = float(os.environ.get("LON"))
     altitude = float(os.environ.get("ALTITUDE"))
     timezone_str = os.environ.get("TIMEZONE")
-        
-    main(youtube_url, lat, lon, altitude, timezone_str, camera_tag)
+    mode = os.environ.get("MODE", "sunset").lower()
+
+    main(youtube_url, lat, lon, altitude, timezone_str, camera_tag, mode)
 
 
 #TEST MAIN FOR DEBUGGING

@@ -8,33 +8,37 @@ from influxdb import InfluxDBClient
 from sunset_code.helpers.open_metro_weater_api import weather_fetch
 
 
-def sunset_time(day=date.today(), lat=44.477101, lon=-73.221253, altitude=200, timezone_str='America/New_York'):
-    
+def sunset_time(day=date.today(), lat=44.477101, lon=-73.221253, altitude=200, timezone_str='America/New_York', mode='sunset'):
+
     """
-    Returns dict of UTC time intervals before and after sunset.
+    Returns dict of UTC time intervals before and after sunset or sunrise.
+    mode: 'sunset' or 'sunrise'
     """
     observer = Observer(latitude=lat, longitude=lon, elevation=altitude)
     s = sun(observer, date=day, tzinfo=timezone_str)
 
-    sunset_dt = s['sunset']
-    sunset_epoch = int(sunset_dt.timestamp())
+    if mode == 'sunrise':
+        target_dt = s['sunrise']
+        target_label = "07_sunrise"
+    else:
+        target_dt = s['sunset']
+        target_label = "07_sunset"
+
+    target_epoch = int(target_dt.timestamp())
 
     #Dict of intervals
     intervals = {
-        "01_2h_pre": sunset_epoch - (60*60*2),
-        "02_1h_pre": sunset_epoch - (60*60*1),
-        "03_45m_pre": sunset_epoch - (60*45),
-        "04_30m_pre": sunset_epoch - (60*30),
-        "05_15m_pre": sunset_epoch - (60*15),
-        "06_5m_pre": sunset_epoch - (60*5),
-        "07_sunset": sunset_epoch,
-        "08_5m_post": sunset_epoch + (60*5),
-        "09_15m_post": sunset_epoch + (60*15),
-        "10_30m_post": sunset_epoch + (60*30),
+        "01_2h_pre": target_epoch - (60*60*2),
+        "02_1h_pre": target_epoch - (60*60*1),
+        "03_45m_pre": target_epoch - (60*45),
+        "04_30m_pre": target_epoch - (60*30),
+        "05_15m_pre": target_epoch - (60*15),
+        "06_5m_pre": target_epoch - (60*5),
+        target_label: target_epoch,
+        "08_5m_post": target_epoch + (60*5),
+        "09_15m_post": target_epoch + (60*15),
+        "10_30m_post": target_epoch + (60*30),
     }
-
-    #print("[INFO] Local sunset epoch:", sunset_epoch)
-    #print("[INFO] Local sunset readable:", sunset_dt.strftime("%Y-%m-%d %H:%M:%S"))
 
     return intervals
 

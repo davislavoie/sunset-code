@@ -4,7 +4,7 @@ An automated pipeline that captures sunset photos from YouTube livestream cams, 
 
 ## How it works
 
-1. **Capture** — `sunset_code/helpers/get_photo.py` grabs a frame from a YouTube livestream (via `yt_dlp` + OpenCV) at fixed intervals around sunset (2h/1h/45m/30m/15m/5m before, at sunset, and 5m/15m/30m after), computed by `sunset_code/helpers/helpers.py` (`sunset_time`) using `astral` for the local sunset time at each camera's lat/lon.
+1. **Capture** — `sunset_code/helpers/get_photo.py` grabs a frame from a YouTube livestream (via `yt_dlp` + OpenCV) at fixed intervals around sunset or sunrise (2h/1h/45m/30m/15m/5m before, at the event, and 5m/15m/30m after), computed by `sunset_code/helpers/helpers.py` (`sunset_time`) using `astral` for the local sunset/sunrise time at each camera's lat/lon. The `MODE` config variable (`sunset` or `sunrise`) controls which event to capture.
 2. **Score** — `sunset_code/helpers/sunset_process.py` (`rank_sunset`) converts the sky half of each image to HSV and scores it (0–100) based on saturation-weighted red/orange/yellow/pink hue coverage. It also produces an annotated overlay image showing the color masks and ratios.
 3. **Rank & visualize** — `sunset_code/helpers/generate_ranked_image.py` renders the best-scoring capture of the day as an annotated PNG plus an HSV histogram plot.
 4. **Store** — `sunset_code/helpers/helpers.py` (`influxdb_push`) writes each photo's URL, score, and label as a point in InfluxDB (measurement `sunset_images`), tagged by `camera`.
@@ -37,8 +37,8 @@ sunset_code/
     generate_ranked_image.py       # renders the annotated/scored image + HSV histograms
 
 config/
-  bolton_summit_cam.env            # YOUTUBE_URL / CAMERA_TAG / LAT / LON / ALTITUDE / TIMEZONE
-  btv_echo_cam.env                 # same, for a second camera
+  bolton_summit_cam.env            # YOUTUBE_URL / CAMERA_TAG / LAT / LON / ALTITUDE / TIMEZONE / MODE
+  btv_echo_cam.env                 # same, for a second camera (MODE defaults to "sunset" if omitted)
 
 streamlit_project/
   app.py                          # dashboard entrypoint / navigation / InfluxDB query + cache

@@ -58,11 +58,12 @@ def show_page(sunset_data, all_data, ranked_images):
             else:
                 row_date = None
 
-            # Find the 07_sunset entry for that date
+            # Find the 07_sunset or 07_sunrise entry for that date
             matching = None
             if row_date:
                 for item in sunset_data:
-                    if item.get('Label', '').startswith('07_sunset') and row_date in item.get('Label', ''):
+                    label = item.get('Label', '')
+                    if (label.startswith('07_sunset') or label.startswith('07_sunrise')) and row_date in label:
                         matching = item
                         break
 
