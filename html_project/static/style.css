@@ -1056,8 +1056,17 @@ input[type=file] { color: var(--text); }
   color: #2ecc71;
 }
 
+.status-success code {
+  background: rgba(46, 204, 113, 0.2);
+  color: #2ecc71;
+}
+
 .status-error {
   color: #e74c3c;
+}
+
+.status-warning {
+  color: var(--accent);
 }
 
 .add-camera-note {

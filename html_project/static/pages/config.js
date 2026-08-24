@@ -108,8 +108,25 @@ export function renderConfig(container) {
       const result = await res.json();
 
       if (res.ok) {
-        status.textContent = "Camera added successfully!";
-        status.className = "status-success";
+        status.textContent = "Config created. Adding to docker-compose...";
+        status.className = "";
+
+        // Add service to docker-compose
+        const composeRes = await fetch("/api/add-compose-service", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ camera_tag: data.CAMERA_TAG }),
+        });
+        const composeResult = await composeRes.json();
+
+        if (composeRes.ok) {
+          status.innerHTML = 'Camera added! Run: <code>docker compose -f docker-compose.existing-infra.yml up -d --build</code>';
+          status.className = "status-success";
+        } else {
+          status.textContent = `Config saved but compose update failed: ${composeResult.error}`;
+          status.className = "status-warning";
+        }
+
         form.reset();
         form.querySelector('[name="TIMEZONE"]').value = "America/New_York";
         loadConfigs(configsContainer);

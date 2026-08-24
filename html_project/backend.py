@@ -8,6 +8,7 @@ import time
 import requests
 import glob
 import re
+import yaml
 
 app = Flask(__name__, static_folder="static", static_url_path="")
 
@@ -17,6 +18,16 @@ def get_config_dir():
     if docker_path.exists():
         return docker_path
     return Path(__file__).parent.parent / "config"
+
+# Docker compose file - mounted at /app/docker-compose.yml in Docker
+def get_compose_file():
+    docker_path = Path("/app/docker-compose.yml")
+    if docker_path.exists():
+        return docker_path
+    return Path(__file__).parent.parent / "docker-compose.existing-infra.yml"
+
+# Pictures path from env (for compose service template)
+PICTURES_PATH = os.environ.get("PICTURES_PATH", "/home/YOUR_USER/Pictures")
 
 INFLUXDB_HOST = os.environ.get("INFLUXDB_HOST", "100.107.153.41")
 INFLUXDB_PORT = int(os.environ.get("INFLUXDB_PORT", 8086))
@@ -180,6 +191,54 @@ def add_camera_config():
             for field in required_fields:
                 f.write(f"{field}={data[field]}\n")
         return jsonify({"success": True, "filename": filename})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/add-compose-service", methods=["POST"])
+def add_compose_service():
+    """Add a new capture service to the docker-compose file."""
+    data = request.json
+    camera_tag = data.get("camera_tag")
+
+    if not camera_tag:
+        return jsonify({"error": "camera_tag required"}), 400
+
+    compose_file = get_compose_file()
+    if not compose_file.exists():
+        return jsonify({"error": "docker-compose file not found"}), 404
+
+    try:
+        with open(compose_file, "r") as f:
+            compose = yaml.safe_load(f)
+
+        service_name = f"capture-{camera_tag}"
+        if service_name in compose.get("services", {}):
+            return jsonify({"error": f"Service {service_name} already exists"}), 409
+
+        new_service = {
+            "build": {
+                "context": ".",
+                "dockerfile": "sunset_code/Dockerfile"
+            },
+            "restart": "unless-stopped",
+            "depends_on": ["influxdb"],
+            "env_file": [f"config/{camera_tag}.env"],
+            "environment": {
+                "INFLUXDB_HOST": "influxdb",
+                "INFLUXDB_PORT": "8086",
+                "PICTURES_DIR": "/pictures",
+                "IMAGE_BASE_URL": "${IMAGE_BASE_URL:-http://localhost:8080}"
+            },
+            "volumes": [f"{PICTURES_PATH}:/pictures"]
+        }
+
+        compose["services"][service_name] = new_service
+
+        with open(compose_file, "w") as f:
+            yaml.dump(compose, f, default_flow_style=False, sort_keys=False)
+
+        return jsonify({"success": True, "service": service_name})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

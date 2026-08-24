@@ -62,8 +62,10 @@ services:
     environment:
       INFLUXDB_HOST: influxdb
       INFLUXDB_PORT: "8086"
+      PICTURES_PATH: /home/YOUR_USER/Pictures
     volumes:
-      - ./config:/app/config:ro
+      - ./config:/app/config
+      - ./docker-compose.existing-infra.yml:/app/docker-compose.yml
     ports:
       - "8502:8502"
 
