@@ -1,12 +1,18 @@
 from flask import Flask, jsonify, request, send_from_directory, Response
 from influxdb import InfluxDBClient
 from datetime import datetime
+from pathlib import Path
 import os
 import pytz
 import time
 import requests
+import glob
+import re
 
 app = Flask(__name__, static_folder="static", static_url_path="")
+
+# Config directory - look for it relative to the project root
+CONFIG_DIR = Path(__file__).parent.parent / "config"
 
 INFLUXDB_HOST = os.environ.get("INFLUXDB_HOST", "100.107.153.41")
 INFLUXDB_PORT = int(os.environ.get("INFLUXDB_PORT", 8086))
@@ -115,6 +121,63 @@ def image_proxy():
 @app.route("/")
 def index():
     return send_from_directory(app.static_folder, "index.html")
+
+
+def parse_env_file(filepath):
+    """Parse a .env file and return a dict of key-value pairs."""
+    config = {}
+    with open(filepath, "r") as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                key, value = line.split("=", 1)
+                config[key.strip()] = value.strip()
+    return config
+
+
+@app.route("/api/camera-configs")
+def camera_configs():
+    """Return all camera configurations from config/*.env files."""
+    configs = []
+    if CONFIG_DIR.exists():
+        for env_file in CONFIG_DIR.glob("*.env"):
+            try:
+                config = parse_env_file(env_file)
+                config["_filename"] = env_file.name
+                configs.append(config)
+            except Exception as e:
+                configs.append({"_filename": env_file.name, "_error": str(e)})
+    return jsonify(configs)
+
+
+@app.route("/api/camera-configs", methods=["POST"])
+def add_camera_config():
+    """Create a new camera configuration file."""
+    data = request.json
+    required_fields = ["CAMERA_TAG", "YOUTUBE_URL", "LAT", "LON", "ALTITUDE", "TIMEZONE"]
+
+    for field in required_fields:
+        if field not in data:
+            return jsonify({"error": f"Missing required field: {field}"}), 400
+
+    camera_tag = data["CAMERA_TAG"]
+    if not re.match(r"^[a-zA-Z0-9_-]+$", camera_tag):
+        return jsonify({"error": "CAMERA_TAG must be alphanumeric with underscores/hyphens only"}), 400
+
+    filename = f"{camera_tag}.env"
+    filepath = CONFIG_DIR / filename
+
+    if filepath.exists():
+        return jsonify({"error": f"Config file {filename} already exists"}), 409
+
+    try:
+        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+        with open(filepath, "w") as f:
+            for field in required_fields:
+                f.write(f"{field}={data[field]}\n")
+        return jsonify({"success": True, "filename": filename})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":

@@ -921,3 +921,164 @@ input[type=file] { color: var(--text); }
     font-size: 1.3em;
   }
 }
+
+/* ---- Config page ---- */
+.configs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.config-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.config-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.config-name {
+  font-weight: 600;
+  font-size: 1.1em;
+  color: var(--accent);
+}
+
+.config-file {
+  font-size: 0.8em;
+  color: var(--muted);
+}
+
+.config-error {
+  color: #e74c3c;
+  font-size: 0.85em;
+}
+
+.config-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.config-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.config-label {
+  font-size: 0.75em;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.config-value {
+  font-size: 0.9em;
+  word-break: break-all;
+}
+
+.config-url {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.config-url:hover {
+  text-decoration: underline;
+}
+
+/* Add camera form */
+.add-camera-form {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.add-camera-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.add-camera-form label span {
+  font-size: 0.85em;
+  color: var(--muted);
+}
+
+.add-camera-form input {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  color: var(--text);
+  font-size: 0.95em;
+}
+
+.add-camera-form input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.form-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #000;
+  font-weight: 600;
+}
+
+.btn-primary:hover {
+  opacity: 0.9;
+}
+
+.status-success {
+  color: #2ecc71;
+}
+
+.status-error {
+  color: #e74c3c;
+}
+
+.add-camera-note {
+  background: rgba(243, 156, 18, 0.1);
+  border: 1px solid rgba(243, 156, 18, 0.3);
+  border-radius: 6px;
+  padding: 12px 16px;
+  font-size: 0.9em;
+  color: var(--muted);
+}
+
+.add-camera-note strong {
+  color: var(--accent);
+}
+
+@media (max-width: 768px) {
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .configs-grid {
+    grid-template-columns: 1fr;
+  }
+}

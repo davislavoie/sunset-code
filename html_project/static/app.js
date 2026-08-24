@@ -3,6 +3,7 @@ import { renderRanking } from "./pages/ranking.js";
 import { renderScoreTracker } from "./pages/scoretracker.js";
 import { renderHsvTuner } from "./pages/hsvtuner.js";
 import { renderRankingExplained } from "./pages/rankingexplained.js";
+import { renderConfig } from "./pages/config.js";
 
 const content = document.getElementById("content");
 const cameraSelect = document.getElementById("camera-select");
@@ -64,6 +65,7 @@ const pages = {
   scoretracker: renderScoreTracker,
   hsvtuner: renderHsvTuner,
   rankingexplained: renderRankingExplained,
+  config: renderConfig,
 };
 
 // Mirrors app.py's session state: current page + fetched data for the selected camera
