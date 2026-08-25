@@ -4,6 +4,11 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
+# Install Node.js (required by yt-dlp for YouTube extraction)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY sunset_code/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
