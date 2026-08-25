@@ -1,6 +1,7 @@
 // Documentation page explaining how sunset ranking works + interactive scorer
 
 let multipliers = { red: 4, orange: 3, yellow: 2, pink: 9 };
+let formulaParams = { power: 2.0, divisor: 40 };
 let testImages = []; // {url, name, card, imageData, scores}
 
 export async function renderRankingExplained(container, state) {
@@ -46,25 +47,25 @@ export async function renderRankingExplained(container, state) {
           <td><span class="color-swatch" style="background: hsl(0, 70%, 50%)"></span> Red</td>
           <td>0 - 8</td>
           <td>20</td>
-          <td><input type="range" id="mult-red" min="0" max="20" step="0.5" value="${multipliers.red}"> <span class="mult-value" id="val-red">${multipliers.red}</span></td>
+          <td><input type="number" id="mult-red" class="param-input" step="0.5" value="${multipliers.red}"></td>
         </tr>
         <tr>
           <td><span class="color-swatch" style="background: hsl(20, 70%, 50%)"></span> Orange</td>
           <td>8 - 25</td>
           <td>20</td>
-          <td><input type="range" id="mult-orange" min="0" max="20" step="0.5" value="${multipliers.orange}"> <span class="mult-value" id="val-orange">${multipliers.orange}</span></td>
+          <td><input type="number" id="mult-orange" class="param-input" step="0.5" value="${multipliers.orange}"></td>
         </tr>
         <tr>
           <td><span class="color-swatch" style="background: hsl(30, 70%, 50%)"></span> Yellow</td>
           <td>25 - 35</td>
           <td>20</td>
-          <td><input type="range" id="mult-yellow" min="0" max="20" step="0.5" value="${multipliers.yellow}"> <span class="mult-value" id="val-yellow">${multipliers.yellow}</span></td>
+          <td><input type="number" id="mult-yellow" class="param-input" step="0.5" value="${multipliers.yellow}"></td>
         </tr>
         <tr>
           <td><span class="color-swatch" style="background: hsl(300, 70%, 50%)"></span> Pink/Purple</td>
           <td>140 - 179</td>
           <td>20</td>
-          <td><input type="range" id="mult-pink" min="0" max="20" step="0.5" value="${multipliers.pink}"> <span class="mult-value" id="val-pink">${multipliers.pink}</span></td>
+          <td><input type="number" id="mult-pink" class="param-input" step="0.5" value="${multipliers.pink}"></td>
         </tr>
       </tbody>
     </table>
@@ -83,15 +84,16 @@ export async function renderRankingExplained(container, state) {
     <h3>Score Calculation</h3>
     <p>For each color, a weighted score is calculated:</p>
 
-    <div class="formula-box">
-      <code>color_score = (pixel_ratio × avg_saturation²) / 40</code>
+    <div class="formula-box editable-formula">
+      <code>color_score = (pixel_ratio × avg_saturation<sup><input type="number" id="param-power" class="param-input-small" step="0.1" value="${formulaParams.power}"></sup>) / <input type="number" id="param-divisor" class="param-input-small" step="1" value="${formulaParams.divisor}"></code>
     </div>
 
     <p>Where:</p>
     <ul>
       <li><strong>pixel_ratio</strong> = matching pixels / total pixels in image</li>
       <li><strong>avg_saturation</strong> = average saturation (0-255) of matching pixels</li>
-      <li>Saturation is squared to reward vibrant colors exponentially</li>
+      <li><strong>power</strong> = exponent to reward vibrant colors (higher = more exponential)</li>
+      <li><strong>divisor</strong> = normalizing factor</li>
     </ul>
 
     <div class="formula-box" id="formula-display">
@@ -166,17 +168,25 @@ export async function renderRankingExplained(container, state) {
   `;
   container.appendChild(whySection);
 
-  // Event handlers for multiplier sliders
+  // Event handlers for multiplier inputs
   ["red", "orange", "yellow", "pink"].forEach((color) => {
-    const slider = document.getElementById(`mult-${color}`);
-    const valueSpan = document.getElementById(`val-${color}`);
+    const input = document.getElementById(`mult-${color}`);
     const formulaSpan = document.getElementById(`formula-${color}`);
-    slider.addEventListener("input", () => {
-      multipliers[color] = parseFloat(slider.value);
-      valueSpan.textContent = slider.value;
-      formulaSpan.textContent = slider.value;
+    input.addEventListener("input", () => {
+      multipliers[color] = parseFloat(input.value) || 0;
+      formulaSpan.textContent = input.value;
       recalculateAllScores();
     });
+  });
+
+  // Event handlers for formula parameters
+  document.getElementById("param-power").addEventListener("input", (e) => {
+    formulaParams.power = parseFloat(e.target.value) || 2.0;
+    recalculateAllScores();
+  });
+  document.getElementById("param-divisor").addEventListener("input", (e) => {
+    formulaParams.divisor = parseFloat(e.target.value) || 40;
+    recalculateAllScores();
   });
 
   // Save multipliers
@@ -212,9 +222,12 @@ export async function renderRankingExplained(container, state) {
         multipliers = await res.json();
         ["red", "orange", "yellow", "pink"].forEach((color) => {
           document.getElementById(`mult-${color}`).value = multipliers[color];
-          document.getElementById(`val-${color}`).textContent = multipliers[color];
           document.getElementById(`formula-${color}`).textContent = multipliers[color];
         });
+        // Reset formula params to defaults
+        formulaParams = { power: 2.0, divisor: 40 };
+        document.getElementById("param-power").value = 2.0;
+        document.getElementById("param-divisor").value = 40;
         recalculateAllScores();
       }
     } catch (e) {
@@ -289,9 +302,16 @@ async function addTestImage(url, name) {
       <span>${name}</span>
       <button class="btn btn-small btn-delete remove-image">X</button>
     </div>
-    <div class="test-image-container">
-      <canvas class="test-canvas"></canvas>
-      <div class="test-image-loading">Loading...</div>
+    <div class="test-image-views">
+      <div class="test-image-container">
+        <div class="view-label">Original</div>
+        <canvas class="test-canvas original-canvas"></canvas>
+        <div class="test-image-loading">Loading...</div>
+      </div>
+      <div class="test-image-container">
+        <div class="view-label">Overlay</div>
+        <canvas class="test-canvas overlay-canvas"></canvas>
+      </div>
     </div>
     <div class="test-image-scores">
       <div class="score-breakdown">
@@ -306,20 +326,23 @@ async function addTestImage(url, name) {
 
   grid.appendChild(card);
 
-  const canvas = card.querySelector(".test-canvas");
+  const originalCanvas = card.querySelector(".original-canvas");
+  const overlayCanvas = card.querySelector(".overlay-canvas");
   const loadingDiv = card.querySelector(".test-image-loading");
-  const ctx = canvas.getContext("2d");
+  const originalCtx = originalCanvas.getContext("2d");
 
   const img = new Image();
   img.crossOrigin = "anonymous";
   img.onload = () => {
-    canvas.width = img.width;
-    canvas.height = img.height;
-    ctx.drawImage(img, 0, 0);
+    originalCanvas.width = img.width;
+    originalCanvas.height = img.height;
+    overlayCanvas.width = img.width;
+    overlayCanvas.height = img.height;
+    originalCtx.drawImage(img, 0, 0);
     loadingDiv.style.display = "none";
 
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const entry = { url, name, card, imageData };
+    const imageData = originalCtx.getImageData(0, 0, originalCanvas.width, originalCanvas.height);
+    const entry = { url, name, card, imageData, originalCanvas, overlayCanvas };
     testImages.push(entry);
     calculateScore(entry);
   };
@@ -335,7 +358,7 @@ async function addTestImage(url, name) {
 }
 
 function calculateScore(entry) {
-  const { imageData, card } = entry;
+  const { imageData, card, overlayCanvas } = entry;
   const data = imageData.data;
   const width = imageData.width;
   const height = imageData.height;
@@ -343,8 +366,14 @@ function calculateScore(entry) {
   const skyHeight = Math.floor(height / 2);
   const totalPixels = width * height;
 
+  // Create overlay image data
+  const overlayData = new Uint8ClampedArray(data.length);
+  for (let i = 0; i < data.length; i++) overlayData[i] = data[i];
+
   let redCount = 0, orangeCount = 0, yellowCount = 0, pinkCount = 0;
   let redSatSum = 0, orangeSatSum = 0, yellowSatSum = 0, pinkSatSum = 0;
+
+  const opacity = 0.5;
 
   for (let y = 0; y < skyHeight; y++) {
     for (let x = 0; x < width; x++) {
@@ -356,32 +385,49 @@ function calculateScore(entry) {
 
       if (sat < 20) continue;
 
+      let overlayColor = null;
+
       if (hue < 8) {
         redCount++; redSatSum += sat;
+        overlayColor = [255, 0, 0]; // Red overlay
       } else if (hue >= 8 && hue < 25) {
         orangeCount++; orangeSatSum += sat;
+        overlayColor = [255, 140, 0]; // Orange overlay
       } else if (hue >= 25 && hue <= 35) {
         yellowCount++; yellowSatSum += sat;
+        overlayColor = [255, 255, 0]; // Yellow overlay
       } else if (hue >= 140 && hue <= 179) {
         pinkCount++; pinkSatSum += sat;
+        overlayColor = [255, 0, 255]; // Pink overlay
+      }
+
+      if (overlayColor) {
+        overlayData[i] = Math.round(opacity * overlayColor[0] + (1 - opacity) * data[i]);
+        overlayData[i + 1] = Math.round(opacity * overlayColor[1] + (1 - opacity) * data[i + 1]);
+        overlayData[i + 2] = Math.round(opacity * overlayColor[2] + (1 - opacity) * data[i + 2]);
       }
     }
   }
 
-  const power = 2.0;
+  // Draw overlay
+  const overlayCtx = overlayCanvas.getContext("2d");
+  const overlayImageData = new ImageData(overlayData, width, height);
+  overlayCtx.putImageData(overlayImageData, 0, 0);
+
+  const { power, divisor } = formulaParams;
   let redScore = 0, orangeScore = 0, yellowScore = 0, pinkScore = 0;
 
   if (redCount > 0) {
-    redScore = ((redCount / totalPixels) * Math.pow(redSatSum / redCount, power)) / 40;
+    redScore = ((redCount / totalPixels) * Math.pow(redSatSum / redCount, power)) / divisor;
   }
   if (orangeCount > 0) {
-    orangeScore = ((orangeCount / totalPixels) * Math.pow(orangeSatSum / orangeCount, power)) / 40;
+    orangeScore = ((orangeCount / totalPixels) * Math.pow(orangeSatSum / orangeCount, power)) / divisor;
   }
   if (yellowCount > 0) {
-    yellowScore = ((yellowCount / totalPixels) * Math.pow(yellowSatSum / yellowCount, power)) / 40;
+    yellowScore = ((yellowCount / totalPixels) * Math.pow(yellowSatSum / yellowCount, power)) / divisor;
   }
   if (pinkCount > 0) {
-    pinkScore = ((pinkCount / totalPixels) * Math.pow(pinkSatSum / pinkCount, power)) / 40;
+    pinkScore = ((pinkCount / totalPixels) * Math.pow(pinkSatSum / pinkCount, power)) / divisor;
   }
 
   const total = Math.min(100,
