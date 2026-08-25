@@ -62,8 +62,9 @@ export function maskCanvas(sourceCanvas, destCanvas, hMin, hMax, sMin, sMax, vMi
 export function loadImage(src) {
   return new Promise((resolve, reject) => {
     const img = new Image();
+    img.crossOrigin = "anonymous";
     img.onload = () => resolve(img);
-    img.onerror = reject;
+    img.onerror = () => reject(new Error("Failed to load image - check if the source is accessible"));
     img.src = src;
   });
 }
