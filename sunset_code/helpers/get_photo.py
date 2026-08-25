@@ -12,7 +12,7 @@ def get_video_url(stream_url):
     """
     # Try yt-dlp first
     try:
-        ydl_opts = {'format': 'best', 'quiet': True, 'extractor_args': {'youtube': {'js_runtimes': ['node']}}}
+        ydl_opts = {'format': 'bestvideo/best', 'quiet': True}
         with YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(stream_url, download=False)
             video_url = info['url']
