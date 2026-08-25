@@ -2,6 +2,12 @@
 
 let multipliers = { red: 4, orange: 3, yellow: 2, pink: 9 };
 let formulaParams = { power: 2.0, divisor: 40 };
+let colorRanges = {
+  red: { hueMin: 0, hueMax: 8, satMin: 20 },
+  orange: { hueMin: 8, hueMax: 25, satMin: 20 },
+  yellow: { hueMin: 25, hueMax: 35, satMin: 20 },
+  pink: { hueMin: 140, hueMax: 179, satMin: 20 },
+};
 let testImages = []; // {url, name, card, imageData, scores}
 
 export async function renderRankingExplained(container, state) {
@@ -37,7 +43,8 @@ export async function renderRankingExplained(container, state) {
       <thead>
         <tr>
           <th>Color</th>
-          <th>Hue Range</th>
+          <th>Hue Min</th>
+          <th>Hue Max</th>
           <th>Min Sat</th>
           <th>Multiplier</th>
         </tr>
@@ -45,26 +52,30 @@ export async function renderRankingExplained(container, state) {
       <tbody>
         <tr>
           <td><span class="color-swatch" style="background: hsl(0, 70%, 50%)"></span> Red</td>
-          <td>0 - 8</td>
-          <td>20</td>
+          <td><input type="number" id="red-hueMin" class="param-input-small" value="${colorRanges.red.hueMin}"></td>
+          <td><input type="number" id="red-hueMax" class="param-input-small" value="${colorRanges.red.hueMax}"></td>
+          <td><input type="number" id="red-satMin" class="param-input-small" value="${colorRanges.red.satMin}"></td>
           <td><input type="number" id="mult-red" class="param-input" step="0.5" value="${multipliers.red}"></td>
         </tr>
         <tr>
           <td><span class="color-swatch" style="background: hsl(20, 70%, 50%)"></span> Orange</td>
-          <td>8 - 25</td>
-          <td>20</td>
+          <td><input type="number" id="orange-hueMin" class="param-input-small" value="${colorRanges.orange.hueMin}"></td>
+          <td><input type="number" id="orange-hueMax" class="param-input-small" value="${colorRanges.orange.hueMax}"></td>
+          <td><input type="number" id="orange-satMin" class="param-input-small" value="${colorRanges.orange.satMin}"></td>
           <td><input type="number" id="mult-orange" class="param-input" step="0.5" value="${multipliers.orange}"></td>
         </tr>
         <tr>
           <td><span class="color-swatch" style="background: hsl(30, 70%, 50%)"></span> Yellow</td>
-          <td>25 - 35</td>
-          <td>20</td>
+          <td><input type="number" id="yellow-hueMin" class="param-input-small" value="${colorRanges.yellow.hueMin}"></td>
+          <td><input type="number" id="yellow-hueMax" class="param-input-small" value="${colorRanges.yellow.hueMax}"></td>
+          <td><input type="number" id="yellow-satMin" class="param-input-small" value="${colorRanges.yellow.satMin}"></td>
           <td><input type="number" id="mult-yellow" class="param-input" step="0.5" value="${multipliers.yellow}"></td>
         </tr>
         <tr>
           <td><span class="color-swatch" style="background: hsl(300, 70%, 50%)"></span> Pink/Purple</td>
-          <td>140 - 179</td>
-          <td>20</td>
+          <td><input type="number" id="pink-hueMin" class="param-input-small" value="${colorRanges.pink.hueMin}"></td>
+          <td><input type="number" id="pink-hueMax" class="param-input-small" value="${colorRanges.pink.hueMax}"></td>
+          <td><input type="number" id="pink-satMin" class="param-input-small" value="${colorRanges.pink.satMin}"></td>
           <td><input type="number" id="mult-pink" class="param-input" step="0.5" value="${multipliers.pink}"></td>
         </tr>
       </tbody>
@@ -177,6 +188,15 @@ export async function renderRankingExplained(container, state) {
       formulaSpan.textContent = input.value;
       recalculateAllScores();
     });
+
+    // Color range inputs
+    ["hueMin", "hueMax", "satMin"].forEach((param) => {
+      const rangeInput = document.getElementById(`${color}-${param}`);
+      rangeInput.addEventListener("input", () => {
+        colorRanges[color][param] = parseFloat(rangeInput.value) || 0;
+        recalculateAllScores();
+      });
+    });
   });
 
   // Event handlers for formula parameters
@@ -228,6 +248,20 @@ export async function renderRankingExplained(container, state) {
         formulaParams = { power: 2.0, divisor: 40 };
         document.getElementById("param-power").value = 2.0;
         document.getElementById("param-divisor").value = 40;
+
+        // Reset color ranges to defaults
+        colorRanges = {
+          red: { hueMin: 0, hueMax: 8, satMin: 20 },
+          orange: { hueMin: 8, hueMax: 25, satMin: 20 },
+          yellow: { hueMin: 25, hueMax: 35, satMin: 20 },
+          pink: { hueMin: 140, hueMax: 179, satMin: 20 },
+        };
+        ["red", "orange", "yellow", "pink"].forEach((color) => {
+          document.getElementById(`${color}-hueMin`).value = colorRanges[color].hueMin;
+          document.getElementById(`${color}-hueMax`).value = colorRanges[color].hueMax;
+          document.getElementById(`${color}-satMin`).value = colorRanges[color].satMin;
+        });
+
         recalculateAllScores();
       }
     } catch (e) {
@@ -383,20 +417,21 @@ function calculateScore(entry) {
       const hue = h * 180;
       const sat = s * 255;
 
-      if (sat < 20) continue;
-
       let overlayColor = null;
 
-      if (hue < 8) {
+      // Check each color range
+      const { red, orange, yellow, pink } = colorRanges;
+
+      if (hue >= red.hueMin && hue < red.hueMax && sat >= red.satMin) {
         redCount++; redSatSum += sat;
         overlayColor = [255, 0, 0]; // Red overlay
-      } else if (hue >= 8 && hue < 25) {
+      } else if (hue >= orange.hueMin && hue < orange.hueMax && sat >= orange.satMin) {
         orangeCount++; orangeSatSum += sat;
         overlayColor = [255, 140, 0]; // Orange overlay
-      } else if (hue >= 25 && hue <= 35) {
+      } else if (hue >= yellow.hueMin && hue <= yellow.hueMax && sat >= yellow.satMin) {
         yellowCount++; yellowSatSum += sat;
         overlayColor = [255, 255, 0]; // Yellow overlay
-      } else if (hue >= 140 && hue <= 179) {
+      } else if (hue >= pink.hueMin && hue <= pink.hueMax && sat >= pink.satMin) {
         pinkCount++; pinkSatSum += sat;
         overlayColor = [255, 0, 255]; // Pink overlay
       }
