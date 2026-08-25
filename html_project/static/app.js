@@ -2,6 +2,7 @@ import { renderGallery } from "./pages/gallery.js";
 import { renderRanking } from "./pages/ranking.js";
 import { renderScoreTracker } from "./pages/scoretracker.js";
 import { renderHsvTuner } from "./pages/hsvtuner.js";
+import { renderScorer } from "./pages/scorer.js";
 import { renderRankingExplained } from "./pages/rankingexplained.js";
 import { renderConfig } from "./pages/config.js";
 
@@ -64,6 +65,7 @@ const pages = {
   ranking: renderRanking,
   scoretracker: renderScoreTracker,
   hsvtuner: renderHsvTuner,
+  scorer: renderScorer,
   rankingexplained: renderRankingExplained,
   config: renderConfig,
 };

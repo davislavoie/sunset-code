@@ -294,6 +294,68 @@ def add_compose_service():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/api/scoring-config")
+def get_scoring_config():
+    """Read current scoring multipliers from sunset_process.py."""
+    try:
+        # Find sunset_process.py
+        process_file = Path(__file__).parent.parent / "sunset_code" / "helpers" / "sunset_process.py"
+        if not process_file.exists():
+            return jsonify({"error": "sunset_process.py not found"}), 404
+
+        content = process_file.read_text()
+
+        # Extract multipliers using regex
+        import re
+        pattern = r'score\s*=\s*\(\s*red_score\s*\*\s*([\d.]+)\s*\+\s*orange_score\s*\*\s*([\d.]+)\s*\+\s*yellow_score\s*\*\s*([\d.]+)\s*\+\s*pink_score\s*\*\s*([\d.]+)'
+        match = re.search(pattern, content)
+
+        if match:
+            return jsonify({
+                "red": float(match.group(1)),
+                "orange": float(match.group(2)),
+                "yellow": float(match.group(3)),
+                "pink": float(match.group(4)),
+            })
+        else:
+            return jsonify({"error": "Could not parse multipliers"}), 500
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/scoring-config", methods=["PUT"])
+def update_scoring_config():
+    """Update scoring multipliers in sunset_process.py."""
+    data = request.json
+    required = ["red", "orange", "yellow", "pink"]
+
+    for field in required:
+        if field not in data:
+            return jsonify({"error": f"Missing field: {field}"}), 400
+
+    try:
+        process_file = Path(__file__).parent.parent / "sunset_code" / "helpers" / "sunset_process.py"
+        if not process_file.exists():
+            return jsonify({"error": "sunset_process.py not found"}), 404
+
+        content = process_file.read_text()
+
+        # Replace the score calculation
+        import re
+        old_pattern = r'score\s*=\s*\(\s*red_score\s*\*\s*[\d.]+\s*\+\s*orange_score\s*\*\s*[\d.]+\s*\+\s*yellow_score\s*\*\s*[\d.]+\s*\+\s*pink_score\s*\*\s*[\d.]+'
+        new_score = f"score = (\n        red_score * {data['red']} +\n        orange_score * {data['orange']} +\n        yellow_score * {data['yellow']} +\n        pink_score * {data['pink']}"
+
+        new_content = re.sub(old_pattern, new_score, content)
+
+        if new_content == content:
+            return jsonify({"error": "Could not find score pattern to replace"}), 500
+
+        process_file.write_text(new_content)
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/rebuild", methods=["POST"])
 def trigger_rebuild():
     """Trigger a docker compose rebuild via the webhook service."""
