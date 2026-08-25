@@ -294,5 +294,24 @@ def add_compose_service():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/api/rebuild", methods=["POST"])
+def trigger_rebuild():
+    """Trigger a docker compose rebuild via the webhook service."""
+    webhook_url = os.environ.get("REBUILD_WEBHOOK_URL")
+    token = os.environ.get("REBUILD_TOKEN", "changeme")
+
+    if not webhook_url:
+        return jsonify({"error": "Rebuild webhook not configured"}), 503
+
+    try:
+        resp = requests.post(webhook_url, headers={"X-Token": token}, timeout=5)
+        if resp.status_code == 202:
+            return jsonify({"status": "rebuilding", "message": "Rebuild started. Containers will restart shortly."})
+        else:
+            return jsonify({"error": "Webhook rejected request"}), resp.status_code
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8502, debug=False)

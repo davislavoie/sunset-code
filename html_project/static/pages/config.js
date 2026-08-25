@@ -73,13 +73,50 @@ export function renderConfig(container) {
     </form>
     <div class="add-camera-note">
       <strong>Note:</strong> Adding a camera will create the config file and automatically update docker-compose.yml.
-      After adding, run: <code>docker compose -f docker-compose.existing-infra.yml up -d --build</code>
+      After adding, click Rebuild below or run: <code>docker compose -f docker-compose.existing-infra.yml up -d --build</code>
     </div>
   `;
   container.appendChild(addSection);
 
+  // Rebuild section
+  const rebuildSection = document.createElement("section");
+  rebuildSection.innerHTML = `
+    <h3>Rebuild Containers</h3>
+    <p>Apply config changes by rebuilding the Docker containers.</p>
+    <div class="rebuild-actions">
+      <button id="rebuild-btn" class="btn btn-primary">Rebuild All Containers</button>
+      <span id="rebuild-status"></span>
+    </div>
+  `;
+  container.appendChild(rebuildSection);
+
   // Load configs
   loadConfigs(configsContainer);
+
+  // Handle rebuild button
+  const rebuildBtn = document.getElementById("rebuild-btn");
+  const rebuildStatus = document.getElementById("rebuild-status");
+  rebuildBtn.addEventListener("click", async () => {
+    if (!confirm("Rebuild all containers? This will briefly interrupt the dashboard.")) return;
+    rebuildBtn.disabled = true;
+    rebuildStatus.textContent = "Starting rebuild...";
+    rebuildStatus.className = "";
+    try {
+      const res = await fetch("/api/rebuild", { method: "POST" });
+      const result = await res.json();
+      if (res.ok) {
+        rebuildStatus.textContent = "Rebuild started! Page may disconnect briefly.";
+        rebuildStatus.className = "status-success";
+      } else {
+        rebuildStatus.textContent = result.error || "Rebuild failed";
+        rebuildStatus.className = "status-error";
+      }
+    } catch (err) {
+      rebuildStatus.textContent = "Error: " + err.message;
+      rebuildStatus.className = "status-error";
+    }
+    rebuildBtn.disabled = false;
+  });
 
   // Handle form submission
   const form = document.getElementById("add-camera-form");
