@@ -3,6 +3,7 @@
 let mapInstance = null;
 let mapMarkers = [];
 let sunLines = [];
+let cachedConfigs = [];
 
 export function renderConfig(container) {
   container.innerHTML = "";
@@ -22,6 +23,22 @@ export function renderConfig(container) {
   mapSection.innerHTML = `
     <h3>Camera Locations</h3>
     <div class="map-container">
+      <div class="map-controls">
+        <div class="map-date-control">
+          <label>Date</label>
+          <input type="date" id="map-date" value="${new Date().toISOString().split('T')[0]}">
+        </div>
+        <div class="map-date-shortcuts">
+          <button class="btn btn-small" data-offset="-1">Yesterday</button>
+          <button class="btn btn-small" data-offset="0">Today</button>
+          <button class="btn btn-small" data-offset="1">Tomorrow</button>
+        </div>
+        <div class="map-season-shortcuts">
+          <button class="btn btn-small" data-season="summer">Summer Solstice</button>
+          <button class="btn btn-small" data-season="winter">Winter Solstice</button>
+          <button class="btn btn-small" data-season="spring">Spring Equinox</button>
+        </div>
+      </div>
       <div id="camera-map"></div>
       <div class="map-legend">
         <div class="legend-item"><span class="legend-dot sunset"></span> Sunset cameras</div>
@@ -113,7 +130,9 @@ export function renderConfig(container) {
 
   // Load configs and initialize map
   loadConfigs(configsContainer).then(configs => {
-    initMap(configs);
+    cachedConfigs = configs;
+    initMap(configs, new Date());
+    setupMapDateControls();
   });
 
   // Handle rebuild button
@@ -283,7 +302,7 @@ async function loadConfigs(container) {
   }
 }
 
-function initMap(configs) {
+function initMap(configs, selectedDate) {
   const mapEl = document.getElementById('camera-map');
   if (!mapEl || !configs.length) return;
 
@@ -320,22 +339,14 @@ function initMap(configs) {
     maxZoom: 19,
   }).addTo(mapInstance);
 
-  // Add markers and sun direction lines for each camera
+  // Add markers for each camera (lines and popups added by updateSunData)
   validConfigs.forEach(config => {
     const lat = parseFloat(config.LAT);
     const lon = parseFloat(config.LON);
     const mode = config.MODE || 'sunset';
     const isSunrise = mode === 'sunrise';
-
-    // Calculate sun position for today
-    const now = new Date();
-    const sunTimes = SunCalc.getTimes(now, lat, lon);
-    const targetTime = isSunrise ? sunTimes.sunrise : sunTimes.sunset;
-    const sunPos = SunCalc.getPosition(targetTime, lat, lon);
-    const azimuthDeg = (sunPos.azimuth * 180 / Math.PI) + 180; // Convert to degrees, adjust for north
-
-    // Create custom marker icon
     const markerColor = isSunrise ? '#ff9500' : '#f39c12';
+
     const markerIcon = L.divIcon({
       className: 'camera-marker',
       html: `<div class="marker-pin" style="--marker-color: ${markerColor}">
@@ -347,9 +358,46 @@ function initMap(configs) {
     });
 
     const marker = L.marker([lat, lon], { icon: markerIcon }).addTo(mapInstance);
+    marker._config = config; // Store config reference
+    marker.on('mouseover', function() { this.openPopup(); });
+    mapMarkers.push(marker);
+  });
 
-    // Calculate endpoint for sun direction line (extend ~50km in sun direction)
-    const lineLength = 0.5; // degrees, roughly 50km
+  // Fit bounds to show all markers with padding
+  if (mapMarkers.length > 1) {
+    const group = L.featureGroup(mapMarkers);
+    mapInstance.fitBounds(group.getBounds().pad(0.2));
+  }
+
+  // Initial sun data update
+  updateSunData(selectedDate);
+}
+
+function updateSunData(selectedDate) {
+  if (!mapInstance || !mapMarkers.length) return;
+
+  // Remove existing sun lines
+  sunLines.forEach(line => mapInstance.removeLayer(line));
+  sunLines = [];
+
+  const dateStr = selectedDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+
+  mapMarkers.forEach(marker => {
+    const config = marker._config;
+    const lat = parseFloat(config.LAT);
+    const lon = parseFloat(config.LON);
+    const mode = config.MODE || 'sunset';
+    const isSunrise = mode === 'sunrise';
+    const markerColor = isSunrise ? '#ff9500' : '#f39c12';
+
+    // Calculate sun position for selected date
+    const sunTimes = SunCalc.getTimes(selectedDate, lat, lon);
+    const targetTime = isSunrise ? sunTimes.sunrise : sunTimes.sunset;
+    const sunPos = SunCalc.getPosition(targetTime, lat, lon);
+    const azimuthDeg = (sunPos.azimuth * 180 / Math.PI) + 180;
+
+    // Calculate endpoint for sun direction line
+    const lineLength = 0.5;
     const endLat = lat + lineLength * Math.cos(sunPos.azimuth);
     const endLon = lon + lineLength * Math.sin(sunPos.azimuth);
 
@@ -365,13 +413,14 @@ function initMap(configs) {
     // Format times for popup
     const formatTime = (date) => date ? date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A';
 
-    // Create popup content
+    // Update popup content
     const popupContent = `
       <div class="map-popup">
         <div class="popup-header">
           <span class="popup-name">${config.CAMERA_TAG}</span>
           <span class="popup-mode ${mode}">${mode}</span>
         </div>
+        <div class="popup-date">${dateStr}</div>
         <div class="popup-details">
           <div class="popup-row">
             <span class="popup-label">Location</span>
@@ -381,17 +430,13 @@ function initMap(configs) {
             <span class="popup-label">Altitude</span>
             <span class="popup-value">${config.ALTITUDE || 'N/A'}m</span>
           </div>
-          <div class="popup-row">
-            <span class="popup-label">Timezone</span>
-            <span class="popup-value">${config.TIMEZONE || 'N/A'}</span>
-          </div>
           <div class="popup-divider"></div>
           <div class="popup-row">
-            <span class="popup-label">Today's Sunrise</span>
+            <span class="popup-label">Sunrise</span>
             <span class="popup-value">${formatTime(sunTimes.sunrise)}</span>
           </div>
           <div class="popup-row">
-            <span class="popup-label">Today's Sunset</span>
+            <span class="popup-label">Sunset</span>
             <span class="popup-value">${formatTime(sunTimes.sunset)}</span>
           </div>
           <div class="popup-row">
@@ -406,24 +451,54 @@ function initMap(configs) {
       </div>
     `;
 
-    marker.bindPopup(popupContent, {
-      className: 'dark-popup',
-      maxWidth: 280,
-    });
+    marker.setPopupContent(popupContent);
+  });
+}
 
-    // Show popup on hover (desktop), keep click for mobile
-    marker.on('mouseover', function() {
-      this.openPopup();
-    });
+function setupMapDateControls() {
+  const dateInput = document.getElementById('map-date');
+  if (!dateInput) return;
 
-    mapMarkers.push(marker);
+  // Date input change
+  dateInput.addEventListener('change', () => {
+    const date = new Date(dateInput.value + 'T12:00:00');
+    updateSunData(date);
   });
 
-  // Fit bounds to show all markers with padding
-  if (mapMarkers.length > 1) {
-    const group = L.featureGroup(mapMarkers);
-    mapInstance.fitBounds(group.getBounds().pad(0.2));
-  }
+  // Offset buttons (Yesterday, Today, Tomorrow)
+  document.querySelectorAll('.map-date-shortcuts button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const offset = parseInt(btn.dataset.offset);
+      const date = new Date();
+      date.setDate(date.getDate() + offset);
+      dateInput.value = date.toISOString().split('T')[0];
+      updateSunData(date);
+    });
+  });
+
+  // Season shortcuts
+  document.querySelectorAll('.map-season-shortcuts button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const season = btn.dataset.season;
+      const year = new Date().getFullYear();
+      let date;
+      switch (season) {
+        case 'summer':
+          date = new Date(year, 5, 21); // June 21
+          break;
+        case 'winter':
+          date = new Date(year, 11, 21); // Dec 21
+          break;
+        case 'spring':
+          date = new Date(year, 2, 20); // Mar 20
+          break;
+        default:
+          date = new Date();
+      }
+      dateInput.value = date.toISOString().split('T')[0];
+      updateSunData(date);
+    });
+  });
 }
 
 function showEditModal(config, configsContainer) {

@@ -1414,6 +1414,55 @@ input[type=file] { color: var(--text); }
   color: var(--muted);
 }
 
+.map-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: rgba(0, 0, 0, 0.3);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.map-date-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.map-date-control label {
+  font-size: 0.85em;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.map-date-control input[type="date"] {
+  background: var(--panel);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 6px 10px;
+  color: var(--text);
+  font-size: 0.9em;
+  color-scheme: dark;
+}
+
+.map-date-control input[type="date"]:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.map-date-shortcuts,
+.map-season-shortcuts {
+  display: flex;
+  gap: 6px;
+}
+
+.map-date-shortcuts .btn-small,
+.map-season-shortcuts .btn-small {
+  padding: 4px 10px;
+  font-size: 0.8em;
+}
+
 .map-legend {
   display: flex;
   gap: 20px;
@@ -1541,6 +1590,12 @@ input[type=file] { color: var(--text); }
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-bottom: 8px;
+}
+
+.popup-date {
+  font-size: 0.8em;
+  color: var(--muted);
   margin-bottom: 12px;
   padding-bottom: 12px;
   border-bottom: 1px solid var(--border-subtle);
