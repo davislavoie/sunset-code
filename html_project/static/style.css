@@ -1732,6 +1732,48 @@ input[type=file] { color: var(--text); }
     flex-wrap: wrap;
     gap: 12px;
   }
+
+  .map-slider-control {
+    min-width: 100%;
+  }
+}
+
+/* ---- Sun Times Chart ---- */
+.sun-chart-container {
+  background: var(--panel);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.sun-chart-controls {
+  padding: 12px 16px;
+  background: rgba(0, 0, 0, 0.3);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.sun-chart-controls select {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 0.9em;
+  min-width: 200px;
+  color-scheme: dark;
+}
+
+#sun-times-chart {
+  height: 300px;
+  width: 100%;
+}
+
+.chart-empty {
+  height: 300px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
 }
 
 /* ---- Scorer page ---- */

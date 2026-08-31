@@ -50,6 +50,23 @@ export function renderConfig(container) {
 
   container.appendChild(document.createElement("hr"));
 
+  // Sun times chart section
+  const chartSection = document.createElement("section");
+  chartSection.innerHTML = `
+    <h3>Sunrise & Sunset Times</h3>
+    <div class="sun-chart-container">
+      <div class="sun-chart-controls">
+        <select id="sun-chart-camera">
+          <option value="">Select a camera...</option>
+        </select>
+      </div>
+      <div id="sun-times-chart"></div>
+    </div>
+  `;
+  container.appendChild(chartSection);
+
+  container.appendChild(document.createElement("hr"));
+
   // Current configs section
   const configsSection = document.createElement("section");
   configsSection.innerHTML = "<h3>Current Cameras</h3>";
@@ -132,6 +149,7 @@ export function renderConfig(container) {
     cachedConfigs = configs;
     initMap(configs, new Date());
     setupMapDateControls();
+    initSunChart(configs);
   });
 
   // Handle rebuild button
@@ -514,6 +532,177 @@ function setupMapDateControls() {
       updateSunData(date);
     });
   });
+}
+
+function initSunChart(configs) {
+  const chartEl = document.getElementById('sun-times-chart');
+  const select = document.getElementById('sun-chart-camera');
+  if (!chartEl || !select) return;
+
+  // Filter valid configs
+  const validConfigs = configs.filter(c => c.LAT && c.LON && !c._error);
+  if (!validConfigs.length) {
+    chartEl.innerHTML = '<div class="chart-empty">No cameras with valid coordinates</div>';
+    return;
+  }
+
+  // Populate camera selector
+  validConfigs.forEach(config => {
+    const opt = document.createElement('option');
+    opt.value = config.CAMERA_TAG;
+    opt.textContent = `${config.CAMERA_TAG} (${config.MODE || 'sunset'})`;
+    select.appendChild(opt);
+  });
+
+  // Draw chart when camera selected
+  select.addEventListener('change', () => {
+    const config = validConfigs.find(c => c.CAMERA_TAG === select.value);
+    if (config) {
+      drawSunChart(config, chartEl);
+    } else {
+      chartEl.innerHTML = '';
+    }
+  });
+
+  // Auto-select first camera
+  if (validConfigs.length) {
+    select.value = validConfigs[0].CAMERA_TAG;
+    drawSunChart(validConfigs[0], chartEl);
+  }
+}
+
+function drawSunChart(config, chartEl) {
+  const lat = parseFloat(config.LAT);
+  const lon = parseFloat(config.LON);
+  const year = new Date().getFullYear();
+
+  // Calculate sun times for every day of the year
+  const dates = [];
+  const sunriseHours = [];
+  const sunsetHours = [];
+  const goldenHours = [];
+  const dayLengths = [];
+
+  for (let d = 1; d <= 365; d++) {
+    const date = new Date(year, 0, d);
+    const sunTimes = SunCalc.getTimes(date, lat, lon);
+
+    dates.push(date);
+
+    // Convert times to decimal hours for smooth chart
+    const toDecimalHour = (dt) => dt ? dt.getHours() + dt.getMinutes() / 60 : null;
+
+    sunriseHours.push(toDecimalHour(sunTimes.sunrise));
+    sunsetHours.push(toDecimalHour(sunTimes.sunset));
+    goldenHours.push(toDecimalHour(sunTimes.goldenHour));
+
+    // Day length in hours
+    if (sunTimes.sunrise && sunTimes.sunset) {
+      dayLengths.push((sunTimes.sunset - sunTimes.sunrise) / (1000 * 60 * 60));
+    } else {
+      dayLengths.push(null);
+    }
+  }
+
+  // Format date labels
+  const dateLabels = dates.map(d => d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }));
+
+  // bklit-ui style colors
+  const sunriseColor = '#ff9500';
+  const sunsetColor = '#f39c12';
+  const goldenColor = '#ffd700';
+
+  const traces = [
+    {
+      x: dates,
+      y: sunriseHours,
+      name: 'Sunrise',
+      type: 'scatter',
+      mode: 'lines',
+      line: { color: sunriseColor, width: 2.5 },
+      fill: 'tozeroy',
+      fillcolor: 'rgba(255, 149, 0, 0.1)',
+      hovertemplate: '%{x|%b %d}<br>Sunrise: %{y:.2f}h<extra></extra>',
+    },
+    {
+      x: dates,
+      y: sunsetHours,
+      name: 'Sunset',
+      type: 'scatter',
+      mode: 'lines',
+      line: { color: sunsetColor, width: 2.5 },
+      fill: 'tonexty',
+      fillcolor: 'rgba(243, 156, 18, 0.15)',
+      hovertemplate: '%{x|%b %d}<br>Sunset: %{y:.2f}h<extra></extra>',
+    },
+    {
+      x: dates,
+      y: goldenHours,
+      name: 'Golden Hour',
+      type: 'scatter',
+      mode: 'lines',
+      line: { color: goldenColor, width: 1.5, dash: 'dot' },
+      hovertemplate: '%{x|%b %d}<br>Golden Hour: %{y:.2f}h<extra></extra>',
+    },
+  ];
+
+  const layout = {
+    paper_bgcolor: 'rgba(0,0,0,0)',
+    plot_bgcolor: 'rgba(23, 27, 35, 0.5)',
+    font: { color: '#f0f2f6', family: 'Source Sans Pro, sans-serif' },
+    margin: { t: 40, r: 20, b: 50, l: 50 },
+    showlegend: true,
+    legend: {
+      orientation: 'h',
+      y: 1.1,
+      x: 0.5,
+      xanchor: 'center',
+      bgcolor: 'rgba(0,0,0,0)',
+    },
+    xaxis: {
+      gridcolor: 'rgba(255,255,255,0.08)',
+      tickformat: '%b',
+      dtick: 'M1',
+      tickangle: 0,
+    },
+    yaxis: {
+      title: 'Time (24h)',
+      gridcolor: 'rgba(255,255,255,0.08)',
+      range: [0, 24],
+      dtick: 4,
+      tickvals: [0, 4, 8, 12, 16, 20, 24],
+      ticktext: ['12am', '4am', '8am', '12pm', '4pm', '8pm', '12am'],
+    },
+    hovermode: 'x unified',
+    hoverlabel: {
+      bgcolor: 'rgba(23, 27, 35, 0.95)',
+      bordercolor: 'rgba(255,255,255,0.1)',
+      font: { color: '#f0f2f6' },
+    },
+    // Add vertical line for today
+    shapes: [{
+      type: 'line',
+      x0: new Date(),
+      x1: new Date(),
+      y0: 0,
+      y1: 24,
+      line: { color: 'rgba(255,255,255,0.3)', width: 1, dash: 'dash' },
+    }],
+    annotations: [{
+      x: new Date(),
+      y: 23,
+      text: 'Today',
+      showarrow: false,
+      font: { color: 'rgba(255,255,255,0.5)', size: 10 },
+    }],
+  };
+
+  const config = {
+    displayModeBar: false,
+    responsive: true,
+  };
+
+  Plotly.newPlot(chartEl, traces, layout, config);
 }
 
 function showEditModal(config, configsContainer) {
