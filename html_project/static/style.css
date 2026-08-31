@@ -6,9 +6,27 @@
   --text: #f0f2f6;
   --muted: #888;
   --accent: #f39c12;
+
+  /* Strong easing curves - never use built-in ease/ease-in on UI */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 * { box-sizing: border-box; }
+
+/* Focus styles for keyboard navigation */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+button:focus:not(:focus-visible),
+a:focus:not(:focus-visible),
+input:focus:not(:focus-visible),
+select:focus:not(:focus-visible) {
+  outline: none;
+}
 
 hr {
   border: none;
@@ -39,7 +57,7 @@ body {
   padding: 20px 16px;
   overflow: hidden auto;
   transform: translateX(0);
-  transition: transform 0.2s ease;
+  transition: transform 200ms var(--ease-out);
 }
 
 .layout.sidebar-collapsed .sidebar {
@@ -71,8 +89,12 @@ body {
   cursor: pointer;
   font-size: 1.2em;
   flex: 0 0 auto;
+  transition: transform 160ms var(--ease-out), border-color 150ms var(--ease-out);
 }
-.icon-btn:hover { border-color: var(--accent); }
+@media (hover: hover) and (pointer: fine) {
+  .icon-btn:hover { border-color: var(--accent); }
+}
+.icon-btn:active { transform: scale(0.95); }
 
 .expand-btn {
   position: fixed;
@@ -107,16 +129,20 @@ body {
   cursor: pointer;
   text-align: left;
   font-size: 0.95em;
+  transition: transform 160ms var(--ease-out), border-color 150ms var(--ease-out);
 }
 
-.nav-btn:hover { border-color: var(--accent); }
+@media (hover: hover) and (pointer: fine) {
+  .nav-btn:hover { border-color: var(--accent); }
+}
+.nav-btn:active { transform: scale(0.97); }
 .nav-btn.active { border-color: var(--accent); color: var(--accent); }
 
 main#content {
   margin-left: 260px;
   padding: 24px 32px;
   overflow-x: hidden;
-  transition: margin-left 0.2s ease;
+  transition: margin-left 200ms var(--ease-out);
 }
 
 .layout.sidebar-collapsed main#content {
@@ -182,8 +208,11 @@ main#content {
 .cal-size-control label { color: var(--muted); font-size: 0.85em; white-space: nowrap; }
 .cal-size-control input[type="range"] { width: 160px; }
 .calendar-cell.empty-cell { background: transparent; border: none; }
-.calendar-cell.has-image { cursor: pointer; transition: border-color 0.15s ease, transform 0.15s ease; }
-.calendar-cell.has-image:hover { border-color: var(--accent); transform: translateY(-2px); }
+.calendar-cell.has-image { cursor: pointer; transition: border-color 150ms var(--ease-out), transform 150ms var(--ease-out); }
+@media (hover: hover) and (pointer: fine) {
+  .calendar-cell.has-image:hover { border-color: var(--accent); transform: translateY(-2px); }
+}
+.calendar-cell.has-image:active { transform: scale(0.98); }
 
 .calendar-cell img {
   position: absolute;
@@ -382,7 +411,7 @@ main#content {
   z-index: 100;
   opacity: 0;
   visibility: hidden;
-  transition: opacity 0.15s ease;
+  transition: opacity 200ms var(--ease-out);
 }
 .lightbox-overlay.open { opacity: 1; visibility: visible; }
 
@@ -392,6 +421,13 @@ main#content {
   border-radius: 8px;
   box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
   cursor: default;
+  transform: scale(0.95);
+  opacity: 0;
+  transition: transform 200ms var(--ease-out), opacity 200ms var(--ease-out);
+}
+.lightbox-overlay.open .lightbox-img {
+  transform: scale(1);
+  opacity: 1;
 }
 
 .show-in-calendar-btn { margin-top: 10px; }
@@ -454,8 +490,13 @@ button {
   border-radius: 6px;
   padding: 6px 12px;
   cursor: pointer;
+  transition: transform 160ms var(--ease-out), border-color 150ms var(--ease-out);
 }
-.btn:disabled { opacity: 0.4; cursor: default; }
+@media (hover: hover) and (pointer: fine) {
+  .btn:hover { border-color: var(--accent); }
+}
+.btn:active { transform: scale(0.97); }
+.btn:disabled { opacity: 0.4; cursor: default; transform: none; }
 
 /* ---- Ranking page ---- */
 .ranking-controls { display: flex; gap: 16px; margin-bottom: 12px; }
@@ -490,10 +531,13 @@ button {
   cursor: pointer;
   z-index: 2;
   opacity: 0;
-  transition: opacity 0.15s ease, background 0.15s ease;
+  transition: opacity 150ms var(--ease-out), background 150ms var(--ease-out), transform 160ms var(--ease-out);
 }
-.ranked-img-cell:hover .fullscreen-toggle-btn { opacity: 1; }
-.fullscreen-toggle-btn:hover { background: rgba(0, 0, 0, 0.75); }
+@media (hover: hover) and (pointer: fine) {
+  .ranked-img-cell:hover .fullscreen-toggle-btn { opacity: 1; }
+  .fullscreen-toggle-btn:hover { background: rgba(0, 0, 0, 0.75); }
+}
+.fullscreen-toggle-btn:active { transform: scale(0.9); }
 
 .metric-label { color: var(--muted); font-size: 0.85em; }
 .metric-value { font-size: 1.6em; font-weight: 600; }
@@ -531,6 +575,10 @@ button {
 .tab-btn {
   background: none; border: none; color: var(--muted); padding: 6px 4px;
   border-bottom: 2px solid transparent; cursor: pointer; font-size: 1em;
+  transition: color 150ms var(--ease-out), border-color 150ms var(--ease-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  .tab-btn:hover { color: var(--text); }
 }
 .tab-btn.active { color: var(--text); border-color: var(--accent); }
 
@@ -1056,8 +1104,10 @@ input[type=file] { color: var(--text); }
   font-weight: 600;
 }
 
-.btn-primary:hover {
-  opacity: 0.9;
+@media (hover: hover) and (pointer: fine) {
+  .btn-primary:hover {
+    opacity: 0.9;
+  }
 }
 
 .status-success {
@@ -1137,19 +1187,25 @@ input[type=file] { color: var(--text); }
   border: 1px solid var(--border);
   background: var(--bg);
   color: var(--text);
+  transition: transform 160ms var(--ease-out), border-color 150ms var(--ease-out), background 150ms var(--ease-out);
 }
 
-.btn-small:hover {
-  border-color: var(--accent);
+@media (hover: hover) and (pointer: fine) {
+  .btn-small:hover {
+    border-color: var(--accent);
+  }
 }
+.btn-small:active { transform: scale(0.95); }
 
 .btn-edit {
   background: rgba(52, 152, 219, 0.2);
   border-color: rgba(52, 152, 219, 0.5);
 }
 
-.btn-edit:hover {
-  background: rgba(52, 152, 219, 0.3);
+@media (hover: hover) and (pointer: fine) {
+  .btn-edit:hover {
+    background: rgba(52, 152, 219, 0.3);
+  }
 }
 
 .btn-delete {
@@ -1157,8 +1213,10 @@ input[type=file] { color: var(--text); }
   border-color: rgba(231, 76, 60, 0.5);
 }
 
-.btn-delete:hover {
-  background: rgba(231, 76, 60, 0.3);
+@media (hover: hover) and (pointer: fine) {
+  .btn-delete:hover {
+    background: rgba(231, 76, 60, 0.3);
+  }
 }
 
 .btn-cancel {
@@ -1177,6 +1235,12 @@ input[type=file] { color: var(--text); }
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  animation: fadeIn 200ms var(--ease-out);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .edit-modal-content {
@@ -1188,6 +1252,18 @@ input[type=file] { color: var(--text); }
   width: 90%;
   max-height: 90vh;
   overflow-y: auto;
+  animation: modalSlideIn 200ms var(--ease-out);
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
 .edit-modal-content h3 {
@@ -1385,12 +1461,16 @@ input[type=file] { color: var(--text); }
   border: 2px solid transparent;
   border-radius: 4px;
   overflow: hidden;
-  transition: border-color 0.15s;
+  transition: border-color 150ms var(--ease-out), transform 150ms var(--ease-out);
 }
 
-.gallery-picker-item:hover {
-  border-color: var(--accent);
+@media (hover: hover) and (pointer: fine) {
+  .gallery-picker-item:hover {
+    border-color: var(--accent);
+    transform: scale(1.02);
+  }
 }
+.gallery-picker-item:active { transform: scale(0.98); }
 
 .gallery-picker-item.selected {
   border-color: #2ecc71;
@@ -1407,4 +1487,32 @@ input[type=file] { color: var(--text); }
   padding: 4px;
   text-align: center;
   background: var(--bg);
+}
+
+/* ---- Reduced motion accessibility ---- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .sidebar {
+    transition: none;
+  }
+
+  main#content {
+    transition: none;
+  }
+
+  .lightbox-img {
+    transform: none;
+    transition: opacity 100ms ease;
+  }
+
+  .calendar-cell.has-image:hover {
+    transform: none;
+  }
 }
