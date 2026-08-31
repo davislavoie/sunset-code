@@ -697,12 +697,12 @@ function drawSunChart(config, chartEl) {
     }],
   };
 
-  const config = {
+  const plotlyConfig = {
     displayModeBar: false,
     responsive: true,
   };
 
-  Plotly.newPlot(chartEl, traces, layout, config);
+  Plotly.newPlot(chartEl, traces, layout, plotlyConfig);
 }
 
 function showEditModal(config, configsContainer) {
