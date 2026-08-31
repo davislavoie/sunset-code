@@ -19,30 +19,29 @@ export function renderConfig(container) {
   container.appendChild(document.createElement("hr"));
 
   // Map section
+  const today = new Date();
+  const dayOfYear = Math.floor((today - new Date(today.getFullYear(), 0, 0)) / (1000 * 60 * 60 * 24));
   const mapSection = document.createElement("section");
   mapSection.innerHTML = `
     <h3>Camera Locations</h3>
     <div class="map-container">
       <div class="map-controls">
-        <div class="map-date-control">
-          <label>Date</label>
-          <input type="date" id="map-date" value="${new Date().toISOString().split('T')[0]}">
+        <div class="map-slider-control">
+          <input type="range" id="map-date-slider" min="1" max="365" value="${dayOfYear}">
+          <span id="map-date-display" class="date-display">${today.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
         </div>
         <div class="map-date-shortcuts">
-          <button class="btn btn-small" data-offset="-1">Yesterday</button>
           <button class="btn btn-small" data-offset="0">Today</button>
-          <button class="btn btn-small" data-offset="1">Tomorrow</button>
-        </div>
-        <div class="map-season-shortcuts">
-          <button class="btn btn-small" data-season="summer">Summer Solstice</button>
-          <button class="btn btn-small" data-season="winter">Winter Solstice</button>
-          <button class="btn btn-small" data-season="spring">Spring Equinox</button>
+          <button class="btn btn-small" data-season="summer">Summer</button>
+          <button class="btn btn-small" data-season="winter">Winter</button>
+          <button class="btn btn-small" data-season="spring">Spring</button>
+          <button class="btn btn-small" data-season="fall">Fall</button>
         </div>
       </div>
       <div id="camera-map"></div>
       <div class="map-legend">
-        <div class="legend-item"><span class="legend-dot sunset"></span> Sunset cameras</div>
-        <div class="legend-item"><span class="legend-dot sunrise"></span> Sunrise cameras</div>
+        <div class="legend-item"><span class="legend-dot sunset"></span> Sunset</div>
+        <div class="legend-item"><span class="legend-dot sunrise"></span> Sunrise</div>
         <div class="legend-item"><span class="legend-line"></span> Sun direction</div>
       </div>
     </div>
@@ -332,11 +331,11 @@ function initMap(configs, selectedDate) {
     zoomControl: true,
   });
 
-  // Dark tile layer (CartoDB Dark Matter)
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
-    subdomains: 'abcd',
+  // OpenStreetMap tiles (free, no API key) - darkened via CSS
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
     maxZoom: 19,
+    className: 'dark-tiles',
   }).addTo(mapInstance);
 
   // Add markers for each camera (lines and popups added by updateSunData)
@@ -456,46 +455,62 @@ function updateSunData(selectedDate) {
 }
 
 function setupMapDateControls() {
-  const dateInput = document.getElementById('map-date');
-  if (!dateInput) return;
+  const slider = document.getElementById('map-date-slider');
+  const display = document.getElementById('map-date-display');
+  if (!slider) return;
 
-  // Date input change
-  dateInput.addEventListener('change', () => {
-    const date = new Date(dateInput.value + 'T12:00:00');
+  function dayOfYearToDate(dayOfYear) {
+    const year = new Date().getFullYear();
+    const date = new Date(year, 0, 1);
+    date.setDate(dayOfYear);
+    return date;
+  }
+
+  function dateToDayOfYear(date) {
+    const start = new Date(date.getFullYear(), 0, 0);
+    const diff = date - start;
+    return Math.floor(diff / (1000 * 60 * 60 * 24));
+  }
+
+  function updateFromSlider() {
+    const date = dayOfYearToDate(parseInt(slider.value));
+    display.textContent = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
     updateSunData(date);
-  });
+  }
 
-  // Offset buttons (Yesterday, Today, Tomorrow)
+  // Slider change
+  slider.addEventListener('input', updateFromSlider);
+
+  // Shortcut buttons
   document.querySelectorAll('.map-date-shortcuts button').forEach(btn => {
     btn.addEventListener('click', () => {
-      const offset = parseInt(btn.dataset.offset);
-      const date = new Date();
-      date.setDate(date.getDate() + offset);
-      dateInput.value = date.toISOString().split('T')[0];
-      updateSunData(date);
-    });
-  });
-
-  // Season shortcuts
-  document.querySelectorAll('.map-season-shortcuts button').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const season = btn.dataset.season;
       const year = new Date().getFullYear();
       let date;
-      switch (season) {
-        case 'summer':
-          date = new Date(year, 5, 21); // June 21
-          break;
-        case 'winter':
-          date = new Date(year, 11, 21); // Dec 21
-          break;
-        case 'spring':
-          date = new Date(year, 2, 20); // Mar 20
-          break;
-        default:
-          date = new Date();
+
+      if (btn.dataset.offset !== undefined) {
+        date = new Date();
+        date.setDate(date.getDate() + parseInt(btn.dataset.offset));
+      } else if (btn.dataset.season) {
+        switch (btn.dataset.season) {
+          case 'summer':
+            date = new Date(year, 5, 21); // June 21
+            break;
+          case 'winter':
+            date = new Date(year, 11, 21); // Dec 21
+            break;
+          case 'spring':
+            date = new Date(year, 2, 20); // Mar 20
+            break;
+          case 'fall':
+            date = new Date(year, 8, 22); // Sep 22
+            break;
+          default:
+            date = new Date();
+        }
       }
-      dateInput.value = date.toISOString().split('T')[0];
+
+      slider.value = dateToDayOfYear(date);
+      display.textContent = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
       updateSunData(date);
     });
   });
