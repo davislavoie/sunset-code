@@ -411,12 +411,17 @@ function updateSunData(selectedDate) {
     const sunTimes = SunCalc.getTimes(selectedDate, lat, lon);
     const targetTime = isSunrise ? sunTimes.sunrise : sunTimes.sunset;
     const sunPos = SunCalc.getPosition(targetTime, lat, lon);
-    const azimuthDeg = (sunPos.azimuth * 180 / Math.PI) + 180;
 
-    // Calculate endpoint for sun direction line
-    const lineLength = 0.5;
-    const endLat = lat + lineLength * Math.cos(sunPos.azimuth);
-    const endLon = lon + lineLength * Math.sin(sunPos.azimuth);
+    // SunCalc azimuth is from South, clockwise. Convert to bearing from North.
+    // azimuth 0 = South, π/2 = West, -π/2 = East
+    const bearingFromNorth = sunPos.azimuth + Math.PI;
+    const azimuthDeg = (bearingFromNorth * 180 / Math.PI) % 360;
+
+    // Calculate endpoint for sun direction line (pointing toward the sun)
+    const lineLength = 0.4; // degrees
+    const latRad = lat * Math.PI / 180;
+    const endLat = lat + lineLength * Math.cos(bearingFromNorth);
+    const endLon = lon + lineLength * Math.sin(bearingFromNorth) / Math.cos(latRad);
 
     // Draw sun direction line
     const sunLine = L.polyline([[lat, lon], [endLat, endLon]], {
