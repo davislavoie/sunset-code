@@ -4,6 +4,7 @@ let mapInstance = null;
 let mapMarkers = [];
 let sunLines = [];
 let cachedConfigs = [];
+let currentChartDate = new Date();
 
 export function renderConfig(container) {
   container.innerHTML = "";
@@ -50,20 +51,22 @@ export function renderConfig(container) {
 
   container.appendChild(document.createElement("hr"));
 
-  // Sun times chart section
-  const chartSection = document.createElement("section");
-  chartSection.innerHTML = `
-    <h3>Sunrise & Sunset Times</h3>
-    <div class="sun-chart-container">
-      <div class="sun-chart-controls">
-        <select id="sun-chart-camera">
-          <option value="">Select a camera...</option>
-        </select>
+  // Combined sun data section - map and chart together
+  const sunDataSection = document.createElement("section");
+  sunDataSection.innerHTML = `
+    <h3>Sunrise & Sunset Analysis</h3>
+    <div class="sun-data-layout">
+      <div class="sun-chart-container">
+        <div class="sun-chart-controls">
+          <select id="sun-chart-camera">
+            <option value="">Select a camera...</option>
+          </select>
+        </div>
+        <div id="sun-times-chart"></div>
       </div>
-      <div id="sun-times-chart"></div>
     </div>
   `;
-  container.appendChild(chartSection);
+  container.appendChild(sunDataSection);
 
   container.appendChild(document.createElement("hr"));
 
@@ -506,7 +509,9 @@ function setupMapDateControls() {
   function updateFromSlider() {
     const date = dayOfYearToDate(parseInt(slider.value));
     display.textContent = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    currentChartDate = date;
     updateSunData(date);
+    updateChartDateMarker(date);
   }
 
   // Slider change
@@ -542,8 +547,23 @@ function setupMapDateControls() {
 
       slider.value = dateToDayOfYear(date);
       display.textContent = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+      currentChartDate = date;
       updateSunData(date);
+      updateChartDateMarker(date);
     });
+  });
+}
+
+function updateChartDateMarker(date) {
+  const chartEl = document.getElementById('sun-times-chart');
+  if (!chartEl || !chartEl.data) return;
+
+  // Update the vertical line and annotation for selected date
+  Plotly.relayout(chartEl, {
+    'shapes[0].x0': date,
+    'shapes[0].x1': date,
+    'annotations[0].x': date,
+    'annotations[0].text': date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
   });
 }
 
@@ -695,18 +715,20 @@ function drawSunChart(config, chartEl) {
     // Add vertical line for today
     shapes: [{
       type: 'line',
-      x0: new Date(),
-      x1: new Date(),
+      x0: currentChartDate,
+      x1: currentChartDate,
       y0: 0,
       y1: 24,
-      line: { color: 'rgba(255,255,255,0.3)', width: 1, dash: 'dash' },
+      line: { color: 'rgba(243, 156, 18, 0.8)', width: 2 },
     }],
     annotations: [{
-      x: new Date(),
+      x: currentChartDate,
       y: 23,
-      text: 'Today',
+      text: currentChartDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
       showarrow: false,
-      font: { color: 'rgba(255,255,255,0.5)', size: 10 },
+      font: { color: 'var(--accent)', size: 11 },
+      bgcolor: 'rgba(0,0,0,0.5)',
+      borderpad: 3,
     }],
   };
 

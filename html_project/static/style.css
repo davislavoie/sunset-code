@@ -1739,6 +1739,12 @@ input[type=file] { color: var(--text); }
 }
 
 /* ---- Sun Times Chart ---- */
+.sun-data-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
 .sun-chart-container {
   background: var(--panel);
   border: 1px solid var(--border-subtle);
