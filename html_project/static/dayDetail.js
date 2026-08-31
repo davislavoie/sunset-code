@@ -59,9 +59,8 @@ export function mountDayDetail(mountEl, date, allData, { onClose, initialIndex =
     const prevBtn = document.createElement("button");
     prevBtn.className = "btn";
     prevBtn.textContent = "← Previous";
-    prevBtn.disabled = index === 0;
     prevBtn.addEventListener("click", () => {
-      index -= 1;
+      index = index === 0 ? images.length - 1 : index - 1;
       render();
     });
     const info = document.createElement("div");
@@ -70,9 +69,8 @@ export function mountDayDetail(mountEl, date, allData, { onClose, initialIndex =
     const nextBtn = document.createElement("button");
     nextBtn.className = "btn";
     nextBtn.textContent = "Next →";
-    nextBtn.disabled = index >= images.length - 1;
     nextBtn.addEventListener("click", () => {
-      index += 1;
+      index = index >= images.length - 1 ? 0 : index + 1;
       render();
     });
     nav.append(prevBtn, info, nextBtn);
