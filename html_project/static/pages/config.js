@@ -1,5 +1,9 @@
 // Camera configuration page
 
+let mapInstance = null;
+let mapMarkers = [];
+let sunLines = [];
+
 export function renderConfig(container) {
   container.innerHTML = "";
 
@@ -10,6 +14,23 @@ export function renderConfig(container) {
   const intro = document.createElement("p");
   intro.textContent = "View and manage camera configurations.";
   container.appendChild(intro);
+
+  container.appendChild(document.createElement("hr"));
+
+  // Map section
+  const mapSection = document.createElement("section");
+  mapSection.innerHTML = `
+    <h3>Camera Locations</h3>
+    <div class="map-container">
+      <div id="camera-map"></div>
+      <div class="map-legend">
+        <div class="legend-item"><span class="legend-dot sunset"></span> Sunset cameras</div>
+        <div class="legend-item"><span class="legend-dot sunrise"></span> Sunrise cameras</div>
+        <div class="legend-item"><span class="legend-line"></span> Sun direction</div>
+      </div>
+    </div>
+  `;
+  container.appendChild(mapSection);
 
   container.appendChild(document.createElement("hr"));
 
@@ -90,8 +111,10 @@ export function renderConfig(container) {
   `;
   container.appendChild(rebuildSection);
 
-  // Load configs
-  loadConfigs(configsContainer);
+  // Load configs and initialize map
+  loadConfigs(configsContainer).then(configs => {
+    initMap(configs);
+  });
 
   // Handle rebuild button
   const rebuildBtn = document.getElementById("rebuild-btn");
@@ -178,7 +201,7 @@ async function loadConfigs(container) {
 
     if (!configs.length) {
       container.innerHTML = '<div class="empty">No camera configurations found in config/ directory.</div>';
-      return;
+      return [];
     }
 
     container.innerHTML = "";
@@ -253,8 +276,153 @@ async function loadConfigs(container) {
 
       container.appendChild(card);
     }
+    return configs;
   } catch (err) {
     container.innerHTML = `<div class="empty">Failed to load configs: ${err.message}</div>`;
+    return [];
+  }
+}
+
+function initMap(configs) {
+  const mapEl = document.getElementById('camera-map');
+  if (!mapEl || !configs.length) return;
+
+  // Clean up existing map
+  if (mapInstance) {
+    mapInstance.remove();
+    mapInstance = null;
+  }
+  mapMarkers = [];
+  sunLines = [];
+
+  // Filter valid configs with coordinates
+  const validConfigs = configs.filter(c => c.LAT && c.LON && !c._error);
+  if (!validConfigs.length) {
+    mapEl.innerHTML = '<div class="map-empty">No cameras with valid coordinates</div>';
+    return;
+  }
+
+  // Calculate center from all cameras
+  const avgLat = validConfigs.reduce((sum, c) => sum + parseFloat(c.LAT), 0) / validConfigs.length;
+  const avgLon = validConfigs.reduce((sum, c) => sum + parseFloat(c.LON), 0) / validConfigs.length;
+
+  // Initialize map with dark tiles
+  mapInstance = L.map(mapEl, {
+    center: [avgLat, avgLon],
+    zoom: 4,
+    zoomControl: true,
+  });
+
+  // Dark tile layer (CartoDB Dark Matter)
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
+    subdomains: 'abcd',
+    maxZoom: 19,
+  }).addTo(mapInstance);
+
+  // Add markers and sun direction lines for each camera
+  validConfigs.forEach(config => {
+    const lat = parseFloat(config.LAT);
+    const lon = parseFloat(config.LON);
+    const mode = config.MODE || 'sunset';
+    const isSunrise = mode === 'sunrise';
+
+    // Calculate sun position for today
+    const now = new Date();
+    const sunTimes = SunCalc.getTimes(now, lat, lon);
+    const targetTime = isSunrise ? sunTimes.sunrise : sunTimes.sunset;
+    const sunPos = SunCalc.getPosition(targetTime, lat, lon);
+    const azimuthDeg = (sunPos.azimuth * 180 / Math.PI) + 180; // Convert to degrees, adjust for north
+
+    // Create custom marker icon
+    const markerColor = isSunrise ? '#ff9500' : '#f39c12';
+    const markerIcon = L.divIcon({
+      className: 'camera-marker',
+      html: `<div class="marker-pin" style="--marker-color: ${markerColor}">
+        <div class="marker-pulse"></div>
+        <div class="marker-dot"></div>
+      </div>`,
+      iconSize: [24, 24],
+      iconAnchor: [12, 12],
+    });
+
+    const marker = L.marker([lat, lon], { icon: markerIcon }).addTo(mapInstance);
+
+    // Calculate endpoint for sun direction line (extend ~50km in sun direction)
+    const lineLength = 0.5; // degrees, roughly 50km
+    const endLat = lat + lineLength * Math.cos(sunPos.azimuth);
+    const endLon = lon + lineLength * Math.sin(sunPos.azimuth);
+
+    // Draw sun direction line
+    const sunLine = L.polyline([[lat, lon], [endLat, endLon]], {
+      color: markerColor,
+      weight: 2,
+      opacity: 0.7,
+      dashArray: '8, 8',
+    }).addTo(mapInstance);
+    sunLines.push(sunLine);
+
+    // Format times for popup
+    const formatTime = (date) => date ? date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A';
+
+    // Create popup content
+    const popupContent = `
+      <div class="map-popup">
+        <div class="popup-header">
+          <span class="popup-name">${config.CAMERA_TAG}</span>
+          <span class="popup-mode ${mode}">${mode}</span>
+        </div>
+        <div class="popup-details">
+          <div class="popup-row">
+            <span class="popup-label">Location</span>
+            <span class="popup-value">${lat.toFixed(4)}, ${lon.toFixed(4)}</span>
+          </div>
+          <div class="popup-row">
+            <span class="popup-label">Altitude</span>
+            <span class="popup-value">${config.ALTITUDE || 'N/A'}m</span>
+          </div>
+          <div class="popup-row">
+            <span class="popup-label">Timezone</span>
+            <span class="popup-value">${config.TIMEZONE || 'N/A'}</span>
+          </div>
+          <div class="popup-divider"></div>
+          <div class="popup-row">
+            <span class="popup-label">Today's Sunrise</span>
+            <span class="popup-value">${formatTime(sunTimes.sunrise)}</span>
+          </div>
+          <div class="popup-row">
+            <span class="popup-label">Today's Sunset</span>
+            <span class="popup-value">${formatTime(sunTimes.sunset)}</span>
+          </div>
+          <div class="popup-row">
+            <span class="popup-label">Sun Azimuth</span>
+            <span class="popup-value">${azimuthDeg.toFixed(1)}°</span>
+          </div>
+          <div class="popup-row">
+            <span class="popup-label">Golden Hour</span>
+            <span class="popup-value">${formatTime(sunTimes.goldenHour)}</span>
+          </div>
+        </div>
+      </div>
+    `;
+
+    marker.bindPopup(popupContent, {
+      className: 'dark-popup',
+      maxWidth: 280,
+    });
+
+    // Show popup on hover (desktop), keep click for mobile
+    marker.on('mouseover', function() {
+      this.openPopup();
+    });
+
+    mapMarkers.push(marker);
+  });
+
+  // Fit bounds to show all markers with padding
+  if (mapMarkers.length > 1) {
+    const group = L.featureGroup(mapMarkers);
+    mapInstance.fitBounds(group.getBounds().pad(0.2));
   }
 }
 
