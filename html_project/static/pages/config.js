@@ -468,7 +468,15 @@ function updateSunData(selectedDate) {
       </div>
     `;
 
-    marker.setPopupContent(popupContent);
+    // Bind or update popup
+    if (marker.getPopup()) {
+      marker.setPopupContent(popupContent);
+    } else {
+      marker.bindPopup(popupContent, {
+        className: 'dark-popup',
+        maxWidth: 280,
+      });
+    }
   });
 }
 
