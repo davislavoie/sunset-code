@@ -123,7 +123,7 @@ body {
     color: var(--text);
   }
 }
-.icon-btn:active { transform: scale(0.92); }
+.icon-btn:active { transform: scale(0.95); }
 
 .expand-btn {
   position: fixed;
@@ -217,6 +217,7 @@ body {
   font-size: 0.9em;
   font-weight: 500;
   transition: background 150ms var(--ease-out), color 150ms var(--ease-out), transform 160ms var(--ease-out);
+  touch-action: manipulation;
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -226,7 +227,7 @@ body {
   }
 }
 
-.nav-btn:active { transform: scale(0.98); }
+.nav-btn:active { transform: scale(0.97); }
 
 /* Active nav button with accent indicator */
 .nav-btn.active {
@@ -316,7 +317,7 @@ main#content {
 .cal-size-control label { color: var(--muted); font-size: 0.85em; white-space: nowrap; }
 .cal-size-control input[type="range"] { width: 160px; }
 .calendar-cell.empty-cell { background: transparent; border: none; }
-.calendar-cell.has-image { cursor: pointer; transition: border-color 150ms var(--ease-out), transform 150ms var(--ease-out); }
+.calendar-cell.has-image { cursor: pointer; transition: border-color 150ms var(--ease-out), transform 150ms var(--ease-out); touch-action: manipulation; }
 @media (hover: hover) and (pointer: fine) {
   .calendar-cell.has-image:hover { border-color: var(--accent); transform: translateY(-2px); }
 }
@@ -1300,6 +1301,7 @@ input[type=file] { color: var(--text); }
   background: var(--bg);
   color: var(--text);
   transition: transform 160ms var(--ease-out), border-color 150ms var(--ease-out), background 150ms var(--ease-out);
+  touch-action: manipulation;
 }
 
 @media (hover: hover) and (pointer: fine) {
