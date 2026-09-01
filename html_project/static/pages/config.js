@@ -421,7 +421,7 @@ function updateSunData(selectedDate) {
     const azimuthDeg = (bearingFromNorth * 180 / Math.PI) % 360;
 
     // Calculate endpoint for sun direction line (pointing toward the sun)
-    const lineLength = 0.4; // degrees
+    const lineLength = 2.5; // degrees (~250km)
     const latRad = lat * Math.PI / 180;
     const endLat = lat + lineLength * Math.cos(bearingFromNorth);
     const endLon = lon + lineLength * Math.sin(bearingFromNorth) / Math.cos(latRad);
