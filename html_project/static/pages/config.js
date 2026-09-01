@@ -380,16 +380,33 @@ function initMap(configs, selectedDate) {
 
     const marker = L.marker([lat, lon], { icon: markerIcon }).addTo(mapInstance);
     marker._config = config; // Store config reference
-    marker._isOpen = false;
-    marker.on('click', function(e) {
-      L.DomEvent.stopPropagation(e);
-      this._isOpen = !this._isOpen;
-      if (this._isOpen) {
-        this.openPopup();
-      } else {
+    marker._sticky = false;
+
+    // Hover to preview
+    marker.on('mouseover', function() {
+      this.openPopup();
+    });
+
+    // Mouseout closes unless sticky
+    marker.on('mouseout', function() {
+      if (!this._sticky) {
         this.closePopup();
       }
     });
+
+    // Click to toggle sticky - popup stays open when you move away
+    marker.on('click', function() {
+      if (this._sticky) {
+        // Already sticky, unstick and close
+        this._sticky = false;
+        this.closePopup();
+      } else {
+        // Make sticky
+        this._sticky = true;
+        this.openPopup();
+      }
+    });
+
     mapMarkers.push(marker);
   });
 
