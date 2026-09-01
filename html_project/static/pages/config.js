@@ -350,6 +350,7 @@ function initMap(configs, selectedDate) {
     center: [avgLat, avgLon],
     zoom: 4,
     zoomControl: true,
+    closePopupOnClick: false,
   });
 
   // OpenStreetMap tiles (free, no API key) - darkened via CSS
@@ -489,6 +490,8 @@ function updateSunData(selectedDate) {
         className: 'dark-popup',
         maxWidth: 280,
         autoPan: false,
+        closeOnClick: false,
+        autoClose: false,
       });
     }
   });
