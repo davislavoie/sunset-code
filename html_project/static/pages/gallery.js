@@ -224,8 +224,7 @@ function renderDayView(container, state) {
 }
 
 // ---------------------------------------------------------------------------
-// Week view -- 7 columns (one per weekday), each a vertical filmstrip of
-// that day's captures in chronological order.
+// Week view -- table layout with photo labels in column 1, days across top
 // ---------------------------------------------------------------------------
 function renderWeekView(container, state) {
   const gallery = state.gallery;
@@ -241,12 +240,6 @@ function renderWeekView(container, state) {
   const todayWeekStart = new Date(now);
   todayWeekStart.setDate(now.getDate() - now.getDay());
   const isCurrentWeek = toISODate(weekStart) === toISODate(todayWeekStart);
-
-  // Build lookup for sunset data (one entry per day)
-  const sunsetByDate = new Map();
-  for (const item of state.sunsetData) {
-    sunsetByDate.set(item.Date, item);
-  }
 
   const header = document.createElement("div");
   header.className = "calendar-header";
@@ -276,38 +269,73 @@ function renderWeekView(container, state) {
   header.append(prevBtn, title, nextBtn);
   wrap.appendChild(header);
 
-  const grid = document.createElement("div");
-  grid.className = "week-view-grid";
-
+  // Build date strings for the week
+  const weekDates = [];
   for (let i = 0; i < 7; i++) {
     const dayDate = new Date(weekStart);
     dayDate.setDate(weekStart.getDate() + i);
-    const dateStr = toISODate(dayDate);
+    weekDates.push({ date: toISODate(dayDate), dayDate, weekday: WEEKDAYS[i] });
+  }
 
-    const col = document.createElement("div");
-    col.className = "week-day-col";
+  // Get all images for the week, grouped by date
+  const imagesByDate = new Map();
+  for (const d of weekDates) {
+    imagesByDate.set(d.date, state.allData.filter((img) => img.Date === d.date).sort(byLabelOrder));
+  }
 
-    const colHeader = document.createElement("div");
-    colHeader.className = "week-day-header";
-    colHeader.textContent = `${WEEKDAYS[i]} ${dayDate.getDate()}`;
-    col.appendChild(colHeader);
+  // Get unique photo labels across the week (use display label as key)
+  const labelSet = new Set();
+  for (const images of imagesByDate.values()) {
+    for (const img of images) {
+      const displayLabel = img.Label.slice(3); // Remove "01_", "07_", etc.
+      labelSet.add(displayLabel);
+    }
+  }
+  const photoLabels = [...labelSet].sort((a, b) => {
+    // Sort by the original label order prefix
+    const aImg = state.allData.find((img) => img.Label.slice(3) === a);
+    const bImg = state.allData.find((img) => img.Label.slice(3) === b);
+    return labelOrder(aImg?.Label || "99") - labelOrder(bImg?.Label || "99");
+  });
 
-    const sunsetEntry = sunsetByDate.get(dateStr);
-    const dayImages = state.allData
-      .filter((img) => img.Date === dateStr)
-      .sort(byLabelOrder);
+  // Build table
+  const table = document.createElement("table");
+  table.className = "week-view-table";
 
-    if (dayImages.length) {
-      // Show time from sunset entry and max score from all images
-      const maxScore = Math.max(...dayImages.map((img) => img.Score));
-      if (sunsetEntry) {
-        const stats = document.createElement("div");
-        stats.className = "week-day-stats";
-        stats.innerHTML = `<span class="week-day-time">${sunsetEntry.Time}</span><span class="week-day-score">${maxScore.toFixed(0)}%</span>`;
-        col.appendChild(stats);
-      }
+  // Header row with day names
+  const thead = document.createElement("thead");
+  const headerRow = document.createElement("tr");
+  const cornerCell = document.createElement("th");
+  cornerCell.className = "week-label-col";
+  cornerCell.textContent = "Photo";
+  headerRow.appendChild(cornerCell);
 
-      for (const img of dayImages) {
+  for (const d of weekDates) {
+    const th = document.createElement("th");
+    th.textContent = `${d.weekday} ${d.dayDate.getDate()}`;
+    headerRow.appendChild(th);
+  }
+  thead.appendChild(headerRow);
+  table.appendChild(thead);
+
+  // Body rows - one per photo label
+  const tbody = document.createElement("tbody");
+  for (const label of photoLabels) {
+    const row = document.createElement("tr");
+
+    // Label cell
+    const labelCell = document.createElement("td");
+    labelCell.className = "week-label-col";
+    labelCell.textContent = label;
+    row.appendChild(labelCell);
+
+    // Image cells for each day
+    for (const d of weekDates) {
+      const cell = document.createElement("td");
+      const dayImages = imagesByDate.get(d.date);
+      const img = dayImages.find((i) => i.Label.slice(3) === label);
+
+      if (img) {
         const thumbWrap = document.createElement("div");
         thumbWrap.className = "week-day-thumb-wrap";
 
@@ -324,18 +352,20 @@ function renderWeekView(container, state) {
         scoreLabel.textContent = `${img.Score.toFixed(0)}%`;
         thumbWrap.appendChild(scoreLabel);
 
-        col.appendChild(thumbWrap);
+        cell.appendChild(thumbWrap);
+      } else {
+        cell.textContent = "—";
+        cell.className = "week-day-empty";
       }
-    } else {
-      const none = document.createElement("div");
-      none.className = "week-day-empty";
-      none.textContent = "—";
-      col.appendChild(none);
+
+      row.appendChild(cell);
     }
 
-    grid.appendChild(col);
+    tbody.appendChild(row);
   }
-  wrap.appendChild(grid);
+  table.appendChild(tbody);
+
+  wrap.appendChild(table);
   return wrap;
 }
 
