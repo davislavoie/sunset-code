@@ -380,15 +380,11 @@ function initMap(configs, selectedDate) {
 
     const marker = L.marker([lat, lon], { icon: markerIcon }).addTo(mapInstance);
     marker._config = config; // Store config reference
-    marker._popupSticky = false;
-    marker.on('mouseover', function() { this.openPopup(); });
-    marker.on('mouseout', function() {
-      if (!this._popupSticky) this.closePopup();
-    });
+    marker._isOpen = false;
     marker.on('click', function(e) {
       L.DomEvent.stopPropagation(e);
-      this._popupSticky = !this._popupSticky;
-      if (this._popupSticky) {
+      this._isOpen = !this._isOpen;
+      if (this._isOpen) {
         this.openPopup();
       } else {
         this.closePopup();

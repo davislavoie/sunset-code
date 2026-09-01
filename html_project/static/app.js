@@ -43,21 +43,8 @@ if (isMobile()) {
   collapseSidebar();
 }
 
-// Clicking blank space outside the sidebar collapses it while it's open.
-// Clicks on actual controls (buttons, inputs, images, clickable cells/thumbs)
-// are left alone so interacting with the page doesn't also close it.
-// Text selection (highlighting) should not collapse the sidebar.
-const INTERACTIVE_SELECTOR = "button, a, input, select, textarea, img, .calendar-cell.has-image, .thumb";
-
-document.addEventListener("click", (e) => {
-  if (layout.classList.contains("sidebar-collapsed")) return;
-  if (sidebar.contains(e.target)) return;
-  if (e.target.closest(INTERACTIVE_SELECTOR)) return;
-  const selection = window.getSelection();
-  if (selection && selection.toString().length > 0) return;
-  layout.classList.add("sidebar-collapsed");
-  expandBtn.hidden = false;
-});
+// Sidebar only collapses via the explicit collapse button (Apple: Agency principle)
+// Removed auto-collapse on outside click - too aggressive, interrupts map/content interaction
 
 const pages = {
   gallery: renderGallery,
