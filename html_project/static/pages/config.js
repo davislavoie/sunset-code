@@ -380,6 +380,7 @@ function initMap(configs, selectedDate) {
     const marker = L.marker([lat, lon], { icon: markerIcon }).addTo(mapInstance);
     marker._config = config; // Store config reference
     marker.on('mouseover', function() { this.openPopup(); });
+    marker.on('mouseout', function() { this.closePopup(); });
     mapMarkers.push(marker);
   });
 
