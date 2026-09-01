@@ -465,14 +465,6 @@ function updateSunData(selectedDate) {
             <span class="popup-label">Sunset</span>
             <span class="popup-value">${formatTime(sunTimes.sunset)}</span>
           </div>
-          <div class="popup-row">
-            <span class="popup-label">Sun Azimuth</span>
-            <span class="popup-value">${azimuthDeg.toFixed(1)}°</span>
-          </div>
-          <div class="popup-row">
-            <span class="popup-label">Golden Hour</span>
-            <span class="popup-value">${formatTime(sunTimes.goldenHour)}</span>
-          </div>
         </div>
       </div>
     `;
