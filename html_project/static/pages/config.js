@@ -484,6 +484,7 @@ function updateSunData(selectedDate) {
       marker.bindPopup(popupContent, {
         className: 'dark-popup',
         maxWidth: 280,
+        autoPan: false,
       });
     }
   });
