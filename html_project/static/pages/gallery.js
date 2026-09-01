@@ -32,6 +32,14 @@ function labelOrder(label) {
   return parseInt(label.slice(0, 2), 10);
 }
 
+// Normalize display labels - ranked/histogram get generic names since they vary per day
+function normalizeLabel(label) {
+  const lower = label.toLowerCase();
+  if (lower.includes("ranked")) return "Ranked";
+  if (lower.includes("histogram")) return "Histogram";
+  return label.slice(3); // Remove "01_", "07_", etc.
+}
+
 function byLabelOrder(a, b) {
   return labelOrder(a.Label) - labelOrder(b.Label);
 }
@@ -283,18 +291,17 @@ function renderWeekView(container, state) {
     imagesByDate.set(d.date, state.allData.filter((img) => img.Date === d.date).sort(byLabelOrder));
   }
 
-  // Get unique photo labels across the week (use display label as key)
+  // Get unique photo labels across the week (normalized for grouping)
   const labelSet = new Set();
   for (const images of imagesByDate.values()) {
     for (const img of images) {
-      const displayLabel = img.Label.slice(3); // Remove "01_", "07_", etc.
-      labelSet.add(displayLabel);
+      labelSet.add(normalizeLabel(img.Label));
     }
   }
   const photoLabels = [...labelSet].sort((a, b) => {
     // Sort by the original label order prefix
-    const aImg = state.allData.find((img) => img.Label.slice(3) === a);
-    const bImg = state.allData.find((img) => img.Label.slice(3) === b);
+    const aImg = state.allData.find((img) => normalizeLabel(img.Label) === a);
+    const bImg = state.allData.find((img) => normalizeLabel(img.Label) === b);
     return labelOrder(aImg?.Label || "99") - labelOrder(bImg?.Label || "99");
   });
 
@@ -333,7 +340,7 @@ function renderWeekView(container, state) {
     for (const d of weekDates) {
       const cell = document.createElement("td");
       const dayImages = imagesByDate.get(d.date);
-      const img = dayImages.find((i) => i.Label.slice(3) === label);
+      const img = dayImages.find((i) => normalizeLabel(i.Label) === label);
 
       if (img) {
         const thumbWrap = document.createElement("div");
