@@ -215,7 +215,7 @@ export async function renderRankingExplained(container, state) {
     status.textContent = "Saving...";
     status.className = "";
     try {
-      const res = await fetch("/api/scoring-config", {
+      const res = await fetch("/api/admin/scoring-config", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(multipliers),

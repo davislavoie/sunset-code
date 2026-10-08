@@ -164,7 +164,7 @@ export function renderConfig(container) {
     rebuildStatus.textContent = "Starting rebuild...";
     rebuildStatus.className = "";
     try {
-      const res = await fetch("/api/rebuild", { method: "POST" });
+      const res = await fetch("/api/admin/rebuild", { method: "POST" });
       const result = await res.json();
       if (res.ok) {
         rebuildStatus.textContent = "Rebuild started! Page may disconnect briefly.";
@@ -192,7 +192,7 @@ export function renderConfig(container) {
     const data = Object.fromEntries(formData.entries());
 
     try {
-      const res = await fetch("/api/camera-configs", {
+      const res = await fetch("/api/admin/camera-configs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
@@ -204,7 +204,7 @@ export function renderConfig(container) {
         status.className = "";
 
         // Add service to docker-compose
-        const composeRes = await fetch("/api/add-compose-service", {
+        const composeRes = await fetch("/api/admin/add-compose-service", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ camera_tag: data.CAMERA_TAG }),
@@ -235,7 +235,7 @@ export function renderConfig(container) {
 
 async function loadConfigs(container) {
   try {
-    const res = await fetch("/api/camera-configs");
+    const res = await fetch("/api/admin/camera-configs");
     const configs = await res.json();
 
     if (!configs.length) {
@@ -300,7 +300,7 @@ async function loadConfigs(container) {
         card.querySelector('.btn-delete').addEventListener('click', async () => {
           if (!confirm(`Delete camera "${tag}"? This cannot be undone.`)) return;
           try {
-            const res = await fetch(`/api/camera-configs/${tag}`, { method: 'DELETE' });
+            const res = await fetch(`/api/admin/camera-configs/${tag}`, { method: 'DELETE' });
             const result = await res.json();
             if (res.ok) {
               loadConfigs(container);
@@ -837,7 +837,7 @@ function showEditModal(config, configsContainer) {
     const data = Object.fromEntries(formData.entries());
 
     try {
-      const res = await fetch(`/api/camera-configs/${config.CAMERA_TAG}`, {
+      const res = await fetch(`/api/admin/camera-configs/${config.CAMERA_TAG}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),

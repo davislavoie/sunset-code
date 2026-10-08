@@ -1,6 +1,7 @@
 from flask import Flask, jsonify, request, send_from_directory, Response
 from influxdb import InfluxDBClient
 from datetime import datetime
+from urllib.parse import urlsplit
 from pathlib import Path
 import os
 import pytz
@@ -35,13 +36,15 @@ INFLUXDB_PORT = int(os.environ.get("INFLUXDB_PORT", 8086))
 client = InfluxDBClient(host=INFLUXDB_HOST, port=INFLUXDB_PORT, database="sunset_images")
 local_tz = pytz.timezone("America/New_York")
 
+IMAGE_BASE_URL = os.environ.get("IMAGE_BASE_URL", "")
+
 CACHE_TTL = 300  # seconds, mirrors @st.cache_data(ttl=300) in streamlit_project/app.py
 _cache = {}
 
 
 def fetch_camera_data(camera_tag):
     """Fetch and process all data for a camera (mirrors app.py's fetch_camera_data)."""
-    results = client.query(f"SELECT * FROM sunset_images WHERE camera = '{camera_tag}'")
+    results = client.query("SELECT * FROM sunset_images WHERE camera = $camera", bind_params={"camera": camera_tag})
 
     sunset_data = []
     all_data = []
@@ -129,7 +132,12 @@ def image_proxy():
     url = request.args.get("url")
     if not url:
         return jsonify({"error": "url query param required"}), 400
-    resp = requests.get(url, timeout=10)
+    # Only proxy our own image server, otherwise this is an open proxy (SSRF).
+    allowed = urlsplit(IMAGE_BASE_URL)
+    target = urlsplit(url)
+    if not IMAGE_BASE_URL or (target.scheme, target.netloc) != (allowed.scheme, allowed.netloc):
+        return jsonify({"error": "url must point at IMAGE_BASE_URL"}), 400
+    resp = requests.get(url, timeout=10, allow_redirects=False)
     return Response(resp.content, mimetype=resp.headers.get("Content-Type", "image/jpeg"))
 
 
@@ -150,7 +158,7 @@ def parse_env_file(filepath):
     return config
 
 
-@app.route("/api/camera-configs")
+@app.route("/api/admin/camera-configs")
 def camera_configs():
     """Return all camera configurations from config/*.env files."""
     configs = []
@@ -165,7 +173,21 @@ def camera_configs():
     return jsonify(configs)
 
 
-@app.route("/api/camera-configs", methods=["POST"])
+@app.route("/api/camera-locations")
+def camera_locations():
+    """Public subset of the camera configs for the map: no stream URLs."""
+    public_fields = ["CAMERA_TAG", "LAT", "LON", "ALTITUDE", "MODE"]
+    locations = []
+    for env_file in get_config_dir().glob("*.env"):
+        try:
+            config = parse_env_file(env_file)
+        except OSError:
+            continue
+        locations.append({k: config[k] for k in public_fields if k in config})
+    return jsonify(locations)
+
+
+@app.route("/api/admin/camera-configs", methods=["POST"])
 def add_camera_config():
     """Create a new camera configuration file."""
     data = request.json
@@ -195,7 +217,7 @@ def add_camera_config():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/camera-configs/<camera_tag>", methods=["PUT"])
+@app.route("/api/admin/camera-configs/<camera_tag>", methods=["PUT"])
 def update_camera_config(camera_tag):
     """Update an existing camera configuration file."""
     data = request.json
@@ -230,7 +252,7 @@ def update_camera_config(camera_tag):
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/camera-configs/<camera_tag>", methods=["DELETE"])
+@app.route("/api/admin/camera-configs/<camera_tag>", methods=["DELETE"])
 def delete_camera_config(camera_tag):
     """Delete a camera configuration file."""
     filename = f"{camera_tag}.env"
@@ -246,7 +268,7 @@ def delete_camera_config(camera_tag):
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/add-compose-service", methods=["POST"])
+@app.route("/api/admin/add-compose-service", methods=["POST"])
 def add_compose_service():
     """Add a new capture service to the docker-compose file."""
     data = request.json
@@ -323,7 +345,7 @@ def get_scoring_config():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/scoring-config", methods=["PUT"])
+@app.route("/api/admin/scoring-config", methods=["PUT"])
 def update_scoring_config():
     """Update scoring multipliers in sunset_process.py."""
     data = request.json
@@ -356,7 +378,7 @@ def update_scoring_config():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/rebuild", methods=["POST"])
+@app.route("/api/admin/rebuild", methods=["POST"])
 def trigger_rebuild():
     """Trigger a docker compose rebuild via the webhook service."""
     webhook_url = os.environ.get("REBUILD_WEBHOOK_URL")

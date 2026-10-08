@@ -63,6 +63,7 @@ services:
     environment:
       INFLUXDB_HOST: influxdb
       INFLUXDB_PORT: "8086"
+      IMAGE_BASE_URL: ${IMAGE_BASE_URL:-http://localhost:8080}
     volumes:
       - ./config:/app/config:ro
     ports:
