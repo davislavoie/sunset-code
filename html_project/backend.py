@@ -8,10 +8,11 @@ import pytz
 import time
 import requests
 import glob
+import html
 import re
 import yaml
 
-app = Flask(__name__, static_folder="static", static_url_path="")
+app = Flask(__name__, static_folder=None)
 
 # Config directory - check /app/config first (Docker mount), fallback to relative path
 def get_config_dir():
@@ -141,9 +142,47 @@ def image_proxy():
     return Response(resp.content, mimetype=resp.headers.get("Content-Type", "image/jpeg"))
 
 
-@app.route("/")
-def index():
-    return send_from_directory(app.static_folder, "index.html")
+FRONTEND_DIST = Path(__file__).parent / "frontend" / "dist"
+SUNSET_PAGE = re.compile(r"sunset/([A-Za-z0-9_-]+)/(\d{4}-\d{2}-\d{2})")
+
+
+def sunset_preview_tags(camera, date):
+    """Open Graph tags so a shared /sunset/<camera>/<date> link unfurls with the photo.
+    Crawlers don't run JavaScript, so these have to be in the HTML Flask sends."""
+    try:
+        ranked = fetch_camera_data_cached(camera)["ranked_images"]
+    except Exception:
+        return None
+    entry = next((r for r in ranked if r["Date"] == date), None)
+    if not entry:
+        return None
+    day = datetime.strptime(date, "%Y-%m-%d")
+    title = f"{camera} sunset · {day:%B} {day.day}, {day.year} · {entry['Score']:.0f}%"
+    tags = {
+        "og:title": title,
+        "og:description": f"Scored {entry['Score']:.1f}/100 by color analysis of the sky.",
+        "og:image": entry["Raw Image"] or entry["Ranked Image"],
+        "og:type": "website",
+    }
+    meta = "".join(f'<meta property="{k}" content="{html.escape(str(v))}" />\n' for k, v in tags.items())
+    return f'<title>{html.escape(title)}</title>\n{meta}<meta name="twitter:card" content="summary_large_image" />'
+
+
+@app.route("/", defaults={"path": ""})
+@app.route("/<path:path>")
+def frontend(path):
+    """Serves the React app (frontend/, built to frontend/dist). Unknown paths fall
+    back to index.html so client-side routes like /calendar work; /api/ stays 404."""
+    if path.startswith("api/"):
+        return jsonify({"error": "not found"}), 404
+    if path and (FRONTEND_DIST / path).is_file():
+        return send_from_directory(FRONTEND_DIST, path)
+    match = SUNSET_PAGE.fullmatch(path)
+    tags = match and sunset_preview_tags(*match.groups())
+    if tags:
+        page = (FRONTEND_DIST / "index.html").read_text(encoding="utf-8")
+        return Response(page.replace("<title>Sunset Dashboard</title>", tags, 1), mimetype="text/html")
+    return send_from_directory(FRONTEND_DIST, "index.html")
 
 
 def parse_env_file(filepath):
