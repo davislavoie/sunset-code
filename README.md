@@ -16,7 +16,7 @@ An automated pipeline that captures sunset photos from YouTube livestream cams, 
    - **Ranked Images** (`ranking_tab.py`) — sortable list of the best-scored image per day, side-by-side with its raw and HSV-mask versions.
    - **Score Tracker** (`score_tracker.py`) — Plotly line chart of scores over time, clickable to inspect individual captures.
    - **HSV Tuner** (`hsv_tuner.py`) — interactive tool for tuning the HSV thresholds used by the scoring algorithm, against reference images, gallery images, or an uploaded photo.
-9. **HTML mirror (experimental)** — `html_project/` is a hand-rolled, no-build static HTML/CSS/JS rebuild of the exact same four pages, backed by a small Flask API instead of Streamlit reruns. Built for fun / to compare with Streamlit on slow connections (see below).
+9. **Web dashboard** — `html_project/` is a Vite + React app (`frontend/`) served by a small Flask API (`backend.py`) that reads the same InfluxDB data. Pages: Sunset Calendar (day/week/month/year; the Day tab opens on the latest sunset with its best shot, score and color breakdown), Ranked Images, Score Tracker, HSV Tuner, Ranking Explained (interactive scorer), Compare (any two sunsets side by side), and Camera Map (Leaflet map with sun direction lines + yearly sunrise/sunset chart). Charts use bklit (shadcn registry) in `frontend/src/components/charts`. `/sunset/<camera>/<date>` is the shareable permalink: Flask adds link-preview tags, then it opens that day in the calendar. Anything that writes (camera configs, scoring multipliers, rebuilds) lives under `/admin/*` in the UI and `/api/admin/*` in the API, so it can be put behind reverse-proxy auth before the site goes public.
 
 ## Project layout
 
@@ -56,19 +56,23 @@ tests/
   EXAMPLE_IMAGES/                  # sample captured images
 
 html_project/
-  backend.py                       # Flask API: /api/cameras, /api/data, /api/image-proxy
-  Dockerfile
+  backend.py                       # Flask: JSON API + serves frontend/dist (public /api/*, writes under /api/admin/*)
+  Dockerfile                       # builds the frontend in a node stage, then runs Flask
   requirements.txt
-  static/
-    index.html                    # sidebar (camera select + nav) + main content area
-    style.css
-    app.js                        # router: fetches data, switches between the 4 pages
-    hsv.js                        # canvas-based HSV masking shared by the tuner page
-    pages/
-      gallery.js                  # "Sunset Calendar" page
-      ranking.js                  # "Ranked Images" page
-      scoretracker.js             # "Score Tracker" page (uses Plotly.js via CDN)
-      hsvtuner.js                 # "HSV Tuner" page
+  frontend/                        # Vite + React app
+    src/
+      App.jsx                      # sidebar (camera select + nav), routes, shared camera data
+      style.css
+      scoring.js                   # in-browser sunset scorer (+ scoring.test.js, `npm test`)
+      hsv.js                       # canvas-based HSV masking
+      SunTimesChart.jsx            # yearly sunrise/sunset chart on the map page
+      Dropdown.jsx, Img.jsx, ...   # shared UI: themed dropdown, fade-in images, skeletons
+      components/charts/           # bklit chart components (shadcn registry; our copy, edited)
+      tailwind.css                 # Tailwind (no preflight) + shadcn/bklit theme tokens
+      lightbox.jsx, DayDetail.jsx  # shared fullscreen viewer / day image strip
+      pages/                       # Calendar, Ranking, ScoreTracker, HsvTuner,
+                                   # RankingExplained, CameraMap, Config (admin)
+    public/stock_images/           # reference images for the HSV tuner
     stock_images/                 # copied from streamlit_project/stock_images
 ```
 
@@ -148,17 +152,23 @@ docker run -p 8501:8501 sunset-dashboard
 
 The dashboard connects to InfluxDB at `100.107.153.41:8086` (hardcoded in `app.py`) and expects images to be served over HTTP from that same host (e.g. `python3 -m http.server 8080` from the `Pictures` directory, matching the URL built in `helpers.py`'s `influxdb_push`).
 
-### HTML mirror (`html_project/`)
+### Web dashboard (`html_project/`)
 
-Same InfluxDB host, same image server — just a different frontend, served on its own port so it can run side by side with the Streamlit app:
+Same InfluxDB host, same image server. For development, run Flask and the Vite dev server side by side:
 
 ```bash
 cd html_project
 pip install -r requirements.txt
-python backend.py
+IMAGE_BASE_URL=http://<image-host>:8080 python backend.py   # API on :8502
+
+cd frontend
+npm install
+npm run dev                                                   # UI on :5173, proxies /api to :8502
 ```
 
-Then open `http://<host>:8502/`. There's no build step — `static/` is plain HTML/CSS/ES modules served directly by Flask. The four pages (`pages/gallery.js`, `pages/ranking.js`, `pages/scoretracker.js`, `pages/hsvtuner.js`) are 1:1 ports of the Streamlit pages of the same purpose, reading from the same `/api/data` JSON the Flask backend builds with the same query/grouping logic as `app.py`'s `fetch_camera_data`. The HSV tuner does real per-pixel HSV masking on `<canvas>` (see `hsv.js`) instead of OpenCV; gallery-sourced images are fetched through `/api/image-proxy` (a same-origin proxy) so the canvas can read their pixels without hitting cross-origin restrictions. Its InfluxDB connection is configurable via `INFLUXDB_HOST`/`INFLUXDB_PORT` (default `100.107.153.41`/`8086`, matching the original deployment).
+On Windows PowerShell, set the variable with `$env:IMAGE_BASE_URL = "http://<image-host>:8080"` first, and use `npm.cmd` if script execution is disabled.
+
+In production (`docker compose`), the Dockerfile builds `frontend/` and Flask serves it on :8502 alongside the API — open `http://<host>:8502/`. URLs are shareable (e.g. `/calendar?view=week&date=2025-05-16`). The HSV tuner and Ranking Explained do real per-pixel HSV work on `<canvas>`; gallery images are fetched through `/api/image-proxy` (a same-origin proxy, locked to `IMAGE_BASE_URL`) so the canvas can read their pixels. InfluxDB connection is configurable via `INFLUXDB_HOST`/`INFLUXDB_PORT` (default `100.107.153.41`/`8086`).
 
 ## Notes / known rough edges
 
