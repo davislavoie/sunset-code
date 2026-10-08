@@ -2,3 +2,5 @@
 __pycache__/
 *.pyc
 docker-compose.override.yml
+node_modules/
+html_project/frontend/dist/
