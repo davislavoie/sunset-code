@@ -3,10 +3,9 @@
 An optional sidecar to the capture pipeline. For every capture it asks a small
 vision model running locally in [Ollama](https://ollama.com) two things:
 
-- **Is this actually the sky?** It estimates how much of the frame is open sky. Trees,
-  buildings or water in the foreground are normal: a frame only counts as **not the sky**
-  (score 0) when open sky is under 10% of it (e.g. the camera is facing a wall or into a
-  tree), or it's dark / no signal. Change the cutoff with `AI_MIN_SKY_PERCENT` in `.env`.
+- **Is there any sky in view at all?** Trees, buildings or water in the frame, or a
+  camera aimed a little off, are normal. A frame only scores 0 when no sky is visible
+  at all (the camera is facing a wall or into a tree), or it's dark / no signal.
 - **How good is the sunset?** A 0–100 score plus a one-line reason, shown next to
   the color (HSV) score. It never replaces it.
 

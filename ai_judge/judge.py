@@ -9,7 +9,6 @@ import base64
 import io
 import json
 import logging
-import os
 
 import requests
 from PIL import Image
@@ -19,39 +18,37 @@ log = logging.getLogger(__name__)
 # What the camera is looking at.
 VIEWS = ["sky", "obstructed", "dark", "no_signal"]
 
-# A frame only counts as "not the sky" (score 0) when open sky is under this share of the
-# frame. Foreground trees/buildings/water are normal, so this is deliberately low.
-MIN_SKY_PERCENT = int(os.environ.get("AI_MIN_SKY_PERCENT", 10))
-
 # Ollama constrains the reply to this JSON schema, so it always parses.
 SCHEMA = {
     "type": "object",
     "properties": {
+        "sky_visible": {"type": "boolean"},
         "view": {"type": "string", "enum": VIEWS},
         "sky_percent": {"type": "integer", "minimum": 0, "maximum": 100},
         "score": {"type": "integer", "minimum": 0, "maximum": 100},
         "reason": {"type": "string"},
     },
-    "required": ["view", "sky_percent", "score", "reason"],
+    "required": ["sky_visible", "view", "sky_percent", "score", "reason"],
 }
 
-PROMPT = """This is a still frame from a fixed webcam that looks out at the sky at sunset or sunrise. The bottom half of the frame normally shows foreground (trees, buildings, hills, water, boats or a shoreline), and the camera may be aimed a little off; that is expected. The sunset is the sky above the horizon. Judge it.
+PROMPT = """This is a still frame from a fixed webcam that looks out at the sky at sunset or sunrise. Trees, branches, buildings, hills, water, boats or a shoreline in the frame are normal, and the camera may be aimed a little off; that is expected.
+
+sky_visible: is ANY open sky visible anywhere in the frame, even a small patch or a thin strip above trees? Answer true unless there is no sky at all. Trees in the frame are NOT a reason to answer false.
 
 view:
-- "sky": open sky above a horizon is visible, even if trees, buildings or other things fill the foreground. When in doubt, choose "sky".
-- "obstructed": the camera is pointed the wrong way, so a wall, building, tree trunk, branches or another close object fills nearly the whole frame and little or no sky shows.
-- "dark": the frame is mostly black, e.g. night.
+- "sky": any open sky is visible. This is the answer for almost every frame, including ones with trees or buildings in them.
+- "obstructed": ONLY when no sky is visible at all, because a wall or object completely fills the frame.
+- "dark": the frame is black or nearly black, e.g. night.
 - "no_signal": an error screen, test card, blank frame or "stream offline" graphic.
 
-sky_percent (0-100): roughly what percentage of the frame is open sky.
+sky_percent (0-100): roughly what percentage of the frame is open sky (for information only).
 
-score (0-100), how beautiful the sunset is, judged on the visible sky only (foreground objects and a slightly off camera angle must not lower it):
+score (0-100), how beautiful the sunset is, judged on the visible sky only (trees, buildings or a slightly off camera angle must not lower it):
 - 0-20: grey, flat or washed-out sky, little or no warm color.
 - 20-40: some faint warm color near the horizon.
 - 40-60: clear warm colors (orange, pink, red) in part of the sky.
 - 60-80: vivid colors across much of the sky, with interesting clouds catching the light.
 - 80-100: spectacular: intense reds, pinks and oranges lighting up clouds across the sky.
-Use 0 only for "dark" or "no_signal".
 
 reason: one short phrase (at most 12 words) saying what drives the score."""
 
@@ -92,24 +89,21 @@ def judge_image(image_bytes, model, ollama_url, timeout=600):
         return None
 
 
-def normalize(data, min_sky_percent=None):
+def normalize(data):
     """Clamp and validate the model's answer; None if it's unusable.
 
-    The model's own "obstructed" call is only a hint: a frame counts as not the sky when
-    it's dark / no signal, or when open sky is under min_sky_percent of the frame. Trees or
-    buildings in front of a visible sunset therefore still count."""
-    min_sky = MIN_SKY_PERCENT if min_sky_percent is None else min_sky_percent
+    A frame scores 0 only when it's dark / no signal, or when the model says BOTH that no
+    sky is visible at all and that the view is obstructed. Any doubt keeps the frame:
+    trees or a slightly off camera must never zero a sunset."""
     view = data.get("view")
     if view not in VIEWS:
         return None
-    sky_percent = max(0, min(100, int(data.get("sky_percent", 100))))
-    is_sunset = view not in ("dark", "no_signal") and sky_percent >= min_sky
-    if view in ("sky", "obstructed"):
-        view = "sky" if is_sunset else "obstructed"
+    no_sky = data.get("sky_visible") is False and view == "obstructed"
+    is_sunset = view not in ("dark", "no_signal") and not no_sky
     return {
-        "view": view,
+        "view": "obstructed" if no_sky else ("sky" if is_sunset else view),
         "is_sunset": is_sunset,
-        "sky_percent": sky_percent,
+        "sky_percent": max(0, min(100, int(data.get("sky_percent", 100)))),
         "score": max(0, min(100, int(data.get("score", 0)))) if is_sunset else 0,
         "reason": str(data.get("reason", "")).strip()[:200],
     }

@@ -32,8 +32,6 @@ services:
     environment:
       OLLAMA_URL: http://ollama:11434
       AI_MODEL: ${AI_MODEL:-qwen3-vl:4b}
-      # A frame counts as not the sky (score 0) only when open sky is under this % of it.
-      AI_MIN_SKY_PERCENT: ${AI_MIN_SKY_PERCENT:-10}
       INFLUXDB_HOST: influxdb
       INFLUXDB_PORT: "8086"
       # Stored image urls use the public IMAGE_BASE_URL; fetch them via the compose network instead.
