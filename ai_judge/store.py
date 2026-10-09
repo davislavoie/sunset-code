@@ -11,7 +11,7 @@ from zoneinfo import ZoneInfo
 import requests
 
 MEASUREMENT = "sunset_images"
-AI_FIELDS = ("ai_view", "ai_is_sunset", "ai_score", "ai_reason", "ai_model")
+AI_FIELDS = ("ai_view", "ai_is_sunset", "ai_sky_percent", "ai_score", "ai_reason", "ai_model")
 
 # Days are grouped by the cameras' local date: an evening sunset in Vermont is after
 # midnight UTC, so UTC dates would split or shift it.
@@ -111,6 +111,7 @@ def save_judgment(client, point, result, model):
     save_fields(client, point, {
         "ai_view": result["view"],
         "ai_is_sunset": result["is_sunset"],
+        "ai_sky_percent": float(result["sky_percent"]),
         "ai_score": float(result["score"]),
         "ai_reason": result["reason"],
         "ai_model": model,

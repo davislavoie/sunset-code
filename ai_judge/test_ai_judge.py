@@ -64,12 +64,12 @@ def ollama_reply(content):
 
 class JudgeTests(unittest.TestCase):
     def test_sends_small_image_with_schema_and_parses_answer(self):
-        server = FakeServer(lambda body: ollama_reply({"view": "sky", "score": 83, "reason": "vivid pink clouds"}))
+        server = FakeServer(lambda body: ollama_reply({"view": "sky", "sky_percent": 55, "score": 83, "reason": "vivid pink clouds"}))
         try:
             result = judge_image(jpeg(), "qwen3-vl:4b", server.url)
         finally:
             server.close()
-        self.assertEqual(result, {"view": "sky", "is_sunset": True, "score": 83, "reason": "vivid pink clouds"})
+        self.assertEqual(result, {"view": "sky", "is_sunset": True, "sky_percent": 55, "score": 83, "reason": "vivid pink clouds"})
         sent = server.requests[0]
         self.assertEqual(sent["model"], "qwen3-vl:4b")
         self.assertEqual(sent["options"]["temperature"], 0)
@@ -78,19 +78,28 @@ class JudgeTests(unittest.TestCase):
         img = Image.open(io.BytesIO(base64.b64decode(sent["messages"][0]["images"][0])))
         self.assertEqual(img.size, (768, 432))  # downscaled, aspect kept
 
-    def test_not_a_sky_view_never_counts(self):
-        server = FakeServer(lambda body: ollama_reply({"view": "obstructed", "score": 70, "reason": "brick wall"}))
+    def test_camera_facing_a_wall_scores_zero(self):
+        server = FakeServer(lambda body: ollama_reply({"view": "obstructed", "sky_percent": 3, "score": 70, "reason": "brick wall"}))
         try:
             result = judge_image(jpeg(), "m", server.url)
         finally:
             server.close()
-        self.assertEqual((result["is_sunset"], result["score"]), (False, 0))
+        self.assertEqual((result["view"], result["is_sunset"], result["score"]), ("obstructed", False, 0))
+
+    def test_foreground_trees_with_visible_sky_still_count(self):
+        # The model may say "obstructed" for trees in front of the sunset; enough sky means it counts.
+        server = FakeServer(lambda body: ollama_reply({"view": "obstructed", "sky_percent": 40, "score": 62, "reason": "pink above trees"}))
+        try:
+            result = judge_image(jpeg(), "m", server.url)
+        finally:
+            server.close()
+        self.assertEqual((result["view"], result["is_sunset"], result["score"]), ("sky", True, 62))
 
     def test_retries_without_think_flag_when_model_rejects_it(self):
         def respond(body):
             if "think" in body:
                 return 400, {"error": "model does not support think"}
-            return ollama_reply({"view": "sky", "score": 40, "reason": "some orange"})
+            return ollama_reply({"view": "sky", "sky_percent": 50, "score": 40, "reason": "some orange"})
 
         server = FakeServer(respond)
         try:
@@ -148,7 +157,7 @@ class StoreTests(unittest.TestCase):
 
         point = {"time": "2025-05-16T20:12:26Z", "label": "06_5m_pre_05-16-2025.jpg", "camera": "btv_echo_cam",
                  "url": "http://x/a.jpg", "score": 42.6}
-        store.save_judgment(FakeClient(), point, {"view": "sky", "is_sunset": True, "score": 77, "reason": "r"}, "m")
+        store.save_judgment(FakeClient(), point, {"view": "sky", "is_sunset": True, "sky_percent": 50, "score": 77, "reason": "r"}, "m")
         [p] = written
         # Same measurement + tags + time as the original, so InfluxDB merges instead of duplicating;
         # and only ai_* fields, so url/score are untouched.

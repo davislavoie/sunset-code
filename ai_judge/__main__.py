@@ -166,7 +166,8 @@ def render_report(rows, models):
     for point, verdicts in rows:
         cells = []
         for _, r, secs in verdicts:
-            text = "failed" if not r else f"<b>{r['view']}</b> · {r['score']}<br>{html.escape(r['reason'])}"
+            text = ("failed" if not r else
+                    f"<b>{r['view']}</b> · score {r['score']} · sky {r['sky_percent']}%<br>{html.escape(r['reason'])}")
             cells.append(f"<td>{text}<br><small>{secs:.0f}s</small></td>")
         body.append(
             f"<tr><td><img src='{html.escape(point['url'])}' width='320'><br>"

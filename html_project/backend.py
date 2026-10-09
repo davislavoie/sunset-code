@@ -111,6 +111,7 @@ def ai_fields(point):
     return {
         "view": point.get("ai_view"),
         "is_sunset": point.get("ai_is_sunset"),
+        "sky_percent": point.get("ai_sky_percent"),
         "score": point.get("ai_score"),
         "reason": point.get("ai_reason"),
         "model": point.get("ai_model"),
