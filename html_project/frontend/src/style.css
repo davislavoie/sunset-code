@@ -2242,3 +2242,12 @@ main#content.is-stale { opacity: 0.5; pointer-events: none; }
 .rank-time { color: var(--text-secondary); font-size: 0.85em; }
 .rank-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 .rank-open { text-decoration: none; color: inherit; }
+
+/* ---- Local AI judge verdicts (SunsetHero.jsx AiVerdict) ---- */
+.ai-verdict { font-size: 0.85em; color: var(--text-secondary); }
+.ai-score { color: var(--chart-4); font-weight: 600; }
+.ai-flagged { color: #f85149; font-weight: 600; }
+/* Captures the AI says aren't the sky: dimmed so they don't read as candidates */
+.day-view-card.ai-not-sky img { opacity: 0.45; filter: grayscale(0.6); }
+.rank-filter-end { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.metric-toggle { margin-bottom: 8px; }

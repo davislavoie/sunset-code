@@ -65,6 +65,7 @@ def fetch_camera_data(camera_tag):
             "Label": point["label"],
             "Image": point["url"],
             "Score": 0 if point["score"] is None else point["score"],
+            "AI": ai_fields(point),
         }
 
         all_data.append(data_item)
@@ -93,9 +94,24 @@ def fetch_camera_data(camera_tag):
                 "Time": time_str,
                 "dt_local": dt_local.isoformat(),
                 "Label": point["label"],
+                # The AI judges the raw photo, so the best shot carries that photo's verdict.
+                "AI": ai_fields(matching_photo[0]) if matching_photo else None,
             })
 
     return {"sunset_data": sunset_data, "all_data": all_data, "ranked_images": ranked_images}
+
+
+def ai_fields(point):
+    """ai_* fields written by the optional ai_judge service, or None if not judged (or not running)."""
+    if point.get("ai_model") is None:
+        return None
+    return {
+        "view": point.get("ai_view"),
+        "is_sunset": point.get("ai_is_sunset"),
+        "score": point.get("ai_score"),
+        "reason": point.get("ai_reason"),
+        "model": point.get("ai_model"),
+    }
 
 
 def fetch_camera_data_cached(camera_tag):

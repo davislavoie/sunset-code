@@ -9,6 +9,7 @@ import Dropdown from "../Dropdown.jsx";
 import { SIZES } from "../Img.jsx";
 import { Zoomable } from "../lightbox.jsx";
 import Reveal from "../Reveal.jsx";
+import { AiVerdict } from "../SunsetHero.jsx";
 
 const PAGE_SIZE = 20;
 
@@ -46,15 +47,18 @@ function periods(now = new Date()) {
 export default function Ranking({ data }) {
   const [period, setPeriod] = useState("all");
   const [sort, setSort] = useState("score-desc");
+  const [showHidden, setShowHidden] = useState(false);
   const [visible, setVisible] = useState(PAGE_SIZE);
   const sentinel = useRef(null);
   const periodList = useMemo(() => periods(), []);
 
   // Every best shot ranked all-time by score (for "Top X%").
   const entries = useMemo(() => {
-    const list = [...data.ranked_images].sort((a, b) => b.Score - a.Score);
+    // Days whose best shot the AI judged "not the sky" (wall, tree, dark...) would skew the
+    // ranking, so they are left out unless "Show hidden" is on.
+    const list = data.ranked_images.filter((r) => showHidden || !notSky(r)).sort((a, b) => b.Score - a.Score);
     return list.map((e, i) => ({ ...e, topPercent: Math.max(1, Math.ceil(((i + 1) / list.length) * 100)) }));
-  }, [data]);
+  }, [data, showHidden]);
 
   const shown = useMemo(() => {
     const test = periodList.find((p) => p.value === period).test;
@@ -76,7 +80,7 @@ export default function Ranking({ data }) {
   }, [entries, period, sort, periodList]);
 
   // New filters start from the first page again.
-  useEffect(() => setVisible(PAGE_SIZE), [period, sort]);
+  useEffect(() => setVisible(PAGE_SIZE), [period, sort, showHidden]);
 
   // Load the next page when the end of the list scrolls near.
   useEffect(() => {
@@ -90,6 +94,7 @@ export default function Ranking({ data }) {
   }, []);
 
   const periodLabel = periodList.find((p) => p.value === period).label;
+  const hiddenCount = data.ranked_images.filter(notSky).length;
 
   return (
     <>
@@ -108,7 +113,18 @@ export default function Ranking({ data }) {
             </button>
           ))}
         </div>
-        <Dropdown label="Sort" value={sort} onChange={setSort} options={SORTS} />
+        <div className="rank-filter-end">
+          {hiddenCount > 0 && (
+            <button
+              className={`rank-chip${showHidden ? " active" : ""}`}
+              aria-pressed={showHidden}
+              onClick={() => setShowHidden(!showHidden)}
+            >
+              {showHidden ? "Hide" : "Show"} {hiddenCount} not-the-sky {hiddenCount === 1 ? "day" : "days"}
+            </button>
+          )}
+          <Dropdown label="Sort" value={sort} onChange={setSort} options={SORTS} />
+        </div>
       </div>
       <hr />
 
@@ -158,6 +174,7 @@ function RankRow({ entry }) {
           <div className="rank-pct">Top {entry.topPercent}%</div>
           <div className="rank-date">{date}</div>
           <div className="rank-time">Best shot at {entry.Time}</div>
+          <AiVerdict ai={entry.AI} />
           <div className="rank-actions">
             {analysis.length > 0 && (
               <button className="btn" aria-expanded={showAnalysis} onClick={() => setShowAnalysis(!showAnalysis)}>
@@ -182,4 +199,9 @@ function RankRow({ entry }) {
       </Reveal>
     </div>
   );
+}
+
+/** True when the AI judge saw the day's best shot and it isn't actually the sky. */
+function notSky(row) {
+  return row.AI?.is_sunset === false;
 }

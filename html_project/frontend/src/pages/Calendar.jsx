@@ -9,7 +9,7 @@ import { dayPath, useDocumentTitle } from "../api.js";
 import DayDetail from "../DayDetail.jsx";
 import Img, { SIZES, sizeForLabel } from "../Img.jsx";
 import Reveal from "../Reveal.jsx";
-import SunsetHero from "../SunsetHero.jsx";
+import SunsetHero, { AiVerdict } from "../SunsetHero.jsx";
 import { Zoomable } from "../lightbox.jsx";
 
 const VIEWS = [["day", "Day"], ["week", "Week"], ["month", "Month"], ["year", "Year"]];
@@ -167,12 +167,13 @@ function DayView({ date, goTo, allData, camera, best }) {
           {best && <h4>All captures</h4>}
           <div className="day-view-grid">
             {dayImages.map((img) => (
-              <div key={img.Image} className="day-view-card">
+              <div key={img.Image} className={`day-view-card${img.AI && !img.AI.is_sunset ? " ai-not-sky" : ""}`}>
                 <Zoomable src={img.Image} alt={img.Label} loading="lazy" {...sizeForLabel(img.Label)} />
                 <div className="day-view-caption">
                   <strong>{/^(07_|11_|12_)/.test(img.Label) ? img.Label.slice(3) : img.Label}</strong>
                   <br />
                   {img.Time} &middot; Score: {img.Score.toFixed(1)}%
+                  <AiVerdict ai={img.AI} compact />
                 </div>
               </div>
             ))}
