@@ -542,7 +542,6 @@ main#content {
   opacity: 1;
 }
 
-.show-in-calendar-btn { margin-top: 10px; }
 
 .detail {
   border-top: 1px solid var(--border);
@@ -612,70 +611,9 @@ button {
 .btn:disabled { opacity: 0.4; cursor: default; transform: none; }
 
 /* ---- Ranking page ---- */
-.ranking-controls { display: flex; gap: 16px; margin-bottom: 12px; }
-.ranking-controls select {
-  background: var(--panel); color: var(--text); border: 1px solid var(--border);
-  border-radius: 6px; padding: 6px 10px;
-}
-
-.ranking-row {
-  display: grid;
-  grid-template-columns: 2fr 2fr 2fr 1fr 2fr;
-  gap: 12px;
-  align-items: center;
-  padding: 12px 0;
-  border-bottom: 1px solid var(--border);
-}
-.ranking-row img { width: 100%; border-radius: 6px; }
-
-.ranked-img-cell { position: relative; }
-.fullscreen-toggle-btn {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 30px;
-  height: 30px;
-  border: none;
-  border-radius: 6px;
-  background: rgba(0, 0, 0, 0.55);
-  color: var(--text);
-  font-size: 1.1em;
-  line-height: 1;
-  cursor: pointer;
-  z-index: 2;
-  opacity: 0;
-  transition: opacity 150ms var(--ease-out), background 150ms var(--ease-out), transform 160ms var(--ease-out);
-}
-@media (hover: hover) and (pointer: fine) {
-  .ranked-img-cell:hover .fullscreen-toggle-btn { opacity: 1; }
-  .fullscreen-toggle-btn:hover { background: rgba(0, 0, 0, 0.75); }
-}
-.fullscreen-toggle-btn:active { transform: scale(0.9); }
-
 .metric-label { color: var(--text-muted); font-size: 0.85em; }
 .metric-value { font-size: 1.6em; font-weight: 600; letter-spacing: -0.02em; }
 
-.score-cell {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  gap: 6px;
-}
-.score-cell .metric-value { font-size: 2.1em; }
-
-.info-cell {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  text-align: left;
-  gap: 10px;
-}
-
-@media (max-width: 900px) {
-  .ranking-row { grid-template-columns: 1fr 1fr; }
-}
 
 /* ---- Score tracker ---- */
 .axis-controls { display: flex; gap: 16px; margin-bottom: 12px; }
@@ -958,31 +896,11 @@ input[type=file] { color: var(--text); }
     grid-template-columns: repeat(4, 1fr) !important;
   }
 
-  /* Ranking page */
-  .ranking-row {
-    grid-template-columns: 1fr;
-    gap: 16px;
-  }
-
-  .ranking-controls {
-    flex-direction: column;
-    gap: 10px;
-  }
-
-  .score-cell {
-    flex-direction: row;
-    justify-content: flex-start;
-    gap: 12px;
-  }
-
-  .score-cell .metric-value {
-    font-size: 1.8em;
-  }
-
-  /* Fullscreen button always visible on mobile (no hover) */
-  .fullscreen-toggle-btn {
-    opacity: 1;
-  }
+  /* Ranking page: photo full width with the score below; analysis images stack */
+  .rank-row-main { grid-template-columns: 1fr; gap: 12px; }
+  .rank-row-info { flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; }
+  .rank-actions { width: 100%; margin-top: 4px; }
+  .rank-analysis { grid-template-columns: 1fr; }
 
   /* Score tracker */
   .axis-controls {
@@ -2054,13 +1972,12 @@ a.nav-btn { text-decoration: none; }
 .sunset-score { font-size: 2.6em; font-weight: 700; letter-spacing: -0.03em; color: var(--sun); line-height: 1; }
 .sunset-meta { color: var(--text-secondary); margin-bottom: 8px; }
 .sunset-actions { display: flex; gap: 8px; margin-top: auto; padding-top: 12px; }
-.sunset-actions a.btn, .detail-header-actions a.btn, a.show-in-calendar-btn {
+.sunset-actions a.btn, .detail-header-actions a.btn {
   text-decoration: none;
   color: inherit;
   display: inline-flex;
   align-items: center;
 }
-a.show-in-calendar-btn { margin-left: 8px; }
 
 /* ---- Color breakdown bars ---- */
 .score-breakdown-bars { display: flex; flex-direction: column; gap: 6px; }
@@ -2276,3 +2193,52 @@ main#content.is-stale { opacity: 0.5; pointer-events: none; }
 }
 .rs-thumb:active { cursor: grabbing; transform: scale(1.12); }
 .rs-thumb:has(:focus-visible) { box-shadow: 0 0 0 3px var(--accent-glow), 0 0 0 1px var(--sun); }
+
+/* ---- Ranked Images (pages/Ranking.jsx) ---- */
+.rank-filters { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; }
+.rank-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.rank-chip {
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 0.9em;
+  cursor: pointer;
+  transition: border-color 150ms var(--ease-out), color 150ms var(--ease-out), background-color 150ms var(--ease-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  .rank-chip:hover { border-color: var(--sun); color: var(--text); }
+}
+.rank-chip.active { background: var(--accent-glow); border-color: var(--sun); color: var(--sun); }
+
+/* One row per day: the photo large, the score beside it; analysis images expand below */
+.rank-row { padding: 18px 0; border-bottom: 1px solid var(--border-subtle); }
+.rank-row-main { display: grid; grid-template-columns: minmax(0, 3fr) minmax(190px, 1fr); gap: 20px; align-items: center; }
+.rank-row-photo { display: block; width: 100%; border-radius: 10px; }
+.rank-analysis { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding-top: 16px; }
+.rank-analysis figure { margin: 0; }
+.rank-analysis img { display: block; width: 100%; border-radius: 8px; }
+.rank-analysis figcaption { margin-top: 6px; font-size: 0.8em; color: var(--text-muted); text-align: center; }
+.rank-row-info { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.rank-badge {
+  min-width: 40px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 0.85em;
+  font-weight: 700;
+  text-align: center;
+}
+.rank-medal-1 { background: linear-gradient(135deg, #ffd76a, #f3a712); color: #2b1d00; border-color: transparent; }
+.rank-medal-2 { background: linear-gradient(135deg, #f1f3f6, #aab2bd); color: #1d2329; border-color: transparent; }
+.rank-medal-3 { background: linear-gradient(135deg, #f0b27a, #b9772f); color: #2a1604; border-color: transparent; }
+.rank-score { font-size: 2.1em; font-weight: 700; letter-spacing: -0.03em; color: var(--sun); line-height: 1.1; }
+.rank-pct { color: var(--text-muted); font-size: 0.85em; }
+.rank-date { color: var(--text); font-size: 0.9em; margin-top: 6px; }
+.rank-time { color: var(--text-secondary); font-size: 0.85em; }
+.rank-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.rank-open { text-decoration: none; color: inherit; }
