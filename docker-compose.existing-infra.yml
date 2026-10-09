@@ -16,7 +16,7 @@ services:
     working_dir: /pictures
     command: ["python3", "-m", "http.server", "8080"]
     volumes:
-      - /home/YOUR_USER/Pictures:/pictures:ro
+      - ${HOME}/Pictures:/pictures:ro
     ports:
       - "8080:8080"
 
@@ -35,7 +35,7 @@ services:
       PICTURES_DIR: /pictures
       IMAGE_BASE_URL: ${IMAGE_BASE_URL:-http://localhost:8080}
     volumes:
-      - /home/YOUR_USER/Pictures:/pictures
+      - ${HOME}/Pictures:/pictures
 
   capture-btv_echo_cam:
     build:
@@ -52,7 +52,41 @@ services:
       PICTURES_DIR: /pictures
       IMAGE_BASE_URL: ${IMAGE_BASE_URL:-http://localhost:8080}
     volumes:
-      - /home/YOUR_USER/Pictures:/pictures
+      - ${HOME}/Pictures:/pictures
+
+  capture-wcax_tower_sunrise:
+    build:
+      context: .
+      dockerfile: sunset_code/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - influxdb
+    env_file:
+      - config/wcax_tower_sunrise.env
+    environment:
+      INFLUXDB_HOST: influxdb
+      INFLUXDB_PORT: "8086"
+      PICTURES_DIR: /pictures
+      IMAGE_BASE_URL: ${IMAGE_BASE_URL:-http://localhost:8080}
+    volumes:
+      - ${HOME}/Pictures:/pictures
+
+  capture-wcax_tower_sunset:
+    build:
+      context: .
+      dockerfile: sunset_code/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - influxdb
+    env_file:
+      - config/wcax_tower_sunset.env
+    environment:
+      INFLUXDB_HOST: influxdb
+      INFLUXDB_PORT: "8086"
+      PICTURES_DIR: /pictures
+      IMAGE_BASE_URL: ${IMAGE_BASE_URL:-http://localhost:8080}
+    volumes:
+      - ${HOME}/Pictures:/pictures
 
   dashboard:
     build: ./html_project
@@ -63,7 +97,7 @@ services:
       INFLUXDB_HOST: influxdb
       INFLUXDB_PORT: "8086"
       IMAGE_BASE_URL: ${IMAGE_BASE_URL:-http://localhost:8080}
-      PICTURES_PATH: /home/YOUR_USER/Pictures
+      PICTURES_PATH: ${HOME}/Pictures
       REBUILD_WEBHOOK_URL: http://rebuild-webhook:9999/rebuild
       REBUILD_TOKEN: ${REBUILD_TOKEN:-changeme}
     volumes:
