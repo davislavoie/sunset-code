@@ -118,8 +118,10 @@ def bakeoff(args):
     models = [m.strip() for m in args.models.split(",") if m.strip()]
     points = store.captures(client, args.camera)
     if args.dates:
-        wanted = set(args.dates.split(","))
-        sample = [p for p in points if any(p["time"].startswith(d) for d in wanted)]
+        wanted = {date.fromisoformat(d.strip()) for d in args.dates.split(",") if d.strip()}
+        sample = [p for p in points if store.local_date(p) in wanted]
+        for missing in sorted(wanted - {store.local_date(p) for p in sample}):
+            log.warning("%s has no captures on %s; it isn't in the sample", args.camera, missing)
     else:
         sample = []
     # Top it up with the highest- and lowest-scoring captures (where the color score is most
