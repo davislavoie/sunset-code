@@ -103,6 +103,7 @@ services:
     volumes:
       - ./config:/app/config
       - ./docker-compose.existing-infra.yml:/app/docker-compose.yml
+      - ./sunset_code:/sunset_code   # scoring multipliers (read by the dashboard, saved by admin Scoring)
     ports:
       - "8502:8502"
 

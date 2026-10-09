@@ -66,6 +66,7 @@ services:
       IMAGE_BASE_URL: ${IMAGE_BASE_URL:-http://localhost:8080}
     volumes:
       - ./config:/app/config:ro
+      - ./sunset_code:/sunset_code   # scoring multipliers (read by the dashboard, saved by admin Scoring)
     ports:
       - "8502:8502"
 
