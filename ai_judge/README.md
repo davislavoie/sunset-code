@@ -34,8 +34,8 @@ docker compose -f docker-compose.existing-infra.yml -f docker-compose.ai.yml log
 The `ai-judge` service then checks for new captures every 10 minutes (the last 2 days)
 and applies the gate.
 
-The photos folder defaults to `/home/dlavoie/Pictures`; set `PICTURES_PATH` in `.env`
-if it lives elsewhere (re-ranking writes new ranked images next to the photos).
+It uses the same photos folder as the capture containers (`${HOME}/Pictures`); re-ranking
+writes new ranked images next to the photos.
 
 For the commands below, an alias saves typing:
 

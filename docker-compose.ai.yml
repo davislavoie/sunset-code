@@ -41,7 +41,7 @@ services:
       PICTURES_DIR: /pictures
       TIMEZONE: ${TIMEZONE:-America/New_York}
     volumes:
-      - ${PICTURES_PATH:-/home/dlavoie/Pictures}:/pictures
+      - ${HOME}/Pictures:/pictures   # same folder the capture containers use
 
 volumes:
   ollama-models:
