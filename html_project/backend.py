@@ -59,12 +59,15 @@ def fetch_camera_data(camera_tag):
         date_str = dt_local.strftime("%Y-%m-%d")
         time_str = dt_local.strftime("%I:%M %p")
 
+        hsv_score = 0 if point["score"] is None else point["score"]
         data_item = {
             "Date": date_str,
             "Time": time_str,
             "Label": point["label"],
             "Image": point["url"],
-            "Score": 0 if point["score"] is None else point["score"],
+            # A capture the AI judge says isn't the sky (wall, tree, dark...) counts as 0.
+            "Score": 0 if point.get("ai_is_sunset") is False else hsv_score,
+            "HSV Score": hsv_score,
             "AI": ai_fields(point),
         }
 

@@ -21,7 +21,9 @@ services:
       - "11434"
 
   ai-judge:
-    build: ./ai_judge
+    build:
+      context: .
+      dockerfile: ai_judge/Dockerfile
     restart: unless-stopped
     depends_on:
       - ollama
@@ -35,6 +37,11 @@ services:
       # Stored image urls use the public IMAGE_BASE_URL; fetch them via the compose network instead.
       IMAGE_BASE_URL: ${IMAGE_BASE_URL:-http://localhost:8080}
       IMAGE_FETCH_URL: http://imageserver:8080
+      # Re-ranking writes new ranked images next to the photos, like the capture containers.
+      PICTURES_DIR: /pictures
+      TIMEZONE: ${TIMEZONE:-America/New_York}
+    volumes:
+      - ${PICTURES_PATH:-/home/dlavoie/Pictures}:/pictures
 
 volumes:
   ollama-models:

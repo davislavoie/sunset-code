@@ -1,18 +1,24 @@
-# ai_judge: local AI sunset judge
+# ai_judge: local AI sunset judge + re-ranker
 
 An optional sidecar to the capture pipeline. For every capture it asks a small
 vision model running locally in [Ollama](https://ollama.com) two things:
 
 - **Is this actually the sky?** `sky`, `obstructed` (wall, tree, wrong preset),
-  `dark`, or `no_signal`. Frames that aren't the sky are hidden from rankings so
-  they can't skew them.
+  `dark`, or `no_signal`.
 - **How good is the sunset?** A 0–100 score plus a one-line reason, shown next to
   the color (HSV) score. It never replaces it.
 
 It reads captures from InfluxDB and writes `ai_view`, `ai_is_sunset`, `ai_score`,
-`ai_reason` and `ai_model` back onto the same points. The pipeline's own fields
-(`url`, `score`) and code are untouched. Everything runs on the NUC's CPU; nothing
+`ai_reason` and `ai_model` back onto the same points. The pipeline's code and its
+`url`/`score` fields are untouched. Everything runs on the NUC's CPU; nothing
 leaves the machine.
+
+**The gate:** a capture that isn't the sky counts as 0 in the dashboard. Once all of a
+day's captures are judged, if the pipeline's best shot turned out not to be the sky,
+the judge re-picks the day's best shot from its real-sky captures by HSV score and
+regenerates the ranked image and histogram with the pipeline's own functions. If none
+of the day's captures show the sky, that day isn't ranked at all. This happens within
+~10 minutes of the day's capture run finishing, without changing the capture pipeline.
 
 ## Run it on the NUC
 
@@ -25,7 +31,22 @@ docker compose -f docker-compose.existing-infra.yml -f docker-compose.ai.yml up 
 docker compose -f docker-compose.existing-infra.yml -f docker-compose.ai.yml logs -f ai-judge
 ```
 
-The `ai-judge` service then checks for new captures every 10 minutes (the last 2 days).
+The `ai-judge` service then checks for new captures every 10 minutes (the last 2 days)
+and applies the gate.
+
+The photos folder defaults to `/home/dlavoie/Pictures`; set `PICTURES_PATH` in `.env`
+if it lives elsewhere (re-ranking writes new ranked images next to the photos).
+
+For the commands below, an alias saves typing:
+
+```bash
+alias judge='docker compose -f docker-compose.existing-infra.yml -f docker-compose.ai.yml run --rm ai-judge python -m ai_judge'
+```
+
+Every command takes `--camera <tag>` or `--camera all`, and `backfill`/`rerank` take
+`--since YYYY-MM-DD` (inclusive) and `--before YYYY-MM-DD` (exclusive), in the cameras'
+local dates. Cameras: `bolton_summit_cam`, `btv_echo_cam`, `wcax_tower_sunrise`,
+`wcax_tower_sunset`.
 
 ### 1. Pick a model first (recommended)
 
@@ -48,21 +69,41 @@ seconds-per-photo in the log. To use the other model, set `AI_MODEL=gemma3:4b` i
 Resumable: stop it any time, and re-running skips what's already judged.
 
 ```bash
-# Each day's best shot only (the frames that matter for rankings), a few hours per camera
-docker compose -f docker-compose.existing-infra.yml -f docker-compose.ai.yml run --rm ai-judge \
-  python -m ai_judge backfill --camera btv_echo_cam --best-only
-
-# Every capture (~3,500 for btv_echo_cam): run overnight, or leave it running for a few days
-docker compose -f docker-compose.existing-infra.yml -f docker-compose.ai.yml run --rm ai-judge \
-  python -m ai_judge backfill --camera btv_echo_cam
+judge backfill --camera all --best-only                                        # each day's best shot: a few hours
+judge backfill --camera btv_echo_cam --since 2025-07-01 --before 2025-08-01    # one month, every capture
+judge backfill --camera all                                                    # everything (~6,000 captures): days
 ```
 
-Cameras: `bolton_summit_cam`, `btv_echo_cam`, `wcax_tower_sunrise`, `wcax_tower_sunset`.
+`--best-only` is enough to hide not-the-sky days from the rankings. To have the gate
+re-pick a better best shot for those days, it needs the rest of that day judged too,
+so backfill those days (or everything) without `--best-only`, then run `rerank`.
+
+### 3. Re-rank (non-interactive)
+
+`rerank` re-picks each day's best shot from InfluxDB and regenerates its ranked image +
+histogram with the pipeline's functions. It skips captures the AI judged not the sky,
+and removes the ranking of days with no sky at all. Always try `--dry-run` first.
+
+```bash
+judge rerank --camera all --dry-run                                        # what would change
+judge rerank --camera btv_echo_cam --since 2025-07-01 --before 2025-08-01
+judge rerank --camera all --rescore        # recompute every HSV score with the current sunset_process.py first
+judge rerank --camera all --ignore-ai      # HSV score only (the old behavior)
+judge rerank --camera all --fill-missing   # also rank days the pipeline never ranked
+```
+
+Before any AI judgments, a dry run over all history reports all 563 ranked days as
+"unchanged" (it agrees with every pick the pipeline made) and 37 days that were never
+ranked, which are skipped unless you pass `--fill-missing`.
+
+Unlike `tests/re_rank_sunsets.py`, it never deletes captures, so AI judgments are kept.
+That script deletes every point for the camera before re-pushing them, which would wipe
+the AI fields (they'd need a re-backfill).
 
 ## In the dashboard
 
 - **Calendar → Day tab:** "AI 78 · vivid pink clouds" under the score; captures that
-  aren't the sky are dimmed and labeled.
+  aren't the sky are dimmed, labeled, and count as 0.
 - **Ranked Images:** days whose best shot isn't the sky are hidden behind a
   "Show N not-the-sky days" toggle.
 - **Score Tracker:** a Color score / AI score toggle (the tooltip shows both).
@@ -77,4 +118,5 @@ at a time, and unloads the model 10 minutes after the last photo. Turn it all of
 
 ## Tests
 
-`python -m unittest ai_judge.test_ai_judge` (uses a fake Ollama server; no model needed).
+`python -m unittest ai_judge.test_ai_judge ai_judge.test_rerank` (a fake Ollama server, a
+fake InfluxDB and a fake pipeline; no model or database needed).
