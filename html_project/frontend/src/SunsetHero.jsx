@@ -60,13 +60,23 @@ function ShareButton({ path, title }) {
   );
 }
 
-const VIEW_LABELS = { obstructed: "obstructed view", dark: "too dark", no_signal: "no camera signal" };
+const VIEW_LABELS = {
+  no_sunset: "no sunset in the sky",
+  obstructed: "no sky in view",
+  dark: "too dark",
+  no_signal: "no camera signal",
+};
 
 /** The local AI judge's take on a photo (only shown once ai_judge has judged it). */
 export function AiVerdict({ ai, compact = false }) {
   if (!ai) return null;
   if (!ai.is_sunset) {
-    return <div className="ai-verdict ai-flagged">Not the sky: {VIEW_LABELS[ai.view] ?? ai.view}</div>;
+    return (
+      <div className="ai-verdict ai-flagged" title={ai.reason || undefined}>
+        Ruled out: {VIEW_LABELS[ai.view] ?? ai.view}
+        {ai.view === "no_sunset" && ` (AI ${Math.round(ai.score)})`}
+      </div>
+    );
   }
   return (
     <div className="ai-verdict" title={`Judged by ${ai.model}`}>

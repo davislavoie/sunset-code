@@ -82,7 +82,7 @@ export default function ScoreTracker({ data }) {
             )}
             <p className="chart-hint">
               Click a point to see that day's images.
-              {showAi && ` Showing the ${chartData.length} days the AI has judged as real sunsets.`}
+              {showAi && ` Showing the ${chartData.length} days the AI has judged.`}
             </p>
             <div className="score-chart">
               <LineChart key={metric} data={chartData} aspectRatio="" className="h-full" margin={{ left: 40, right: 16 }} yDomain={[0, 100]}>
@@ -103,7 +103,7 @@ export default function ScoreTracker({ data }) {
                   rows={(point) => [
                     { color: "var(--chart-2)", label: "Color score", value: `${point.score.toFixed(1)}%` },
                     ...(point.row.AI
-                      ? [{ color: "var(--chart-4)", label: "AI score", value: point.ai != null ? `${point.ai}` : "not a sunset view" }]
+                      ? [{ color: "var(--chart-4)", label: "AI score", value: point.row.AI.is_sunset ? `${point.ai}` : `${point.ai ?? 0} (ruled out)` }]
                       : []),
                     { color: "var(--chart-3)", label: "Best shot", value: point.row.Time },
                   ]}
@@ -229,7 +229,7 @@ function Stat({ label, value }) {
   );
 }
 
-/** The AI judge's score for a ranked day, or null if not judged or not a real sunset view. */
+/** The AI judge's sky-only score for a ranked day, or null if not judged. */
 function aiScore(row) {
-  return row.AI && row.AI.is_sunset ? row.AI.score : null;
+  return row.AI ? row.AI.score : null;
 }

@@ -49,3 +49,9 @@ test("reports coverage and average saturation like sunset_process.py", () => {
   assert.equal(avgSaturation.red, 255);
   assert.equal(coverage.pink, 0);
 });
+
+test("near-black pixels are ignored, like sunset_process.py", () => {
+  // rgb(30, 2, 2) is pure-looking red but only ~12% bright: noise in a night frame.
+  const { total } = scoreImage(solid([30, 2, 2]), params);
+  assert.equal(total, 0);
+});

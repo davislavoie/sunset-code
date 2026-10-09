@@ -9,14 +9,20 @@ import base64
 import io
 import json
 import logging
+import os
 
 import requests
 from PIL import Image
 
 log = logging.getLogger(__name__)
 
-# What the camera is looking at.
+# What the camera is looking at. The model answers with one of these; "no_sunset" is added
+# by normalize() for visible sky that shows no sunset color.
 VIEWS = ["sky", "obstructed", "dark", "no_signal"]
+
+# A frame needs at least this AI sunset score (judged on the sky only) to be eligible as a
+# day's best shot.
+MIN_SCORE = int(os.environ.get("AI_MIN_SCORE", 15))
 
 # Ollama constrains the reply to this JSON schema, so it always parses.
 SCHEMA = {
@@ -89,22 +95,31 @@ def judge_image(image_bytes, model, ollama_url, timeout=600):
         return None
 
 
-def normalize(data):
+def normalize(data, min_score=None):
     """Clamp and validate the model's answer; None if it's unusable.
 
-    A frame scores 0 only when it's dark / no signal, or when the model says BOTH that no
-    sky is visible at all and that the view is obstructed. Any doubt keeps the frame:
-    trees or a slightly off camera must never zero a sunset."""
+    A frame can't win a day ("is_sunset" false) when it's dark / no signal, when the model
+    says BOTH that no sky is visible and that the view is obstructed, or when the sky shows
+    no sunset: its sky-only score is under min_score. That last case catches a camera turned
+    toward red autumn leaves or brick under a grey sky, which the color score reads as a
+    blazing sunset. Trees or buildings on their own never disqualify a frame.
+    """
+    min_score = MIN_SCORE if min_score is None else min_score
     view = data.get("view")
     if view not in VIEWS:
         return None
-    no_sky = data.get("sky_visible") is False and view == "obstructed"
-    is_sunset = view not in ("dark", "no_signal") and not no_sky
+    score = max(0, min(100, int(data.get("score", 0))))
+    if view in ("dark", "no_signal"):
+        view, score = view, 0
+    elif data.get("sky_visible") is False and view == "obstructed":
+        view, score = "obstructed", 0
+    else:
+        view = "sky" if score >= min_score else "no_sunset"
     return {
-        "view": "obstructed" if no_sky else ("sky" if is_sunset else view),
-        "is_sunset": is_sunset,
+        "view": view,
+        "is_sunset": view == "sky",
         "sky_percent": max(0, min(100, int(data.get("sky_percent", 100)))),
-        "score": max(0, min(100, int(data.get("score", 0)))) if is_sunset else 0,
+        "score": score,
         "reason": str(data.get("reason", "")).strip()[:200],
     }
 

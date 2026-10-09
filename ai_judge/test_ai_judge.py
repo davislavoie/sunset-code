@@ -100,6 +100,26 @@ class JudgeTests(unittest.TestCase):
                 server.close()
             self.assertEqual((result["view"], result["is_sunset"], result["score"]), ("sky", True, 62), reply)
 
+    def test_grey_sky_with_colorful_foreground_is_ruled_out(self):
+        # btv_echo_cam 2026-10-07: camera turned to a park, red maple + brick under a grey sky.
+        # The color score reads 100; the AI's sky-only score is low, so the frame can't win.
+        server = FakeServer(lambda body: ollama_reply(
+            {"sky_visible": True, "view": "sky", "sky_percent": 40, "score": 6, "reason": "grey overcast sky"}))
+        try:
+            result = judge_image(jpeg(), "m", server.url)
+        finally:
+            server.close()
+        self.assertEqual((result["view"], result["is_sunset"], result["score"]), ("no_sunset", False, 6))
+
+    def test_dark_frame_is_ruled_out(self):
+        server = FakeServer(lambda body: ollama_reply(
+            {"sky_visible": True, "view": "dark", "sky_percent": 30, "score": 40, "reason": "night"}))
+        try:
+            result = judge_image(jpeg(), "m", server.url)
+        finally:
+            server.close()
+        self.assertEqual((result["view"], result["is_sunset"], result["score"]), ("dark", False, 0))
+
     def test_retries_without_think_flag_when_model_rejects_it(self):
         def respond(body):
             if "think" in body:

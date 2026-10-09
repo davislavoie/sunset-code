@@ -20,6 +20,9 @@ const OVERLAY_RGB = {
 };
 const OVERLAY_OPACITY = 0.5;
 
+// sunset_process.py ignores pixels darker than this (0-255), i.e. 15% brightness.
+const MIN_BRIGHTNESS = 38;
+
 // Red/orange use an exclusive hueMax so the shared boundary (8, 25) isn't
 // double counted; yellow/pink are inclusive. Mirrors the original page.
 const EXCLUSIVE_MAX = new Set(["red", "orange"]);
@@ -54,7 +57,9 @@ export function scoreImage({ data, width, height }, { multipliers, colorRanges, 
   const satSums = { red: 0, orange: 0, yellow: 0, pink: 0 };
 
   for (let i = 0; i < skyHeight * width * 4; i += 4) {
-    const [h, s] = rgbToHsv(data[i], data[i + 1], data[i + 2]);
+    const [h, s, v] = rgbToHsv(data[i], data[i + 1], data[i + 2]);
+    // Near-black pixels' hue/saturation is noise; skip them like sunset_process.py does.
+    if (Math.round(v * 255) < MIN_BRIGHTNESS) continue;
     // Round like OpenCV's 8-bit HSV conversion (sunset_process.py) so pixels on a hue
     // boundary land in the same bucket; without this, scores drift up to ~1 point.
     const hue = Math.round(h * 180) % 180;

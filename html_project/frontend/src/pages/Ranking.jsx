@@ -31,10 +31,10 @@ export default function Ranking({ data, onLoadToHsv }) {
   }, []);
 
   const ascending = order === "Lowest to Highest";
-  // Days whose best shot the AI judge says isn't the sky (wall, tree, dark...) would skew
-  // the ranking, so they're left out unless shown with the toggle.
-  const hiddenCount = data.ranked_images.filter(notSky).length;
-  const rows = data.ranked_images.filter((r) => showHidden || !notSky(r)).sort((a, b) => {
+  // Days whose best shot the AI judge ruled out (no sunset in the sky, no sky in view, dark)
+  // would skew the ranking, so they're left out unless shown with the toggle.
+  const hiddenCount = data.ranked_images.filter(ruledOut).length;
+  const rows = data.ranked_images.filter((r) => showHidden || !ruledOut(r)).sort((a, b) => {
     const av = a[sortBy], bv = b[sortBy];
     const cmp = av < bv ? -1 : av > bv ? 1 : 0;
     return ascending ? cmp : -cmp;
@@ -52,7 +52,7 @@ export default function Ranking({ data, onLoadToHsv }) {
             aria-pressed={showHidden}
             onClick={() => setShowHidden(!showHidden)}
           >
-            {showHidden ? "Hide" : "Show"} {hiddenCount} not-the-sky {hiddenCount === 1 ? "day" : "days"}
+            {showHidden ? "Hide" : "Show"} {hiddenCount} ruled-out {hiddenCount === 1 ? "day" : "days"}
           </button>
         )}
       </div>
@@ -126,7 +126,7 @@ function ImageCell({ url, size }) {
   );
 }
 
-/** True when the AI judge saw the day's best shot and it isn't actually the sky. */
-function notSky(row) {
+/** True when the AI judge ruled out the day's best shot (no sunset in the sky, no sky, dark...). */
+function ruledOut(row) {
   return row.AI?.is_sunset === false;
 }
