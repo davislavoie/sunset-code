@@ -1,0 +1,40 @@
+# Optional local AI judge: adds Ollama + the ai_judge service to the main stack.
+# Nothing else changes; leave this file off and everything runs exactly as before.
+#
+#   docker compose -f docker-compose.existing-infra.yml -f docker-compose.ai.yml up -d --build
+#
+# It judges each capture ("is this actually the sky?" + a 0-100 score and reason) and
+# writes ai_* fields next to the pipeline's own fields in InfluxDB. Runs on CPU.
+
+services:
+  ollama:
+    image: ollama/ollama:latest   # needs >= 0.12.7 for qwen3-vl
+    restart: unless-stopped
+    volumes:
+      - ollama-models:/root/.ollama
+    environment:
+      OLLAMA_NUM_PARALLEL: "1"        # one photo at a time
+      OLLAMA_MAX_LOADED_MODELS: "1"
+      OLLAMA_KEEP_ALIVE: "10m"        # unload the model between batches to free RAM
+    mem_limit: 6g                     # leave headroom on the 16GB NUC for capture + InfluxDB
+    expose:
+      - "11434"
+
+  ai-judge:
+    build: ./ai_judge
+    restart: unless-stopped
+    depends_on:
+      - ollama
+      - influxdb
+      - imageserver
+    environment:
+      OLLAMA_URL: http://ollama:11434
+      AI_MODEL: ${AI_MODEL:-qwen3-vl:4b}
+      INFLUXDB_HOST: influxdb
+      INFLUXDB_PORT: "8086"
+      # Stored image urls use the public IMAGE_BASE_URL; fetch them via the compose network instead.
+      IMAGE_BASE_URL: ${IMAGE_BASE_URL:-http://localhost:8080}
+      IMAGE_FETCH_URL: http://imageserver:8080
+
+volumes:
+  ollama-models:
