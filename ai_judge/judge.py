@@ -35,7 +35,7 @@ SCHEMA = {
     "required": ["view", "sky_percent", "score", "reason"],
 }
 
-PROMPT = """This is a still frame from a fixed webcam that looks out at the sky at sunset or sunrise. It is normal for the bottom of the frame to show trees, buildings, hills, water, boats or a shoreline; the sunset is the sky above the horizon. Judge it.
+PROMPT = """This is a still frame from a fixed webcam that looks out at the sky at sunset or sunrise. The bottom half of the frame normally shows foreground (trees, buildings, hills, water, boats or a shoreline), and the camera may be aimed a little off; that is expected. The sunset is the sky above the horizon. Judge it.
 
 view:
 - "sky": open sky above a horizon is visible, even if trees, buildings or other things fill the foreground. When in doubt, choose "sky".
@@ -45,7 +45,7 @@ view:
 
 sky_percent (0-100): roughly what percentage of the frame is open sky.
 
-score (0-100), how beautiful the sunset is in whatever sky is visible:
+score (0-100), how beautiful the sunset is, judged on the visible sky only (foreground objects and a slightly off camera angle must not lower it):
 - 0-20: grey, flat or washed-out sky, little or no warm color.
 - 20-40: some faint warm color near the horizon.
 - 40-60: clear warm colors (orange, pink, red) in part of the sky.
