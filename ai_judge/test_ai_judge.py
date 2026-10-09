@@ -13,7 +13,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from PIL import Image
 
 from ai_judge import store
-from ai_judge.judge import judge_image
+from ai_judge.judge import ensure_model, judge_image
 
 
 def jpeg(width=1920, height=1080, color=(240, 120, 60)):
@@ -109,6 +109,33 @@ class JudgeTests(unittest.TestCase):
             self.assertIsNone(judge_image(jpeg(), "m", server.url))
         finally:
             server.close()
+
+
+class EnsureModelTests(unittest.TestCase):
+    def test_streams_download_progress_and_skips_installed_models(self):
+        lines = [{"status": "pulling manifest"}] + [
+            {"status": "pulling abc", "total": 3_000_000_000, "completed": n * 300_000_000} for n in range(11)
+        ] + [{"status": "success"}]
+        stream = "\n".join(json.dumps(l) for l in lines).encode()
+
+        def respond(req):
+            if req == "/api/tags":
+                return 200, {"models": [{"name": "already:here"}]}
+            return 200, stream
+
+        server = FakeServer(respond)
+        try:
+            with self.assertLogs("ai_judge.judge", level="INFO") as logs:
+                ensure_model("new:model", server.url)
+            ensure_model("already:here", server.url)  # no pull for an installed model
+        finally:
+            server.close()
+        text = "\n".join(logs.output)
+        self.assertIn("0% of 3.0 GB", text)
+        self.assertIn("100% of 3.0 GB", text)
+        self.assertIn("new:model ready", text)
+        pulls = [r for r in server.requests if isinstance(r, dict)]
+        self.assertEqual([r["model"] for r in pulls], ["new:model"])
 
 
 class StoreTests(unittest.TestCase):

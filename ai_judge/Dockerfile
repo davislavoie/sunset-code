@@ -3,6 +3,8 @@
 FROM python:3.12-slim
 
 WORKDIR /app
+# Show log output immediately (no buffering), so long steps don't look stuck.
+ENV PYTHONUNBUFFERED=1
 COPY sunset_code/requirements.txt sunset_code/requirements.txt
 COPY ai_judge/requirements.txt ai_judge/requirements.txt
 RUN pip install --no-cache-dir -r sunset_code/requirements.txt -r ai_judge/requirements.txt

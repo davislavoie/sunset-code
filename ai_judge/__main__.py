@@ -116,6 +116,7 @@ def bakeoff(args):
     contact sheet (photo + each model's verdict and time) to --out."""
     client = influx()
     models = [m.strip() for m in args.models.split(",") if m.strip()]
+    log.info("Loading %s captures from InfluxDB...", args.camera)
     points = store.captures(client, args.camera)
     if args.dates:
         wanted = {date.fromisoformat(d.strip()) for d in args.dates.split(",") if d.strip()}
@@ -133,10 +134,13 @@ def bakeoff(args):
     middle = [p for p in by_score if p not in top and p not in bottom]
     sample += top + bottom + random.Random(0).sample(middle, min(len(middle), n - 2 * k))
 
+    log.info("Sample: %d captures. Making sure both models are downloaded...", len(sample))
     rows = []
     for model in models:
         ensure_model(model, OLLAMA_URL)
-    for point in sample:
+    for i, point in enumerate(sample, 1):
+        log.info("[%d/%d] judging %s %s (the first one is slowest: models load into memory)",
+                 i, len(sample), point["time"], point["label"])
         image = store.image_bytes(point)
         verdicts = []
         for model in models:
