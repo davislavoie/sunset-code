@@ -37,7 +37,7 @@ SCHEMA = {
     "required": ["sky_visible", "view", "sky_percent", "score", "reason"],
 }
 
-PROMPT = """This is a still frame from a fixed webcam that looks out at the sky at sunset or sunrise. Trees, branches, buildings, hills, water, boats or a shoreline in the frame are normal, and the camera may be aimed a little off; that is expected.
+PROMPT = """This is a still frame from a public webcam, captured around sunset or sunrise. These cameras rotate between preset views (a lake or marina, a park, buildings, a ski lift or a radio mast), so trees, buildings, structures, hills, water or boats in the frame are normal, and the camera may be aimed a little off; that is expected.
 
 sky_visible: is ANY open sky visible anywhere in the frame, even a small patch or a thin strip above trees? Answer true unless there is no sky at all. Trees in the frame are NOT a reason to answer false.
 
@@ -49,7 +49,7 @@ view:
 
 sky_percent (0-100): roughly what percentage of the frame is open sky (for information only).
 
-score (0-100), how beautiful the sunset is, judged on the visible sky only (trees, buildings or a slightly off camera angle must not lower it):
+score (0-100), how beautiful the sunset is, judged on the visible sky only. Colorful things that are not sky (autumn leaves, red brick, lights) do not count, and trees, buildings or a slightly off camera angle must not lower it. Fog, cloud covering the camera, or rain and condensation on the lens that hide the sky mean there is no visible sunset:
 - 0-20: grey, flat or washed-out sky, little or no warm color.
 - 20-40: some faint warm color near the horizon.
 - 40-60: clear warm colors (orange, pink, red) in part of the sky.
