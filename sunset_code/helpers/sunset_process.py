@@ -35,23 +35,27 @@ def rank_sunset(frame):
     total_pixels = img.shape[0] * img.shape[1]
     
     #RANKING METRICS
+    # Ignore near-black pixels: their hue/saturation is noise, which made dark night frames
+    # score as vivid red (e.g. a black frame scoring 100). 38 = 15% of full brightness.
+    bright = v >= 38
+
     #RED HUE 
-    red_mask = (h < 8) & (s >= 20)
+    red_mask = (h < 8) & (s >= 20) & bright
     red_score = calculate_saturation_weighted_score(red_mask, s, total_pixels, power=2.0)
     # print(f"Red Score: {red_score}")
      
     #ORANGE HUE
-    orange_mask = (h >= 8) & (h < 25) & (s >= 20)
+    orange_mask = (h >= 8) & (h < 25) & (s >= 20) & bright
     orange_score = calculate_saturation_weighted_score(orange_mask, s, total_pixels, power=2.0)
     # print(f"Orange Score: {orange_score}")
 
     #PINK/PURPLE HUE
-    pink_mask = (h >= 140) & (h <= 179) & (s >= 20)
+    pink_mask = (h >= 140) & (h <= 179) & (s >= 20) & bright
     pink_score = calculate_saturation_weighted_score(pink_mask, s, total_pixels, power=2.0)
     # print(f"Pink Score: {pink_score}")
     
     #YELLOW HUE
-    yellow_mask = (h >= 25) & (h <= 35) & (s >= 20)
+    yellow_mask = (h >= 25) & (h <= 35) & (s >= 20) & bright
     yellow_score = calculate_saturation_weighted_score(yellow_mask, s, total_pixels, power=2.0)
     # print(f"Yellow Score: {yellow_score}")  
     
