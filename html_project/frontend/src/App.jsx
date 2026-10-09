@@ -176,7 +176,7 @@ export default function App() {
             />
             <Route
               path="/ranking"
-              element={withData((d) => <Ranking data={d} />, "rows")}
+              element={withData((d) => <Ranking data={d} onLoadToHsv={loadToHsv} />, "rows")}
             />
             <Route
               path="/score-tracker"
