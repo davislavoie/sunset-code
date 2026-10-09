@@ -50,15 +50,19 @@ local dates. Cameras: `bolton_summit_cam`, `btv_echo_cam`, `wcax_tower_sunrise`,
 
 ### 1. Pick a model first (recommended)
 
-Compare two models on a sample, including days you know the camera was pointed at
-a wall or tree. Nothing is written to InfluxDB; it saves an HTML contact sheet:
+Compare two models on a sample. Nothing is written to InfluxDB; it saves an HTML
+contact sheet. Without `--dates` it samples the highest-, lowest- and random-scoring
+captures (where the color score is most often fooled):
 
 ```bash
 docker compose -f docker-compose.existing-infra.yml -f docker-compose.ai.yml run --rm \
   -v "$PWD/bakeoff:/app/bakeoff" ai-judge \
-  python -m ai_judge bakeoff --camera btv_echo_cam --models qwen3-vl:4b,gemma3:4b \
-  --sample 12 --dates 2025-07-04,2025-08-12
+  python -m ai_judge bakeoff --camera btv_echo_cam --models qwen3-vl:4b,gemma3:4b --sample 12
 ```
+
+Better still, add real days you know the camera was pointed at a wall or tree (spot
+them in the dashboard's Calendar → Month view) with `--dates YYYY-MM-DD,YYYY-MM-DD`.
+It warns about any date with no captures for that camera.
 
 Open `bakeoff/bakeoff.html`, check which model's verdicts look right, and note its
 seconds-per-photo in the log. To use the other model, set `AI_MODEL=gemma3:4b` in
@@ -70,7 +74,7 @@ Resumable: stop it any time, and re-running skips what's already judged.
 
 ```bash
 judge backfill --camera all --best-only                                        # each day's best shot: a few hours
-judge backfill --camera btv_echo_cam --since 2025-07-01 --before 2025-08-01    # one month, every capture
+judge backfill --camera all --since 2026-09-01 --before 2026-09-08            # one week, every capture (all 4 cameras)
 judge backfill --camera all                                                    # everything (~6,000 captures): days
 ```
 
@@ -86,7 +90,7 @@ and removes the ranking of days with no sky at all. Always try `--dry-run` first
 
 ```bash
 judge rerank --camera all --dry-run                                        # what would change
-judge rerank --camera btv_echo_cam --since 2025-07-01 --before 2025-08-01
+judge rerank --camera all --since 2026-09-01 --before 2026-09-08
 judge rerank --camera all --rescore        # recompute every HSV score with the current sunset_process.py first
 judge rerank --camera all --ignore-ai      # HSV score only (the old behavior)
 judge rerank --camera all --fill-missing   # also rank days the pipeline never ranked
