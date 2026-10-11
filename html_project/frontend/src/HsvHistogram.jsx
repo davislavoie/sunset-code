@@ -111,9 +111,10 @@ function HistChart({ hist }) {
             <b>{hover != null && hist ? pct(sr.key) : ""}</b>
           </span>
         ))}
-        {zoomed && <span className="hsv-hist-bin">{`${domain[0]}-${domain[1]} · double-click to reset`}</span>}
       </div>
       <div className="hsv-hist-plot">
+        {/* Over the plot rather than in the legend, so zooming never changes the layout; hidden while the hover chip shows. */}
+        {zoomed && hover == null && <div className="hsv-hist-zoom">{`${domain[0]}-${domain[1]} · double-click to reset`}</div>}
         {hist ? (
           <ParentSize>
             {({ width, height }) => {
