@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { ArrowRight, ChevronDown, Maximize2, X } from "lucide-react";
 import { dayPath } from "../api.js";
-import DayDetail from "../DayDetail.jsx";
+import DayDetail, { captureName } from "../DayDetail.jsx";
 import HsvHistogram from "../HsvHistogram.jsx";
 import Img, { SIZES } from "../Img.jsx";
 import Reveal from "../Reveal.jsx";
@@ -99,7 +99,8 @@ function RankingRow({ row, event, allData, onLoadToHsv }) {
           </div>
         </div>
         <div className="ranking-row">
-          <ImageCell url={rawUrl} size={SIZES.photo} />
+          <ImageCell url={rawUrl} size={SIZES.photo} title="Original photo"
+            sub={row.AI?.score != null ? `AI ${Math.round(row.AI.score)}${row.AI.reason ? ` · ${row.AI.reason}` : ""}` : "Best shot of the day"} />
           <ScoreOverlay imageUrl={rawUrl} />
           <HsvHistogram imageUrl={rawUrl} />
           <div className="score-cell">
@@ -119,41 +120,36 @@ function RankingRow({ row, event, allData, onLoadToHsv }) {
   );
 }
 
-function ImageCell({ url, size }) {
+function ImageCell({ url, size, title, sub }) {
   const lightbox = useLightbox();
   if (!url) return <div />;
   const isOpen = lightbox.src === url;
 
   return (
-    <div className="ranked-img-cell">
-      <Img src={url} alt="" loading="lazy" {...size} />
-      <Tip label={isOpen ? "Close fullscreen" : "View fullscreen"}>
-        <button
-          className="fullscreen-toggle-btn"
-          aria-label={isOpen ? "Close fullscreen" : "View fullscreen"}
-          onClick={(e) => {
-            e.stopPropagation();
-            isOpen ? lightbox.close() : lightbox.open(url);
-          }}
-        >
-          {isOpen ? <X size={16} /> : <Maximize2 size={16} />}
-        </button>
-      </Tip>
+    <div className="rank-media">
+      <div className="hsv-hist-title">{title}</div>
+      <div className="hsv-hist-legend rank-media-sub">{sub}</div>
+      <div className="ranked-img-cell">
+        <Img src={url} alt="" loading="lazy" {...size} />
+        <Tip label={isOpen ? "Close fullscreen" : "View fullscreen"}>
+          <button
+            className="fullscreen-toggle-btn"
+            aria-label={isOpen ? "Close fullscreen" : "View fullscreen"}
+            onClick={(e) => {
+              e.stopPropagation();
+              isOpen ? lightbox.close() : lightbox.open(url);
+            }}
+          >
+            {isOpen ? <X size={16} /> : <Maximize2 size={16} />}
+          </button>
+        </Tip>
+      </div>
     </div>
   );
 }
 
 const longDate = (iso) =>
   iso ? new Date(`${iso}T12:00`).toLocaleDateString(undefined, { weekday: "short", month: "long", day: "numeric", year: "numeric" }) : "Unknown date";
-
-/** "06_5m_pre_05-26-2025.jpg" -> "5 min before sunset", "07_sunset_..." -> "At sunset". */
-function captureName(url, event = "sunset") {
-  const label = url?.split("/").pop() ?? "";
-  const m = /^\d+_(\d+)(m|h)_(pre|post)/.exec(label);
-  if (m) return `${m[1]} ${m[2] === "h" ? "hr" : "min"} ${m[3] === "pre" ? "before" : "after"} ${event}`;
-  const at = /^\d+_(sunset|sunrise)/.exec(label);
-  return at ? `At ${at[1]}` : label.split(".")[0];
-}
 
 /** True when the day's best shot doesn't count (until ai_judge re-picks the day). */
 function ruledOut(row) {

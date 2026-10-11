@@ -1,6 +1,7 @@
 // Shared fullscreen image viewer used across pages.
 
 import { createContext, useContext, useEffect, useState } from "react";
+import { X } from "lucide-react";
 import Img from "./Img.jsx";
 
 const LightboxContext = createContext(null);
@@ -22,7 +23,14 @@ export function LightboxProvider({ children }) {
     <LightboxContext.Provider value={value}>
       {children}
       <div className={`lightbox-overlay${open ? " open" : ""}`} onClick={close}>
-        {src && <img className="lightbox-img" src={src} alt="" onClick={(e) => e.stopPropagation()} />}
+        {src && (
+          <div className="lightbox-frame" onClick={(e) => e.stopPropagation()}>
+            <img className="lightbox-img" src={src} alt="" />
+            <button className="lightbox-close" aria-label="Close fullscreen" onClick={close}>
+              <X size={18} />
+            </button>
+          </div>
+        )}
       </div>
     </LightboxContext.Provider>
   );

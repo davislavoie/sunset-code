@@ -69,28 +69,31 @@ export default function ScoreOverlay({ imageUrl }) {
     return <div className="score-overlay empty">{imageUrl ? "Couldn't read the photo" : "No photo"}</div>;
   }
   return (
-    <div className="score-overlay ranked-img-cell" ref={ref}>
-      <canvas ref={canvasRef} width={1920} height={1080} className={sky ? "ready" : ""} />
-      {!sky && <div className="skeleton score-overlay-skeleton" />}
-      {sky && (
-        <>
-          <div className="score-overlay-chips">
-            {COLORS.map((c) => (
-              <Tip key={c} label={`${COLOR_META[c].label}: ${(sky[c] * 100).toFixed(1)}% of the sky counted toward the score`}>
-                <span className="score-chip">
-                  <i style={{ background: COLOR_META[c].swatch }} />
-                  {(sky[c] * 100).toFixed(1)}%
-                </span>
-              </Tip>
-            ))}
-          </div>
-          <Tip label={isOpen ? "Close fullscreen" : "View fullscreen"}>
-            <button className="fullscreen-toggle-btn" aria-label={isOpen ? "Close fullscreen" : "View fullscreen"} onClick={toggleFull}>
-              {isOpen ? <X size={16} /> : <Maximize2 size={16} />}
-            </button>
+    <div className="rank-media" ref={ref}>
+      <div className="hsv-hist-title">Score overlay</div>
+      <div className="hsv-hist-legend">
+        {COLORS.map((c) => (
+          <Tip key={c} label={`${COLOR_META[c].label}: share of the sky counted toward the score`}>
+            <span>
+              <i style={{ background: COLOR_META[c].swatch }} />
+              {sky ? `${(sky[c] * 100).toFixed(1)}%` : "–"}
+            </span>
           </Tip>
-        </>
-      )}
+        ))}
+      </div>
+      <div className="score-overlay ranked-img-cell">
+        <canvas ref={canvasRef} width={1920} height={1080} className={sky ? "ready" : ""} />
+        {!sky && <div className="skeleton score-overlay-skeleton" />}
+        {sky && (
+          <>
+            <Tip label={isOpen ? "Close fullscreen" : "View fullscreen"}>
+              <button className="fullscreen-toggle-btn" aria-label={isOpen ? "Close fullscreen" : "View fullscreen"} onClick={toggleFull}>
+                {isOpen ? <X size={16} /> : <Maximize2 size={16} />}
+              </button>
+            </Tip>
+          </>
+        )}
+      </div>
     </div>
   );
 }
