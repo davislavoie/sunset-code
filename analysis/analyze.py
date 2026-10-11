@@ -155,7 +155,7 @@ def main():
     ss = d[d.camera.isin(data.SUNSET_CAMS)].reset_index(drop=True)
     sr = d[d.camera == "wcax_tower_sunrise"].reset_index(drop=True)
     say(f"camera-days: {d.groupby('camera').size().to_dict()}")
-    say(f"best shot at 2h/1h pre (so y != y_late): {(d.y > d.y_late + 1e-9).mean():.1%}")
+    say(f"days whose best shot overall is before the 15m-pre..30m-post window: {(d.y_all > d.y + 1e-9).mean():.1%}")
 
     # 1. Stored fields.
     stored = [c for c in d if "@h" in c and not c.startswith("t@") and not c.startswith("score@")

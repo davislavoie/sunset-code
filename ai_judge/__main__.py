@@ -1,10 +1,11 @@
 """Sidecar to the capture pipeline: reads captures from InfluxDB and adds fields to
-them (weather, view fingerprints, thumbs rules, optional local AI verdicts), and
+them (weather, a simple sunset forecast, view fingerprints, thumbs rules, optional local AI verdicts), and
 re-picks a day's best shot when your thumbs say so. It never changes the
 pipeline's own fields or code.
 
   python -m ai_judge watch      # keep new captures filled in; re-pick days whose best shot changed
   python -m ai_judge weather  --camera all [--since ...] [--before ...] [--refill]
+  python -m ai_judge predict  --camera all [--since ...] [--before ...] [--refill]   # simple sunset forecast on 2h/1h-pre captures
   python -m ai_judge views    --camera all   # fingerprint captures for "all shots like this"
   python -m ai_judge cleanup  --camera all [--delete]   # list (or remove) entries whose photo you deleted
   python -m ai_judge backfill --camera btv_echo_cam [--since 2025-07-01] [--before 2025-08-01] [--best-only] [--limit N] [--rejudge]
@@ -29,7 +30,7 @@ from pathlib import Path
 
 from influxdb import InfluxDBClient
 
-from . import store, views, weather
+from . import predict, store, views, weather
 from .judge import ensure_model, judge_image
 from .rerank import gate_days, rerank
 
@@ -72,7 +73,8 @@ def watch(_args):
     while True:
         for camera in store.cameras(client):
             # Each step on its own, so e.g. Open-Meteo being down doesn't stop thumbs from applying.
-            steps = [lambda: weather.fill(client, camera), lambda: views.fill_fingerprints(client, camera)]
+            steps = [lambda: weather.fill(client, camera), lambda: predict.fill(client, camera),
+                     lambda: views.fill_fingerprints(client, camera)]
             if AI_MODEL:
                 steps.append(lambda: [judge_and_save(client, p, AI_MODEL) for p in store.captures(client, camera, recent="2d")
                                       if store.needs_judging(p, AI_MODEL)])
@@ -123,6 +125,12 @@ def weather_cmd(args):
     client = influx()
     for camera in camera_list(client, args.camera):
         weather.fill(client, camera, since=args.since, before=args.before, refill=args.refill)
+
+
+def predict_cmd(args):
+    client = influx()
+    for camera in camera_list(client, args.camera):
+        predict.fill(client, camera, since=args.since, before=args.before, refill=args.refill)
 
 
 def cleanup_cmd(args):
@@ -247,13 +255,17 @@ def main():
     w.add_argument("--camera", required=True, help="camera tag, or 'all'")
     add_date_range(w)
     w.add_argument("--refill", action="store_true", help="fetch again even for captures that have weather")
+    f = sub.add_parser("predict", help="add the simple sunset forecast (predicted_score/class) to 2h/1h-pre captures")
+    f.add_argument("--camera", required=True, help="camera tag, or 'all'")
+    add_date_range(f)
+    f.add_argument("--refill", action="store_true", help="recompute even for captures that have a forecast")
     v = sub.add_parser("views", help="fingerprint captures and apply 'all shots like this' thumbs downs")
     v.add_argument("--camera", required=True, help="camera tag, or 'all'")
     x = sub.add_parser("cleanup", help="list (or --delete) entries whose photo file is gone")
     x.add_argument("--camera", required=True, help="camera tag, or 'all'")
     x.add_argument("--delete", action="store_true", help="actually remove them (default: just list)")
     args = parser.parse_args()
-    commands = {"backfill": backfill, "rerank": rerank_cmd, "bakeoff": bakeoff, "weather": weather_cmd,
+    commands = {"backfill": backfill, "rerank": rerank_cmd, "bakeoff": bakeoff, "weather": weather_cmd, "predict": predict_cmd,
                 "views": views_cmd, "cleanup": cleanup_cmd}
     commands.get(args.command, watch)(args)
 

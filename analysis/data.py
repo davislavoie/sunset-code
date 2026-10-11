@@ -1,7 +1,7 @@
 """The InfluxDB export (analysis_export/sunset_images.json) as tidy tables.
 
 captures(): one row per raw capture, labels normalised (older btv labels carry a date suffix).
-days():     one row per camera per local day: y = best HSV score among captures that may be the
+days():     one row per camera per local day: y = best HSV score from 15 min before to 30 min after sunset among captures that may be the
             day's best shot (store.exclusion: thumbs down / blocked view out, thumbs up overrides),
             plus the stored weather read at the 2h-pre, 1h-pre and sunset captures.
 """
@@ -57,10 +57,16 @@ def captures():
     return df.drop_duplicates(["camera", "day", "label"]).reset_index(drop=True)
 
 
+# The day's score counts only the sunset window: earlier shots' top half can be sunlit trees,
+# buildings or lens flare, which the HSV score reads as sunset colour (see REPORT.md).
+WINDOW = ["05_15m_pre", "06_5m_pre", "07_sunset", "07_sunrise", "08_5m_post", "09_15m_post", "10_30m_post"]
+
+
 def days(cap=None):
     cap = captures() if cap is None else cap
     ok = cap[~cap["excluded"]]
-    out = ok.groupby(["camera", "day"]).agg(y=("score", "max"), n=("score", "size")).reset_index()
+    out = ok[ok["label"].isin(WINDOW)].groupby(["camera", "day"]).agg(y=("score", "max"), n=("score", "size")).reset_index()
+    out = out.merge(ok.groupby(["camera", "day"]).score.max().rename("y_all").reset_index(), on=["camera", "day"])
     for label, tag in READ_AT.items():
         cols = [c for c in WEATHER + PATH if c in cap]
         w = cap[cap["label"] == label][["camera", "day", "t"] + cols].rename(
