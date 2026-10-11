@@ -1,6 +1,8 @@
 // Weather at the time of a capture (Open-Meteo, saved with the capture in InfluxDB).
 // Cloud layers matter most for sunsets: high/mid clouds catch the color, a low deck blocks it.
 
+import { ParentSize } from "@visx/responsive";
+
 const pct = (v) => (v == null ? "–" : `${Math.round(v)}%`);
 
 export default function Weather({ w }) {
@@ -53,39 +55,57 @@ const COLUMNS = [
   { prefix: "path80_", label: "50 mi" },
 ];
 const LAYERS = [
-  { key: "high", label: "High", y: 8 },
-  { key: "mid", label: "Mid", y: 44 },
-  { key: "low", label: "Low", y: 80 },
+  { key: "high", label: "High" },
+  { key: "mid", label: "Mid" },
+  { key: "low", label: "Low" },
 ];
-const W = 336, CELL_H = 28, GROUND = 116, LEFT = 40, COL = 62, GAP = 4, SUN_X = 322;
+const W = 336, GROUND = 116, LEFT = 40, COL = 62, GAP = 4, SUN_X = 322;
 const colX = (i) => LEFT + i * (COL + GAP);
 
-export function CloudProfile({ w }) {
+/** Cloud profile at its natural height, or (fill) stretched to its box's height. */
+export function CloudProfile({ w, fill = false }) {
+  if (!fill) return <CloudProfileSvg w={w} ground={GROUND} />;
+  return (
+    <div className="cloud-profile-fill">
+      <ParentSize>
+        {({ width, height }) => width > 0 && height > 0 && (
+          // Same width scale as normal, so text keeps its size; only the rows get taller.
+          <CloudProfileSvg w={w} ground={Math.max(GROUND, (W * height) / width - 26)} />
+        )}
+      </ParentSize>
+    </div>
+  );
+}
+
+function CloudProfileSvg({ w, ground }) {
+  const step = (ground - 8) / LAYERS.length; // row pitch; 36 at the natural height
+  const cellH = step - 8;
+  const rowY = (i) => 8 + i * step;
   const value = (col, layer) => w[`${col.prefix}cloud_cover_${layer.key}`];
   const summary = LAYERS.map((l) => `${l.label}: ${COLUMNS.map((c) => pct(value(c, l))).join(" / ")}`).join(". ");
 
   return (
     <svg
       className="cloud-profile"
-      viewBox={`0 0 ${W} ${GROUND + 26}`}
+      viewBox={`0 0 ${W} ${ground + 26}`}
       role="img"
       aria-label={`Cloud cover overhead and 8, 25, 50 miles toward the sun. ${summary}`}
     >
-      <line className="cp-horizon" x1={LEFT} x2={W} y1={GROUND} y2={GROUND} />
-      <circle className="cp-sun" cx={SUN_X} cy={GROUND} r="7" />
+      <line className="cp-horizon" x1={LEFT} x2={W} y1={ground} y2={ground} />
+      <circle className="cp-sun" cx={SUN_X} cy={ground} r="7" />
 
-      {LAYERS.map((layer) =>
+      {LAYERS.map((layer, li) =>
         COLUMNS.map((col, i) => {
           const v = value(col, layer);
           const blocks = i > 0 && layer.key === "low" && v >= BLOCKING;
           return (
             <g key={layer.key + i} className="cp-cell">
-              <rect className="cp-cell-frame" x={colX(i)} y={layer.y} width={COL} height={CELL_H} rx="6" />
+              <rect className="cp-cell-frame" x={colX(i)} y={rowY(li)} width={COL} height={cellH} rx="6" />
               {v != null && (
-                <rect className={`cp-fill${blocks ? " blocks" : ""}`} x={colX(i)} y={layer.y} rx="6"
-                  width={Math.max(4, (COL * v) / 100)} height={CELL_H} opacity={blocks ? 0.25 : 0.18} />
+                <rect className={`cp-fill${blocks ? " blocks" : ""}`} x={colX(i)} y={rowY(li)} rx="6"
+                  width={Math.max(4, (COL * v) / 100)} height={cellH} opacity={blocks ? 0.25 : 0.18} />
               )}
-              <text className="cp-value" x={colX(i) + 8} y={layer.y + CELL_H / 2 + 4.5}
+              <text className="cp-value" x={colX(i) + 8} y={rowY(li) + cellH / 2 + 4.5}
                 style={blocks ? { fill: "var(--destructive)" } : undefined}>
                 {pct(v)}
               </text>
@@ -94,17 +114,17 @@ export function CloudProfile({ w }) {
         }),
       )}
 
-      {LAYERS.map((l) => (
-        <text key={l.key} x={LEFT - 8} y={l.y + CELL_H / 2 + 4} textAnchor="end" className="cp-axis">
+      {LAYERS.map((l, li) => (
+        <text key={l.key} x={LEFT - 8} y={rowY(li) + cellH / 2 + 4} textAnchor="end" className="cp-axis">
           {l.label}
         </text>
       ))}
       {COLUMNS.map((c, i) => (
-        <text key={c.label} x={colX(i) + COL / 2} y={GROUND + 18} textAnchor="middle" className="cp-axis">
+        <text key={c.label} x={colX(i) + COL / 2} y={ground + 18} textAnchor="middle" className="cp-axis">
           {c.label}
         </text>
       ))}
-      <text x={SUN_X} y={GROUND + 18} textAnchor="middle" className="cp-axis cp-sun">
+      <text x={SUN_X} y={ground + 18} textAnchor="middle" className="cp-axis cp-sun">
         Sun
       </text>
     </svg>

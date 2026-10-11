@@ -2421,6 +2421,15 @@ main#content.is-stale { opacity: 0.5; pointer-events: none; }
 .sunset-hero-side .breakdown-detail, .sunset-hero-side .breakdown-total { display: none; }
 .sunset-hero-side .sunset-meta { margin-bottom: 0; }
 .sunset-hero-side .weather-card { margin: 4px 0; }
+/* Score label with Share/Compare on one line, place and time beside the score: keeps the panel as tall as the photo. */
+.hero-side-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.hero-side-head .sunset-actions { margin: 0; padding: 0; }
+.hero-side-head .btn { padding: 4px 10px; font-size: 0.9em; }
+.sunset-hero { grid-template-columns: minmax(0, 2.45fr) minmax(300px, 1fr); }
+.sunset-hero-side { padding: 16px 18px; gap: 6px; }
+.sunset-hero-side .cloud-profile { max-height: 112px; width: auto; max-width: 100%; }
+.sunset-hero-side .weather-stats { gap: 4px 12px; }
+.score-row-meta { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
 
 /* ---- Tooltips (Tip.jsx) ---- */
 .tip-positioner { z-index: 200; }
@@ -2510,7 +2519,10 @@ main#content.is-stale { opacity: 0.5; pointer-events: none; }
 .scatter-tip-title { font-weight: 600; margin-bottom: 2px; }
 
 /* Ranked row: clouds under the score, weather + actions in the info column. */
-.ranking-row .cloud-profile { width: 100%; max-width: 320px; }
+/* Ranked cloud graphic stretches to the row's height (rows get taller, text stays the same size). */
+.cloud-profile-fill { flex: 1 0 auto; aspect-ratio: 336 / 142; position: relative; }
+.cloud-profile-fill > div { position: absolute; inset: 0; }
+.cloud-profile-fill .cloud-profile { width: 100%; height: 100%; max-width: none; }
 .ranking-row .cp-sun { display: none; }
 .ranking-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
 @media (min-width: 901px) {

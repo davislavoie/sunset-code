@@ -110,7 +110,7 @@ function RankingRow({ row, event, allData, onLoadToHsv }) {
           <HsvHistogram imageUrl={rawUrl} />
           <div className="rank-media">
             <div className="hsv-hist-title">Clouds toward the sun</div>
-            {row.Weather ? <CloudProfile w={row.Weather} /> : <div className="rank-media-empty">No weather saved</div>}
+            {row.Weather ? <CloudProfile w={row.Weather} fill /> : <div className="rank-media-empty">No weather saved</div>}
           </div>
           <div className="rank-media info-cell">
             <div className="hsv-hist-title">Weather</div>

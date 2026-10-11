@@ -54,22 +54,26 @@ export default function SunsetHero({ shots, index, onSelect, best, camera, date 
         )}
       </div>
       <aside className="sunset-hero-side">
-        <div className="metric-label">Score</div>
+        <div className="hero-side-head">
+          <div className="metric-label">Score</div>
+          <div className="sunset-actions">
+            {/* Share the /sunset/... permalink: Flask adds link-preview tags there. */}
+            <ShareButton path={sunsetPath(camera, date)} title={`${camera} sunset · ${date}`} />
+            <Link className="btn" to={`/compare?a=${camera}:${date}`}>
+              Compare…
+            </Link>
+          </div>
+        </div>
         <div className="score-row">
           <div className="sunset-score">{(isBest ? best.Score : shot.Score).toFixed(1)}%</div>
-          {isBest && <span className="bubble">Best shot</span>}
+          <div className="score-row-meta">
+            {isBest && <span className="bubble">Best shot</span>}
+            <div className="sunset-meta">{`${shot.Label.slice(3).replaceAll("_", " ")} · ${shot.Time}`}</div>
+          </div>
         </div>
-        <div className="sunset-meta">{`${shot.Label.slice(3).replaceAll("_", " ")} · ${shot.Time}`}</div>
         <AiVerdict ai={shot.AI} />
         <Weather w={shot.Weather} />
         {!generated && <ScoreBreakdown imageUrl={shot.Image} />}
-        <div className="sunset-actions">
-          {/* Share the /sunset/... permalink: Flask adds link-preview tags there. */}
-          <ShareButton path={sunsetPath(camera, date)} title={`${camera} sunset · ${date}`} />
-          <Link className="btn" to={`/compare?a=${camera}:${date}`}>
-            Compare…
-          </Link>
-        </div>
       </aside>
     </div>
   );
