@@ -1,6 +1,6 @@
 // Hue / saturation / value histograms of a photo's sky, computed in the browser. Same data as
 // the pipeline's 12_histogram PNG (sunset_process.py: cv2.calcHist on the top half + 30 rows),
-// drawn as three small area charts. Shares of sky pixels rather than raw counts.
+// drawn as three overlaid area charts. Shares of sky pixels rather than raw counts.
 
 import { useEffect, useRef, useState } from "react";
 import { AreaClosed } from "@visx/shape";
@@ -27,10 +27,11 @@ export function hsvHistograms({ data, width, height }) {
   return { hue: share(h), saturation: share(s), value: share(v) };
 }
 
-const ROWS = [
-  { key: "hue", label: "Hue", max: 179, fill: "url(#hue-spectrum)" },
-  { key: "saturation", label: "Saturation", max: 255, fill: "var(--chart-2)" },
-  { key: "value", label: "Value", max: 255, fill: "var(--muted-foreground)" },
+// Drawn on one shared 0-255 axis like the pipeline's PNG (hue only runs to 179).
+const SERIES = [
+  { key: "value", label: "Value", fill: "var(--muted-foreground)", opacity: 0.35, swatch: "var(--muted-foreground)" },
+  { key: "saturation", label: "Saturation", fill: "var(--chart-2)", opacity: 0.4, swatch: "var(--chart-2)" },
+  { key: "hue", label: "Hue", fill: "url(#hue-spectrum)", opacity: 0.8, swatch: "linear-gradient(90deg, #e33, #ee3, #3e3, #3ee, #33e, #e3e)" },
 ];
 
 export default function HsvHistogram({ imageUrl }) {
@@ -75,29 +76,34 @@ export default function HsvHistogram({ imageUrl }) {
       {!imageUrl || error ? (
         <div className="hsv-hist-empty">{imageUrl ? "Couldn't read the photo" : "No photo"}</div>
       ) : (
-        ROWS.map((row) => <HistRow key={row.key} row={row} bins={hist?.[row.key]} />)
+        <HistChart hist={hist} />
       )}
     </div>
   );
 }
 
-function HistRow({ row, bins }) {
+function HistChart({ hist }) {
   const [hover, setHover] = useState(null);
-  const peak = bins ? Math.max(...bins) : 0;
-  const readout = hover != null && bins ? `${hover} · ${(bins[hover] * 100).toFixed(1)}%` : "";
+  const peak = hist ? Math.max(...SERIES.map((sr) => Math.max(...hist[sr.key]))) : 0;
+  const pct = (key) => (hist[key][hover] == null ? "–" : `${(hist[key][hover] * 100).toFixed(1)}%`);
 
   return (
-    <div className="hsv-hist-row">
-      <div className="hsv-hist-label">
-        <span>{row.label}</span>
-        <span>{readout}</span>
+    <>
+      <div className="hsv-hist-legend">
+        {SERIES.slice().reverse().map((sr) => (
+          <span key={sr.key}>
+            <i style={{ background: sr.swatch }} /> {sr.label}
+            {hover != null && hist && <b>{pct(sr.key)}</b>}
+          </span>
+        ))}
+        {hover != null && <span className="hsv-hist-bin">at {hover}</span>}
       </div>
       <div className="hsv-hist-plot">
-        {bins ? (
+        {hist ? (
           <ParentSize>
             {({ width, height }) => {
               if (!width) return null;
-              const x = scaleLinear({ domain: [0, row.max], range: [0, width] });
+              const x = scaleLinear({ domain: [0, 255], range: [0, width] });
               const y = scaleLinear({ domain: [0, peak || 1], range: [height, 2] });
               return (
                 <svg
@@ -105,11 +111,14 @@ function HistRow({ row, bins }) {
                   height={height}
                   onMouseMove={(e) => {
                     const bin = Math.round(x.invert(e.clientX - e.currentTarget.getBoundingClientRect().left));
-                    setHover(Math.max(0, Math.min(row.max, bin)));
+                    setHover(Math.max(0, Math.min(255, bin)));
                   }}
                   onMouseLeave={() => setHover(null)}
                 >
-                  <AreaClosed data={bins} x={(_, i) => x(i)} y={(d) => y(d)} yScale={y} curve={curveMonotoneX} fill={row.fill} fillOpacity={0.85} />
+                  {SERIES.map((sr) => (
+                    <AreaClosed key={sr.key} data={hist[sr.key]} x={(_, i) => x(i)} y={(d) => y(d)} yScale={y}
+                      curve={curveMonotoneX} fill={sr.fill} fillOpacity={sr.opacity} />
+                  ))}
                   {hover != null && <line className="hsv-hist-cursor" x1={x(hover)} x2={x(hover)} y1={0} y2={height} />}
                 </svg>
               );
@@ -119,6 +128,7 @@ function HistRow({ row, bins }) {
           <div className="skeleton" style={{ height: "100%" }} />
         )}
       </div>
-    </div>
+      <div className="hsv-hist-axis"><span>0</span><span>128</span><span>255</span></div>
+    </>
   );
 }

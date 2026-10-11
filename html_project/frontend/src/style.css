@@ -2459,11 +2459,13 @@ main#content.is-stale { opacity: 0.5; pointer-events: none; }
 .sun-readout > div:first-child dt { font-size: 15px; font-weight: 600; color: var(--sun); line-height: 2.6; }
 
 /* ---- HSV histograms (HsvHistogram.jsx, Ranked tab) ---- */
-.hsv-hist { display: flex; flex-direction: column; gap: 8px; }
-.hsv-hist-row { display: flex; flex-direction: column; gap: 2px; }
-.hsv-hist-label { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-muted); }
-.hsv-hist-label span:last-child { color: var(--text); font-weight: 600; }
-.hsv-hist-plot { height: 34px; border-bottom: 1px solid var(--border); cursor: crosshair; }
+.hsv-hist { display: flex; flex-direction: column; gap: 4px; }
+.hsv-hist-legend { display: flex; flex-wrap: wrap; gap: 2px 12px; font-size: 12px; color: var(--text-muted); min-height: 18px; }
+.hsv-hist-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
+.hsv-hist-legend b { color: var(--text); margin-left: 4px; }
+.hsv-hist-bin { margin-left: auto; }
+.hsv-hist-plot { height: 140px; border-bottom: 1px solid var(--border); cursor: crosshair; }
+.hsv-hist-axis { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); }
 .hsv-hist-cursor { stroke: var(--ink); stroke-width: 1; }
 .hsv-hist-empty { color: var(--text-muted); font-size: 0.85em; text-align: center; padding: 24px 0; }
 
