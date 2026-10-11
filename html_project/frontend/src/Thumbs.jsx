@@ -14,22 +14,12 @@ export function exclusionFor(img, thumb) {
   return img.Excluded === "thumbs down" ? null : img.Excluded;
 }
 
-const FLAG_LABELS = {
-  "thumbs down": "Flagged",
-  "same view as a thumbed-down shot": "Wrong view",
-  "too dark": "Too dark",
-  "no camera signal": "No signal",
-};
-
-/** Short pill text for why a shot doesn't count (it still shows, scored 0%). */
-export const flagLabel = (reason) => FLAG_LABELS[reason] ?? "Flagged";
-
-/** The pill itself; the reason in full on hover. */
+/** "Flagged" for any shot that doesn't count (it still shows, scored 0%); the reason on hover. */
 export function FlagPill({ reason, className = "" }) {
   if (!reason) return null;
   return (
     <Tip label={`Doesn't count: ${reason}`}>
-      <span className={`bubble flag-pill ${className}`}>{flagLabel(reason)}</span>
+      <span className={`bubble destructive flag-pill ${className}`}>Flagged</span>
     </Tip>
   );
 }
