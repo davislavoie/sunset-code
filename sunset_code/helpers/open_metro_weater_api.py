@@ -3,7 +3,7 @@ import pandas as pd
 import requests_cache
 from retry_requests import retry
 from timezonefinder import TimezoneFinder
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import time
 import os
 from zoneinfo import ZoneInfo
@@ -111,3 +111,73 @@ def weather_fetch(latitude=None, longitude=None, date=None, time_epoch=None):
 	current_weather = hourly_dataframe.iloc[[closest_time_idx]]
 
 	return current_weather
+
+
+# ---- Clouds toward the sunset -------------------------------------------------------------
+# Low cloud 50-300 km toward where the sun sets (rises, for a sunrise camera) blocks the light
+# before it reaches the sky over the camera. On ~480 ranked days it predicted the day's best
+# score better than the clouds overhead (median best 7 with >=70% low cloud out there, 31 when
+# clear). Stored as path50_/path150_/path300_ + cloud_cover_low/mid/high.
+
+PATH_KM = [50, 150, 300]
+PATH_LAYERS = ["cloud_cover_low", "cloud_cover_mid", "cloud_cover_high"]
+
+
+def sun_bearing(day, latitude, longitude, mode="sunset"):
+	"""Compass bearing (whole degrees) of the sun at that local day's sunset or sunrise."""
+	from astral import Observer
+	from astral.sun import azimuth, sunrise, sunset
+	observer = Observer(latitude=latitude, longitude=longitude)
+	# Local time zone: in UTC an evening sunset is on the next date, and some UTC dates have none.
+	tz = ZoneInfo(TimezoneFinder().timezone_at(lat=latitude, lng=longitude))
+	return round(azimuth(observer, (sunrise if mode == "sunrise" else sunset)(observer, date=day, tzinfo=tz)))
+
+
+def path_points(latitude, longitude, bearing):
+	"""[(km, lat, lon)] along the bearing, on a sphere."""
+	import math
+	points = []
+	for km in PATH_KM:
+		d, b = km / 6371.0, math.radians(bearing)
+		p1, l1 = math.radians(latitude), math.radians(longitude)
+		p2 = math.asin(math.sin(p1) * math.cos(d) + math.cos(p1) * math.sin(d) * math.cos(b))
+		l2 = l1 + math.atan2(math.sin(b) * math.sin(d) * math.cos(p1), math.cos(d) - math.sin(p1) * math.sin(p2))
+		points.append((km, math.degrees(p2), math.degrees(l2)))
+	return points
+
+
+def path_hourly(latitude, longitude, bearing, start_date, end_date, historical=True):
+	"""{unix hour (UTC): {"path50_cloud_cover_low": ..., ...}} for start..end (YYYY-MM-DD, inclusive)."""
+	import requests
+	points = path_points(latitude, longitude, bearing)
+	url = "https://historical-forecast-api.open-meteo.com/v1/forecast" if historical else "https://api.open-meteo.com/v1/forecast"
+	resp = requests.get(url, timeout=120, params={
+		"latitude": ",".join(f"{lat:.4f}" for _, lat, _ in points),
+		"longitude": ",".join(f"{lon:.4f}" for _, _, lon in points),
+		"hourly": ",".join(PATH_LAYERS), "start_date": start_date, "end_date": end_date,
+		"timezone": "GMT", "timeformat": "unixtime",
+	})
+	resp.raise_for_status()
+	hours = {}
+	for (km, _, _), location in zip(points, resp.json()):  # one result per location, in order
+		h = location["hourly"]
+		for i, t in enumerate(h["time"]):
+			for layer in PATH_LAYERS:
+				if h[layer][i] is not None:
+					hours.setdefault(t, {})[f"path{km}_{layer}"] = float(h[layer][i])
+	return hours
+
+
+def path_clouds(time_epoch=None, latitude=None, longitude=None, mode=None):
+	"""Cloud cover along the sunset (or sunrise) direction for the hour nearest time_epoch."""
+	latitude = float(latitude if latitude is not None else os.environ.get("LAT", 44.494563))
+	longitude = float(longitude if longitude is not None else os.environ.get("LON", -73.436528))
+	mode = mode or os.environ.get("MODE", "sunset")
+	time_epoch = time.time() if time_epoch is None else time_epoch
+	local = datetime.fromtimestamp(time_epoch, tz=ZoneInfo(TimezoneFinder().timezone_at(lat=latitude, lng=longitude)))
+	day = local.date()
+	bearing = sun_bearing(day, latitude, longitude, mode)
+	# A day either side: the hour nearest an evening capture can fall on the next UTC date.
+	hours = path_hourly(latitude, longitude, bearing, str(day - timedelta(days=1)), str(day + timedelta(days=1)),
+						historical=time_epoch < time.time() - 2 * 24 * 3600)
+	return hours.get(round(time_epoch / 3600) * 3600, {})

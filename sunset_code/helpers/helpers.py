@@ -5,7 +5,7 @@ import os
 import numpy as np
 from matplotlib import pyplot as plt
 from influxdb import InfluxDBClient
-from sunset_code.helpers.open_metro_weater_api import weather_fetch
+from sunset_code.helpers.open_metro_weater_api import weather_fetch, path_clouds
 
 
 def sunset_time(day=date.today(), lat=44.477101, lon=-73.221253, altitude=200, timezone_str='America/New_York', mode='sunset'):
@@ -65,6 +65,10 @@ def influxdb_push(photo_file, time_epoch, label, camera_tag, score=0.0):
                     weather_fields[name] = value
         except Exception as e:
             print(f"[WARN] Weather fetch failed, saving capture without it: {e}")
+        try:
+            weather_fields.update(path_clouds(time_epoch=time_epoch))
+        except Exception as e:
+            print(f"[WARN] Clouds toward the sunset failed, saving capture without them: {e}")
 
     influxdb_host = os.environ.get("INFLUXDB_HOST", "localhost")
     influxdb_port = int(os.environ.get("INFLUXDB_PORT", 8086))
