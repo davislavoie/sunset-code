@@ -84,7 +84,8 @@ export default function SunTimesChart({ config, date }) {
         ))}
         <YAxis formatValue={formatTick} tickValues={HOUR_TICKS} />
         <XAxis {...xTicks} />
-        <ChartMarkers items={markers} />
+        {/* No entrance animation: it restarts on every slider step and the marker never shows. */}
+        <ChartMarkers items={markers} animate={false} />
         <ChartTooltip
           {...INSTANT_TOOLTIP}
           rows={(point) =>

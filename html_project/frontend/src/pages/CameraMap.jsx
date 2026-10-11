@@ -9,8 +9,11 @@ import Dropdown from "../Dropdown.jsx";
 import { Skeleton } from "../Skeleton.jsx";
 import SunTimesChart from "../SunTimesChart.jsx";
 
-const SUNRISE_COLOR = "#ff9500";
-const SUNSET_COLOR = "#f39c12";
+// The pipeline samples clouds at these distances along the sun's bearing, rounded to
+// 5 degrees (sunset_code/helpers/open_metro_weater_api.py: PATH_KM, BEARING_STEP).
+const PATH_KM = [50, 150, 300];
+const BEARING_STEP = 5;
+const RAY_KM = 330;
 
 const SEASONS = [
   ["Summer", 5, 21], // June 21
@@ -32,7 +35,18 @@ function dateToDayOfYear(date) {
 }
 
 const modeOf = (config) => config.MODE || "sunset";
-const colorOf = (config) => (modeOf(config) === "sunrise" ? SUNRISE_COLOR : SUNSET_COLOR);
+const colorOf = (config) => (modeOf(config) === "sunrise" ? "var(--sunrise)" : "var(--sun)");
+
+/** [lat, lon] km along a compass bearing (degrees), on a sphere. */
+function destination(lat, lon, bearingDeg, km) {
+  const d = km / 6371, b = (bearingDeg * Math.PI) / 180;
+  const p1 = (lat * Math.PI) / 180, l1 = (lon * Math.PI) / 180;
+  const p2 = Math.asin(Math.sin(p1) * Math.cos(d) + Math.cos(p1) * Math.sin(d) * Math.cos(b));
+  const l2 = l1 + Math.atan2(Math.sin(b) * Math.sin(d) * Math.cos(p1), Math.cos(d) - Math.sin(p1) * Math.sin(p2));
+  return [(p2 * 180) / Math.PI, (l2 * 180) / Math.PI];
+}
+
+const formatTime = (d) => (d && !isNaN(d) ? d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "—");
 
 export default function CameraMap() {
   const [configs, setConfigs] = useState(null);
@@ -66,7 +80,9 @@ export default function CameraMap() {
                 type="range"
                 min={1}
                 max={365}
+                aria-label="Date"
                 value={dateToDayOfYear(date)}
+                style={{ "--pct": `${((dateToDayOfYear(date) - 1) / 364) * 100}%` }}
                 onChange={(e) => setDate(dayOfYearToDate(parseInt(e.target.value)))}
               />
               <span className="date-display">{shortDate(date)}</span>
@@ -91,6 +107,7 @@ export default function CameraMap() {
             <div className="legend-item"><span className="legend-dot sunset"></span> Sunset</div>
             <div className="legend-item"><span className="legend-dot sunrise"></span> Sunrise</div>
             <div className="legend-item"><span className="legend-line"></span> Sun direction</div>
+            <div className="legend-item"><span className="legend-point"></span> Cloud readings (50 / 150 / 300 km)</div>
           </div>
         </div>
       </section>
@@ -109,6 +126,7 @@ export default function CameraMap() {
                 onChange={setChartCamera}
                 options={(configs || []).map((c) => ({ value: c.CAMERA_TAG, label: `${c.CAMERA_TAG} (${modeOf(c)})` }))}
               />
+              <SunTimesReadout config={configs?.find((c) => c.CAMERA_TAG === chartCamera)} date={date} />
             </div>
             {configs && !configs.length ? (
               <div id="sun-times-chart">
@@ -124,11 +142,26 @@ export default function CameraMap() {
   );
 }
 
+// The chart's values for the slider's date, so moving the slider visibly updates this section.
+function SunTimesReadout({ config, date }) {
+  if (!config) return null;
+  const t = SunCalc.getTimes(date, parseFloat(config.LAT), parseFloat(config.LON));
+  return (
+    <dl className="sun-readout">
+      <div><dt>{shortDate(date)}</dt><dd /></div>
+      <div><dt>Sunrise</dt><dd>{formatTime(t.sunrise)}</dd></div>
+      <div><dt>Golden hour</dt><dd>{formatTime(t.goldenHour)}</dd></div>
+      <div><dt>Sunset</dt><dd>{formatTime(t.sunset)}</dd></div>
+    </dl>
+  );
+}
+
 function LeafletMap({ configs, date }) {
   const elRef = useRef(null);
   const mapRef = useRef(null);
   const markersRef = useRef([]);
   const linesRef = useRef([]);
+  const fittedRef = useRef(false);
 
   // Build the map and markers once per set of cameras.
   useEffect(() => {
@@ -180,15 +213,12 @@ function LeafletMap({ configs, date }) {
       return marker;
     });
 
-    if (markersRef.current.length > 1) {
-      map.fitBounds(L.featureGroup(markersRef.current).getBounds().pad(0.2));
-    }
-
     return () => {
       map.remove();
       mapRef.current = null;
       markersRef.current = [];
       linesRef.current = [];
+      fittedRef.current = false;
     };
   }, [configs]);
 
@@ -201,7 +231,6 @@ function LeafletMap({ configs, date }) {
     linesRef.current = [];
 
     const dateStr = date.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
-    const formatTime = (d) => (d ? d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "N/A");
 
     for (const marker of markersRef.current) {
       const config = marker._config;
@@ -212,21 +241,22 @@ function LeafletMap({ configs, date }) {
       const sunTimes = SunCalc.getTimes(date, lat, lon);
       const sunPos = SunCalc.getPosition(mode === "sunrise" ? sunTimes.sunrise : sunTimes.sunset, lat, lon);
 
-      // SunCalc azimuth is from South, clockwise. Convert to bearing from North.
-      const bearing = sunPos.azimuth + Math.PI;
-      const lineLength = 2.5; // degrees (~250km)
-      const endLat = lat + lineLength * Math.cos(bearing);
-      const endLon = lon + (lineLength * Math.sin(bearing)) / Math.cos((lat * Math.PI) / 180);
+      // SunCalc azimuth is from South, clockwise; convert to a compass bearing and round it
+      // the way the pipeline does, so the points sit where the clouds were actually read.
+      const exact = ((sunPos.azimuth * 180) / Math.PI + 180 + 360) % 360;
+      const bearing = Math.round(exact / BEARING_STEP) * BEARING_STEP;
+      const cls = `sun-ray ${mode}`;
 
       linesRef.current.push(
-        L.polyline(
-          [
-            [lat, lon],
-            [endLat, endLon],
-          ],
-          { color: colorOf(config), weight: 2, opacity: 0.7, dashArray: "8, 8" },
-        ).addTo(map),
+        L.polyline([[lat, lon], destination(lat, lon, bearing, RAY_KM)], { className: cls, weight: 3, interactive: false }).addTo(map),
       );
+      for (const km of PATH_KM) {
+        linesRef.current.push(
+          L.circleMarker(destination(lat, lon, bearing, km), { className: `path-point ${mode}`, radius: 6, weight: 2 })
+            .bindTooltip(`${config.CAMERA_TAG} · ${km} km toward the ${mode}`, { className: "path-tip", direction: "top", offset: [0, -6] })
+            .addTo(map),
+        );
+      }
 
       const popupContent = `
         <div class="map-popup">
@@ -257,6 +287,7 @@ function LeafletMap({ configs, date }) {
         </div>
       `;
 
+      marker.setZIndexOffset(1000);
       if (marker.getPopup()) {
         marker.setPopupContent(popupContent);
       } else {
@@ -268,6 +299,12 @@ function LeafletMap({ configs, date }) {
           autoClose: false,
         });
       }
+    }
+
+    // First draw: frame the cameras and their reading points; later dates keep the user's view.
+    if (!fittedRef.current && linesRef.current.length) {
+      map.fitBounds(L.featureGroup([...markersRef.current, ...linesRef.current]).getBounds().pad(0.1));
+      fittedRef.current = true;
     }
   }, [configs, date]);
 

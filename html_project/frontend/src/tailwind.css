@@ -80,7 +80,7 @@
   --radius: 0.5rem;
 
   /* Chart series: sunset data keeps its own colours (the one place colour isn't status) */
-  --chart-1: #ff9500;
+  --chart-1: var(--sunrise);
   --chart-2: #f39c12;
   --chart-3: #e6b800;
   --chart-4: #b65fd6;
