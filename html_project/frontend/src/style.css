@@ -2571,8 +2571,8 @@ main#content.is-stale { opacity: 0.5; pointer-events: none; }
 .day-captures .day-view-card img { aspect-ratio: 16 / 9; }
 .day-captures .day-view-caption { margin-top: 6px; }
 
-/* Shots that don't count: still shown, 0%, with a red pill saying why. */
-.flag-pill.on-photo { position: absolute; bottom: 8px; left: 8px; z-index: 2; font-size: 0.7em; padding: 1px 6px; background: var(--destructive); color: #fff; }
+/* Shots that don't count: still shown, 0%, with a neutral bubble saying why (on photos, styled like the time/score chips). */
+.flag-pill.on-photo { position: absolute; bottom: 8px; left: 8px; z-index: 2; font-size: 0.7em; padding: 2px 7px; background: rgba(0, 0, 0, 0.55); color: #f8faff; }
 .week-day-thumb-wrap .flag-pill.on-photo { bottom: 4px; left: 4px; font-size: 0.6em; }
 .year-mini-cell.flagged img { opacity: 0.45; filter: grayscale(0.6); }
 @media (max-width: 900px) { .calendar-cell .flag-pill.on-photo { font-size: 0.6em; bottom: 4px; left: 4px; } }

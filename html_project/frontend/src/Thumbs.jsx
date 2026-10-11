@@ -29,7 +29,7 @@ export function FlagPill({ reason, className = "" }) {
   if (!reason) return null;
   return (
     <Tip label={`Doesn't count: ${reason}`}>
-      <span className={`bubble destructive flag-pill ${className}`}>{flagLabel(reason)}</span>
+      <span className={`bubble flag-pill ${className}`}>{flagLabel(reason)}</span>
     </Tip>
   );
 }
