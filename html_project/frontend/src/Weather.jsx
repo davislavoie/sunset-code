@@ -104,7 +104,7 @@ export function CloudProfile({ w }) {
           {c.label}
         </text>
       ))}
-      <text x={SUN_X} y={GROUND + 18} textAnchor="middle" className="cp-axis">
+      <text x={SUN_X} y={GROUND + 18} textAnchor="middle" className="cp-axis cp-sun">
         Sun
       </text>
     </svg>
