@@ -79,6 +79,22 @@ def best_shot_times(client, camera):
     return {p["time"] for p in found if is_ranked(p)}
 
 
+AI_EXCLUSIONS = {"dark": "too dark", "no_signal": "no camera signal"}
+
+
+def exclusion(point):
+    """Why a capture can't be a day's best shot, or None. Same rule as html_project/backend.py.
+    The HSV score decides everything else; a thumbs up overrides all of it."""
+    thumb = point.get("thumb") or 0
+    if thumb > 0:
+        return None
+    if thumb < 0:
+        return "thumbs down"
+    if point.get("view_blocked"):
+        return "same view as a thumbed-down shot"
+    return AI_EXCLUSIONS.get(point.get("ai_view"))
+
+
 def needs_judging(point, model, rejudge=False):
     return rejudge or point.get("ai_model") != model
 
@@ -120,12 +136,16 @@ def save_judgment(client, point, result, model):
 
 def save_fields(client, point, fields):
     """Merge fields into an existing point (same measurement, tags and time)."""
-    client.write_points([{
+    client.write_points([field_point(point, fields)])
+
+
+def field_point(point, fields):
+    return {
         "measurement": MEASUREMENT,
         "tags": {"label": point["label"], "camera": point["camera"]},
         "time": point["time"],
         "fields": fields,
-    }])
+    }
 
 
 def epoch_seconds(point):
