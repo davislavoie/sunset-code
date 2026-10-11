@@ -8,6 +8,7 @@ import DayDetail from "../DayDetail.jsx";
 import HsvHistogram from "../HsvHistogram.jsx";
 import Img, { SIZES } from "../Img.jsx";
 import Reveal from "../Reveal.jsx";
+import ScoreOverlay from "../ScoreOverlay.jsx";
 import Tip from "../Tip.jsx";
 import { CloudProfile, WeatherStats } from "../Weather.jsx";
 import { useLightbox } from "../lightbox.jsx";
@@ -34,6 +35,8 @@ export default function Ranking({ data, onLoadToHsv }) {
     return () => observer.disconnect();
   }, []);
 
+  // Sunrise cameras label the moment itself "sunrise"; captures before/after are relative to it.
+  const event = data.ranked_images.some((r) => /^\d+_sunrise/.test(r["Raw Image"]?.split("/").pop())) ? "sunrise" : "sunset";
   const ascending = order === "Lowest to Highest";
   // Days whose best shot doesn't count (thumbs down, bad view, dark) would skew the
   // ranking, so they're left out unless shown with the toggle.
@@ -63,7 +66,7 @@ export default function Ranking({ data, onLoadToHsv }) {
       <hr />
       {!rows.length && <div className="empty">No data available.</div>}
       {rows.slice(0, visible).map((row) => (
-        <RankingRow key={row["Ranked Image"]} row={row} allData={data.all_data} onLoadToHsv={onLoadToHsv} />
+        <RankingRow key={row["Ranked Image"]} row={row} event={event} allData={data.all_data} onLoadToHsv={onLoadToHsv} />
       ))}
       <div ref={sentinel} />
       {visible < rows.length && (
@@ -75,36 +78,37 @@ export default function Ranking({ data, onLoadToHsv }) {
   );
 }
 
-function RankingRow({ row, allData, onLoadToHsv }) {
+function RankingRow({ row, event, allData, onLoadToHsv }) {
   const [showDay, setShowDay] = useState(false);
   const rawUrl = row["Raw Image"];
 
   return (
     <>
-      <div className="ranking-row">
-        <ImageCell url={row["Ranked Image"]} size={SIZES.ranked} />
-        <ImageCell url={rawUrl} size={SIZES.photo} />
-        <HsvHistogram imageUrl={rawUrl} />
-        <div className="score-cell">
-          <div className="metric-label">Score</div>
-          <div className="metric-value">{row.Score.toFixed(2)}%</div>
-          {row.Weather && <CloudProfile w={row.Weather} />}
+      <div className="ranking-card">
+        <div className="ranking-title">
+          <h2>{longDate(row.Date)}</h2>
+          <span>{[row.Time, captureName(rawUrl, event)].filter(Boolean).join(" · ")}</span>
         </div>
-        <div className="info-cell">
-          <div className="info-facts">
-            <div><strong>Date:</strong> {row.Date || "N/A"}</div>
-            <div><strong>Time:</strong> {row.Time || "N/A"}</div>
-            <div><strong>Label:</strong> {rawUrl ? rawUrl.split("/").pop().split(".")[0] : "No raw image"}</div>
+        <div className="ranking-row">
+          <ImageCell url={rawUrl} size={SIZES.photo} />
+          <ScoreOverlay imageUrl={rawUrl} />
+          <HsvHistogram imageUrl={rawUrl} />
+          <div className="score-cell">
+            <div className="metric-label">Score</div>
+            <div className="metric-value">{row.Score.toFixed(2)}%</div>
+            {row.Weather && <CloudProfile w={row.Weather} />}
           </div>
-          <WeatherStats w={row.Weather} />
-          <div className="ranking-actions">
-            <button className="btn" aria-expanded={showDay} onClick={() => setShowDay(!showDay)}>
-              {showDay ? "Hide captures" : "Expand all captures"}
-              <ChevronDown size={16} className={`chevron${showDay ? " open" : ""}`} />
-            </button>
-            <Link className="btn" to={dayPath(row.Date)}>
-              Open day <ArrowRight size={16} />
-            </Link>
+          <div className="info-cell">
+            <WeatherStats w={row.Weather} />
+            <div className="ranking-actions">
+              <button className="btn" aria-expanded={showDay} onClick={() => setShowDay(!showDay)}>
+                {showDay ? "Hide captures" : "Expand all captures"}
+                <ChevronDown size={16} className={`chevron${showDay ? " open" : ""}`} />
+              </button>
+              <Link className="btn" to={dayPath(row.Date)}>
+                Open day <ArrowRight size={16} />
+              </Link>
+            </div>
           </div>
         </div>
       </div>
@@ -137,6 +141,18 @@ function ImageCell({ url, size }) {
       </Tip>
     </div>
   );
+}
+
+const longDate = (iso) =>
+  iso ? new Date(`${iso}T12:00`).toLocaleDateString(undefined, { weekday: "short", month: "long", day: "numeric", year: "numeric" }) : "Unknown date";
+
+/** "06_5m_pre_05-26-2025.jpg" -> "5 min before sunset", "07_sunset_..." -> "At sunset". */
+function captureName(url, event = "sunset") {
+  const label = url?.split("/").pop() ?? "";
+  const m = /^\d+_(\d+)(m|h)_(pre|post)/.exec(label);
+  if (m) return `${m[1]} ${m[2] === "h" ? "hr" : "min"} ${m[3] === "pre" ? "before" : "after"} ${event}`;
+  const at = /^\d+_(sunset|sunrise)/.exec(label);
+  return at ? `At ${at[1]}` : label.split(".")[0];
 }
 
 /** True when the day's best shot doesn't count (until ai_judge re-picks the day). */

@@ -9,7 +9,7 @@ import { COLORS, DEFAULT_COLOR_RANGES, DEFAULT_FORMULA, scoreImage } from "./sco
 // sunset_process.py's multipliers at the time of writing; used only if /api/scoring-config fails.
 const DEFAULT_MULTIPLIERS = { red: 4, orange: 3, yellow: 2, pink: 9 };
 
-const COLOR_META = {
+export const COLOR_META = {
   red: { label: "Red", swatch: "hsl(0, 70%, 50%)" },
   orange: { label: "Orange", swatch: "hsl(20, 80%, 50%)" },
   yellow: { label: "Yellow", swatch: "hsl(45, 85%, 55%)" },
