@@ -3,20 +3,18 @@
 
 const pct = (v) => (v == null ? "–" : `${Math.round(v)}%`);
 
-export default function Weather({ w, compact = false, verdict = true }) {
+export default function Weather({ w, compact = false }) {
   if (!w) return null;
   const temp = w.temperature_2m != null && `${Math.round(w.temperature_2m)}°F`;
   if (compact) {
     return (
       <>
         <CloudProfile w={w} mini />
-        {verdict && <LightPath w={w} />}
         {temp && <div className="weather-line">{temp}</div>}
       </>
     );
   }
   const rows = [
-    ["Total cloud", pct(w.cloud_cover_total)],
     ["Temperature", temp],
     ["Humidity", pct(w.relative_humidity_2m)],
     ["Dew point", w.dew_point_2m != null && `${Math.round(w.dew_point_2m)}°F`],
@@ -28,9 +26,6 @@ export default function Weather({ w, compact = false, verdict = true }) {
     <div className="weather-card">
       <div className="metric-label">Clouds toward the sun</div>
       <CloudProfile w={w} />
-      <div>
-        <LightPath w={w} />
-      </div>
       <dl>
         {rows.map(([label, value]) => (
           <div key={label}>
@@ -46,18 +41,6 @@ export default function Weather({ w, compact = false, verdict = true }) {
 // Low cloud of 70%+ along the path went with much weaker sunsets in the history (median best
 // score 7 vs 31 with a clear path), so that's where we call the light blocked.
 const BLOCKING = 70;
-
-function LightPath({ w }) {
-  const low = [50, 150, 300].map((km) => [km, w[`path${km}_cloud_cover_low`]]);
-  if (low.every(([, v]) => v == null)) return null;
-  const wall = low.find(([, v]) => v >= BLOCKING);
-  const [text, tone] = wall
-    ? [`Low cloud blocks the sun ${wall[0]} km out`, "destructive"]
-    : low.every(([, v]) => v == null || v < 30)
-      ? ["Clear path to the sun", "success"]
-      : ["Patchy low cloud toward the sun", "warning"];
-  return <span className={`bubble ${tone}`}>{text}</span>;
-}
 
 // A side view of the sky from the camera out toward the sun: cloud cover in each layer
 // overhead and 50 / 150 / 300 km along the sunset (sunrise) direction, one bar per cell.

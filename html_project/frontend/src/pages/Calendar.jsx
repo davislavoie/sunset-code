@@ -111,7 +111,7 @@ export default function Calendar({ data, camera, onLoadToHsv }) {
         </button>
       </div>
 
-      {view === "day" && <DayView {...viewProps} camera={camera} best={rankedByDate.get(date)} />}
+      {view === "day" && <DayView key={date} {...viewProps} camera={camera} best={rankedByDate.get(date)} />}
       {view === "week" && <WeekView {...viewProps} />}
       {view === "year" && <YearView {...viewProps} />}
       {view === "month" && (
@@ -154,6 +154,11 @@ function DayView({ date, goTo, allData, camera, best }) {
     weekday: "long", year: "numeric", month: "long", day: "numeric",
   });
   useDocumentTitle(`${camera} sunset · ${title}`);
+  // Opens on the day's best shot; picking another (arrows, keys, or a capture below) swaps the hero.
+  const heroRef = useRef(null);
+  const [selected, setSelected] = useState(null);
+  const bestIndex = Math.max(0, dayImages.findIndex((img) => img.Image === best?.["Raw Image"]));
+  const shown = selected != null && selected < dayImages.length ? selected : bestIndex;
 
   return (
     <div>
@@ -166,15 +171,26 @@ function DayView({ date, goTo, allData, camera, best }) {
         prevTitle={prev && `Previous captured day: ${prev}`}
         nextTitle={next && `Next captured day: ${next}`}
       />
-      {best && <SunsetHero best={best} camera={camera} date={date} />}
       {!dayImages.length ? (
         <div className="empty">No captures for this day.</div>
       ) : (
         <>
-          {best && <h4>All captures</h4>}
+          <div ref={heroRef} className="detail-scroll-target">
+            <SunsetHero shots={dayImages} index={shown} onSelect={setSelected} best={best} camera={camera} date={date} />
+          </div>
+          <h4>All captures</h4>
           <div className="day-view-grid">
-            {dayImages.map((img) => (
-              <CaptureCard key={img.Image} img={img} camera={camera} />
+            {dayImages.map((img, i) => (
+              <CaptureCard
+                key={img.Image}
+                img={img}
+                camera={camera}
+                selected={i === shown}
+                onSelect={() => {
+                  setSelected(i);
+                  heroRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                }}
+              />
             ))}
           </div>
         </>
@@ -183,13 +199,17 @@ function DayView({ date, goTo, allData, camera, best }) {
   );
 }
 
-export function CaptureCard({ img, camera }) {
+export function CaptureCard({ img, camera, selected = false, onSelect }) {
   const [thumb, setThumb] = useState(img.Thumb ?? 0);
   const generated = /^(11_|12_)/.test(img.Label);
   const excluded = generated ? null : exclusionFor(img, thumb);
   return (
-    <div className={`day-view-card${excluded ? " ai-not-sky" : ""}`}>
-      <Zoomable src={img.Image} alt={img.Label} loading="lazy" {...sizeForLabel(img.Label)} />
+    <div className={`day-view-card${excluded ? " ai-not-sky" : ""}${selected ? " selected" : ""}`}>
+      {onSelect ? (
+        <Img src={img.Image} alt={img.Label} loading="lazy" onClick={onSelect} {...sizeForLabel(img.Label)} />
+      ) : (
+        <Zoomable src={img.Image} alt={img.Label} loading="lazy" {...sizeForLabel(img.Label)} />
+      )}
       <div className="day-view-caption">
         <strong>{/^(07_|11_|12_)/.test(img.Label) ? img.Label.slice(3) : img.Label}</strong>
         <span>
@@ -197,7 +217,7 @@ export function CaptureCard({ img, camera }) {
         </span>
         {excluded && <span className="bubble destructive">Doesn't count: {excluded}</span>}
         <AiVerdict ai={img.AI} compact />
-        <Weather w={img.Weather} compact verdict={false} />
+        <Weather w={img.Weather} compact />
         {!generated && <Thumbs camera={camera} img={img} onChange={(s) => setThumb(s.thumb)} />}
       </div>
     </div>
