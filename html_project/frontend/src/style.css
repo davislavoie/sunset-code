@@ -2393,9 +2393,9 @@ main#content.is-stale { opacity: 0.5; pointer-events: none; }
 .day-view-card > img[class]:not(.zoomable) { cursor: pointer; }
 @media (min-width: 769px) {
   /* The photo fills whatever height the stats panel sets (cropping a little if needed). */
-  /* Fixed shape so the hero (and its arrows) don't move between shots. */
-  .sunset-hero-photo { min-height: clamp(600px, 45vw, 860px); }
-  .sunset-hero-photo .sunset-hero-img { position: absolute; inset: 0; }
+  /* Photo keeps its 16:9 shape at the top, so the arrows stay put between shots. */
+  .sunset-hero-photo { align-self: start; }
+  .sunset-hero-photo .sunset-hero-img { aspect-ratio: 16 / 9; height: auto; }
   .sunset-hero-photo.generated .sunset-hero-img { object-fit: contain; background: var(--card); }
 }
 @media (max-width: 768px) {
