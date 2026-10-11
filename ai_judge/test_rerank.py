@@ -181,6 +181,21 @@ class WeatherTests(unittest.TestCase):
         self.assertEqual(weather.weather_for(late, hours), {"cloud_cover_low": 80.0, "visibility": 9000.0})
 
 
+    def test_path_follows_the_sun_by_season_and_mode(self):
+        import math
+        from sunset_code.helpers.open_metro_weater_api import path_points, sun_bearing
+        btv = (44.4766, -73.2212)
+        # Summer sunsets are northwest, winter southwest, sunrises east; local dates, so a June
+        # evening (after midnight UTC) still has a sunset.
+        self.assertTrue(300 <= sun_bearing(date(2026, 6, 21), *btv) <= 306)
+        self.assertTrue(235 <= sun_bearing(date(2025, 12, 21), *btv) <= 240)
+        self.assertTrue(50 <= sun_bearing(date(2026, 6, 21), *btv, "sunrise") <= 60)
+        km, lat, lon = path_points(*btv, 270)[-1]
+        self.assertEqual(km, 300)
+        self.assertAlmostEqual(lat, btv[0], delta=0.2)  # due west stays near the same latitude
+        self.assertAlmostEqual((btv[1] - lon) * 111.3 * math.cos(math.radians(lat)), 300, delta=3)
+
+
 class ViewTests(unittest.TestCase):
     def scene(self, shift=0, sky=(120, 140, 200), seed=0):
         import io

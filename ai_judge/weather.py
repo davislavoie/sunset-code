@@ -25,11 +25,15 @@ FIELDS = ["temperature_2m", "relative_humidity_2m", "dew_point_2m", "precipitati
 STORED = {"cloud_cover": "cloud_cover_total"}
 
 
-def camera_location(camera):
-    """LAT/LON from config/<camera>.env (the files the dashboard's Config page manages)."""
+def camera_config(camera):
+    """config/<camera>.env (the files the dashboard's Config page manages) as a dict."""
     config = Path(os.environ.get("CONFIG_DIR", "config")) / f"{camera}.env"
-    values = dict(line.strip().split("=", 1) for line in config.read_text().splitlines()
-                  if "=" in line and not line.lstrip().startswith("#"))
+    return dict(line.strip().split("=", 1) for line in config.read_text().splitlines()
+                if "=" in line and not line.lstrip().startswith("#"))
+
+
+def camera_location(camera):
+    values = camera_config(camera)
     return float(values["LAT"]), float(values["LON"])
 
 
@@ -53,6 +57,36 @@ def weather_for(point, hours):
 
 
 def fill(client, camera, since=None, before=None, refill=False):
+    """Add weather overhead and toward the sunset to captures missing either."""
+    return fill_overhead(client, camera, since, before, refill) + fill_path(client, camera, since, before, refill)
+
+
+def fill_path(client, camera, since=None, before=None, refill=False):
+    """Clouds along the sunset (sunrise) direction, with the pipeline's own functions so history
+    matches what captures get live. One request per sun bearing (whole degrees)."""
+    from sunset_code.helpers.open_metro_weater_api import path_hourly, sun_bearing
+
+    todo = [p for p in store.captures(client, camera, since=since, before=before)
+            if refill or p.get("path50_cloud_cover_low") is None]
+    if not todo:
+        return 0
+    config = camera_config(camera)
+    lat, lon, mode = float(config["LAT"]), float(config["LON"]), config.get("MODE", "sunset")
+    bearings = {}
+    for day in {store.local_date(p) for p in todo}:
+        bearings.setdefault(sun_bearing(day, lat, lon, mode), set()).add(day)
+    writes = []
+    for bearing, days in sorted(bearings.items()):
+        hours = path_hourly(lat, lon, bearing, str(min(days) - timedelta(days=1)), str(max(days) + timedelta(days=1)))
+        writes += [store.field_point(p, f) for p in todo if store.local_date(p) in days
+                   and (f := hours.get(round(store.epoch_seconds(p) / 3600) * 3600))]
+    if writes:
+        client.write_points(writes, batch_size=1000)
+    log.info("%s: clouds toward the %s added to %d of %d captures", camera, mode, len(writes), len(todo))
+    return len(writes)
+
+
+def fill_overhead(client, camera, since=None, before=None, refill=False):
     """Add weather to the camera's captures that don't have it yet. Returns how many got it."""
     todo = [p for p in store.captures(client, camera, since=since, before=before)
             if refill or p.get("cloud_cover_total") is None]
@@ -62,6 +96,7 @@ def fill(client, camera, since=None, before=None, refill=False):
     # A day either side: an evening's UTC hours fall on the next UTC date.
     hours = hourly(*camera_location(camera), min(days) - timedelta(days=1), max(days) + timedelta(days=1))
     writes = [store.field_point(p, f) for p in todo if (f := weather_for(p, hours))]
-    client.write_points(writes, batch_size=1000)
+    if writes:
+        client.write_points(writes, batch_size=1000)
     log.info("%s: weather added to %d of %d captures", camera, len(writes), len(todo))
     return len(writes)

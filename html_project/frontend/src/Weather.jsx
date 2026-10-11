@@ -3,19 +3,34 @@
 
 const pct = (v) => (v == null ? "–" : `${Math.round(v)}%`);
 
+// Low cloud 50 / 150 / 300 km toward where the sun sets (rises): a thick bank out there blocks
+// the light before it reaches the sky over the camera.
+const PATH_KM = [50, 150, 300];
+const towardSun = (w) =>
+  w.path50_cloud_cover_low == null ? null : PATH_KM.map((km) => pct(w[`path${km}_cloud_cover_low`])).join(" / ");
+
 export default function Weather({ w, compact = false }) {
   if (!w) return null;
   const clouds = `${pct(w.cloud_cover_low)} / ${pct(w.cloud_cover_mid)} / ${pct(w.cloud_cover_high)}`;
+  const path = towardSun(w);
   if (compact) {
     return (
-      <div className="weather-line" title="Cloud cover low / mid / high, temperature">
-        ☁ {clouds}
-        {w.temperature_2m != null && <> · {Math.round(w.temperature_2m)}°F</>}
-      </div>
+      <>
+        <div className="weather-line" title="Cloud cover overhead: low / mid / high, temperature">
+          ☁ {clouds}
+          {w.temperature_2m != null && <> · {Math.round(w.temperature_2m)}°F</>}
+        </div>
+        {path && (
+          <div className="weather-line" title="Low cloud 50 / 150 / 300 km toward the sun">
+            → sun low cloud {path}
+          </div>
+        )}
+      </>
     );
   }
   const rows = [
     ["Clouds low / mid / high", clouds],
+    ["Low cloud toward the sun, 50 / 150 / 300 km", path],
     ["Total cloud", pct(w.cloud_cover_total)],
     ["Temperature", w.temperature_2m != null && `${Math.round(w.temperature_2m)}°F`],
     ["Humidity", pct(w.relative_humidity_2m)],
