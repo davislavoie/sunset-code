@@ -17,7 +17,7 @@ function shotOffset(row) {
   return /_(sunset|sunrise)/.test(row.Label || "") ? 0 : null;
 }
 
-const CLOUD_FIELDS = [["", "overhead"], ["path50_", "50 km toward sun"], ["path150_", "150 km toward sun"], ["path300_", "300 km toward sun"]]
+const CLOUD_FIELDS = [["", "overhead"], ["path13_", "8 mi toward sun"], ["path40_", "25 mi toward sun"], ["path80_", "50 mi toward sun"]]
   .flatMap(([prefix, where]) => ["low", "mid", "high"].map((layer) => ({
     key: `${prefix}cloud_cover_${layer}`,
     label: `${layer[0].toUpperCase()}${layer.slice(1)} cloud ${where} (%)`,
@@ -72,7 +72,7 @@ const strength = (r) => {
 const options = FIELDS.map((f) => ({ value: f.key, label: f.label }));
 
 export default function ScoreScatter({ rows, onSelect }) {
-  const [xKey, setXKey] = useState("path50_cloud_cover_low");
+  const [xKey, setXKey] = useState("path13_cloud_cover_low");
   const [yKey, setYKey] = useState("score");
   const xf = byKey[xKey], yf = byKey[yKey];
 

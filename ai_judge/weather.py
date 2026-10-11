@@ -69,7 +69,7 @@ def fill_path(client, camera, since=None, before=None, refill=False):
     from sunset_code.helpers.open_metro_weater_api import path_hourly, sun_bearing
 
     todo = [p for p in store.captures(client, camera, since=since, before=before)
-            if refill or p.get("path50_cloud_cover_low") is None]
+            if refill or p.get("path80_cloud_cover_low") is None]
     if not todo:
         return 0
     config = camera_config(camera)

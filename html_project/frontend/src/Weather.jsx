@@ -31,17 +31,18 @@ export default function Weather({ w }) {
 }
 
 // Low cloud of 70%+ along the path went with much weaker sunsets in the history (median best
-// score 7 vs 31 with a clear path), so that's where we call the light blocked.
+// score 7 vs 31 with a clear path, from the earlier 50-300 km readings), so that's where we call
+// the light blocked. ponytail: re-check against the 8-50 mi readings once they're backfilled.
 const BLOCKING = 70;
 
 // A side view of the sky from the camera out toward the sun: cloud cover in each layer
-// overhead and 50 / 150 / 300 km along the sunset (sunrise) direction, one bar per cell.
+// overhead and 8 / 25 / 50 miles along the sunset (sunrise) direction, one bar per cell.
 // Low cloud out toward the sun is what blocks the light, so only that gets colour.
 const COLUMNS = [
   { prefix: "", label: "Overhead" },
-  { prefix: "path50_", label: "50 km" },
-  { prefix: "path150_", label: "150 km" },
-  { prefix: "path300_", label: "300 km" },
+  { prefix: "path13_", label: "8 mi" },
+  { prefix: "path40_", label: "25 mi" },
+  { prefix: "path80_", label: "50 mi" },
 ];
 const LAYERS = [
   { key: "high", label: "High", y: 8 },
@@ -60,7 +61,7 @@ function CloudProfile({ w }) {
       className="cloud-profile"
       viewBox={`0 0 ${W} ${GROUND + 26}`}
       role="img"
-      aria-label={`Cloud cover overhead and 50, 150, 300 km toward the sun. ${summary}`}
+      aria-label={`Cloud cover overhead and 8, 25, 50 miles toward the sun. ${summary}`}
     >
       <line className="cp-horizon" x1={LEFT} x2={W} y1={GROUND} y2={GROUND} />
       <circle className="cp-sun" cx={SUN_X} cy={GROUND} r="7" />

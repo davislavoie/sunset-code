@@ -130,7 +130,7 @@ def exclusion(point):
 WEATHER_FIELDS = ["temperature_2m", "relative_humidity_2m", "dew_point_2m", "precipitation_probability",
                   "precipitation", "rain", "showers", "snowfall", "cloud_cover_low", "cloud_cover_mid",
                   "cloud_cover_high", "cloud_cover_total", "visibility"] + [
-    f"path{km}_cloud_cover_{layer}" for km in (50, 150, 300) for layer in ("low", "mid", "high")]  # toward the sun
+    f"path{km}_cloud_cover_{layer}" for km in (13, 40, 80) for layer in ("low", "mid", "high")]  # toward the sun, 8/25/50 mi
 
 
 def weather_fields(point):

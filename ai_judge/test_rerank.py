@@ -191,9 +191,9 @@ class WeatherTests(unittest.TestCase):
         self.assertTrue(235 <= sun_bearing(date(2025, 12, 21), *btv) <= 240)
         self.assertTrue(50 <= sun_bearing(date(2026, 6, 21), *btv, "sunrise") <= 60)
         km, lat, lon = path_points(*btv, 270)[-1]
-        self.assertEqual(km, 300)
-        self.assertAlmostEqual(lat, btv[0], delta=0.2)  # due west stays near the same latitude
-        self.assertAlmostEqual((btv[1] - lon) * 111.3 * math.cos(math.radians(lat)), 300, delta=3)
+        self.assertEqual(km, 80)
+        self.assertAlmostEqual(lat, btv[0], delta=0.05)  # due west stays near the same latitude
+        self.assertAlmostEqual((btv[1] - lon) * 111.3 * math.cos(math.radians(lat)), 80, delta=1)
 
 
 class ViewTests(unittest.TestCase):

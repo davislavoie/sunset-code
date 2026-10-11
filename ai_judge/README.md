@@ -10,10 +10,11 @@ capture is a day's best shot; ai_judge adds what the score can't know:
   and histogram with the pipeline's own functions. A day with nothing left isn't ranked.
 - **Weather** for every capture (Open-Meteo, the hour nearest the capture, at the
   camera's LAT/LON): `temperature_2m`, `cloud_cover_low/mid/high/total`, `visibility`,
-  ... plus low/mid/high cloud **toward the sunset** (sunrise, for a sunrise camera) at 50,
-  150 and 300 km (`path50_cloud_cover_low`, ...). A bank of low cloud out there blocks the
-  light: on ~480 ranked days, days with >=70% low cloud along that line had a median best
-  score of 7, vs 31 with it clear. Groundwork for predicting sunsets from the early shots + weather. New captures get
+  ... plus low/mid/high cloud **toward the sunset** (sunrise, for a sunrise camera) at 8,
+  25 and 50 miles (13 / 40 / 80 km: `path13_cloud_cover_low`, ...). A bank of low cloud out
+  there blocks the light: on ~480 ranked days, days with >=70% low cloud 50-300 km along that
+  line (the earlier `path50_`/`path150_`/`path300_` readings) had a median best score of 7,
+  vs 31 with it clear. Groundwork for predicting sunsets from the early shots + weather. New captures get
   it at capture time (`helpers.influxdb_push` → `weather_fetch`); ai_judge backfills
   history (`judge weather --camera all`) and fills any capture that missed it. Shown on
   the Calendar Day tab.

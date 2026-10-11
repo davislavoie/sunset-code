@@ -114,15 +114,17 @@ def weather_fetch(latitude=None, longitude=None, date=None, time_epoch=None):
 
 
 # ---- Clouds toward the sunset -------------------------------------------------------------
-# Low cloud 50-300 km toward where the sun sets (rises, for a sunrise camera) blocks the light
-# before it reaches the sky over the camera. On ~480 ranked days it predicted the day's best
-# score better than the clouds overhead (median best 7 with >=70% low cloud out there, 31 when
-# clear). Stored as path50_/path150_/path300_ + cloud_cover_low/mid/high.
+# Low cloud toward where the sun sets (rises, for a sunrise camera) blocks the light before it
+# reaches the sky over the camera. On ~480 ranked days, low cloud 50-300 km out predicted the
+# day's best score better than the clouds overhead (median best 7 with >=70% low cloud out
+# there, 31 when clear). Read at 8 / 25 / 50 miles; stored as path13_/path40_/path80_ +
+# cloud_cover_low/mid/high. (Older captures also have path50_/path150_/path300_.)
 
-PATH_KM = [50, 150, 300]
-# The bearing is rounded to this many degrees (26 km sideways at 300 km), so days share
-# locations and a backfill needs far fewer Open-Meteo calls.
-BEARING_STEP = 5
+PATH_KM = [13, 40, 80]
+# The bearing is rounded to this many degrees: fine enough that the reading spots move with the
+# sun every day (it shifts ~0.6 degrees a day around the equinoxes), while days with the same
+# bearing near the solstices still share one Open-Meteo request in a backfill.
+BEARING_STEP = 0.1
 PATH_LAYERS = ["cloud_cover_low", "cloud_cover_mid", "cloud_cover_high"]
 
 
@@ -134,7 +136,7 @@ def sun_bearing(day, latitude, longitude, mode="sunset"):
 	# Local time zone: in UTC an evening sunset is on the next date, and some UTC dates have none.
 	tz = ZoneInfo(TimezoneFinder().timezone_at(lat=latitude, lng=longitude))
 	bearing = azimuth(observer, (sunrise if mode == "sunrise" else sunset)(observer, date=day, tzinfo=tz))
-	return round(bearing / BEARING_STEP) * BEARING_STEP
+	return round(round(bearing / BEARING_STEP) * BEARING_STEP, 1)
 
 
 def path_points(latitude, longitude, bearing):
@@ -151,7 +153,7 @@ def path_points(latitude, longitude, bearing):
 
 
 def path_hourly(latitude, longitude, bearing, start_date, end_date, historical=True):
-	"""{unix hour (UTC): {"path50_cloud_cover_low": ..., ...}} for start..end (YYYY-MM-DD, inclusive)."""
+	"""{unix hour (UTC): {"path13_cloud_cover_low": ..., ...}} for start..end (YYYY-MM-DD, inclusive)."""
 	import requests
 	points = path_points(latitude, longitude, bearing)
 	url = "https://historical-forecast-api.open-meteo.com/v1/forecast" if historical else "https://api.open-meteo.com/v1/forecast"

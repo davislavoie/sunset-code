@@ -9,11 +9,12 @@ import Dropdown from "../Dropdown.jsx";
 import { Skeleton } from "../Skeleton.jsx";
 import SunTimesChart from "../SunTimesChart.jsx";
 
-// The pipeline samples clouds at these distances along the sun's bearing, rounded to
-// 5 degrees (sunset_code/helpers/open_metro_weater_api.py: PATH_KM, BEARING_STEP).
-const PATH_KM = [50, 150, 300];
-const BEARING_STEP = 5;
-const RAY_KM = 330;
+// The pipeline samples clouds at these distances (8 / 25 / 50 mi) along the sun's bearing,
+// rounded to 0.1 degree (sunset_code/helpers/open_metro_weater_api.py: PATH_KM, BEARING_STEP).
+const PATH_KM = [13, 40, 80];
+const MILES = { 13: 8, 40: 25, 80: 50 };
+const BEARING_STEP = 0.1;
+const RAY_KM = 100;
 
 const SEASONS = [
   ["Summer", 5, 21], // June 21
@@ -107,7 +108,7 @@ export default function CameraMap() {
             <div className="legend-item"><span className="legend-dot sunset"></span> Sunset</div>
             <div className="legend-item"><span className="legend-dot sunrise"></span> Sunrise</div>
             <div className="legend-item"><span className="legend-line"></span> Sun direction</div>
-            <div className="legend-item"><span className="legend-point"></span> Cloud readings (50 / 150 / 300 km)</div>
+            <div className="legend-item"><span className="legend-point"></span> Cloud readings (8 / 25 / 50 mi)</div>
           </div>
         </div>
       </section>
@@ -242,20 +243,19 @@ function LeafletMap({ configs, date }) {
       const sunPos = SunCalc.getPosition(mode === "sunrise" ? sunTimes.sunrise : sunTimes.sunset, lat, lon);
 
       // SunCalc azimuth is from South, clockwise; convert to a compass bearing. The points use it
-      // rounded the way the pipeline does, so they sit where the clouds were actually read (and
-      // step every few days, up to 2.5 degrees off the ray).
+      // rounded the way the pipeline does, so they sit where the clouds were actually read.
       const exact = ((sunPos.azimuth * 180) / Math.PI + 180 + 360) % 360;
       const bearing = Math.round(exact / BEARING_STEP) * BEARING_STEP;
       const cls = `sun-ray ${mode}`;
 
       // The ray follows the exact sun direction, drawn as a great circle (a 2-point Leaflet line is
-      // straight in Mercator and bows ~2 km south of where the reading points sit).
-      const ray = Array.from({ length: RAY_KM / 10 + 1 }, (_, i) => destination(lat, lon, exact, i * 10));
+      // straight in Mercator and drifts off the reading points over long distances).
+      const ray = Array.from({ length: RAY_KM / 5 + 1 }, (_, i) => destination(lat, lon, exact, i * 5));
       linesRef.current.push(L.polyline(ray, { className: cls, weight: 3, interactive: false }).addTo(map));
       for (const km of PATH_KM) {
         linesRef.current.push(
           L.circleMarker(destination(lat, lon, bearing, km), { className: `path-point ${mode}`, radius: 6, weight: 2 })
-            .bindTooltip(`${config.CAMERA_TAG} · ${km} km toward the ${mode}`, { className: "path-tip", direction: "top", offset: [0, -6] })
+            .bindTooltip(`${config.CAMERA_TAG} · ${MILES[km]} mi toward the ${mode}`, { className: "path-tip", direction: "top", offset: [0, -6] })
             .addTo(map),
         );
       }
