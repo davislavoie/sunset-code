@@ -670,16 +670,17 @@ button {
   border-radius: 8px;
   box-shadow: var(--shadow-card);
 }
-.ranking-title { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 14px; margin-bottom: 12px; }
+.ranking-title { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 14px; margin-bottom: 12px; }
 .ranking-title h2 { margin: 0; font-size: 1.35em; color: var(--text); }
 .ranking-title span { color: var(--text-muted); font-weight: 500; }
 .ranking-row {
   display: grid;
   grid-template-columns: 2fr 2fr 2fr 1.6fr 1.5fr;
   gap: 16px;
-  align-items: center;
+  /* Bottoms line up: photo, overlay and the chart's x-axis title share one baseline. */
+  align-items: end;
 }
-.ranking-row img { width: 100%; border-radius: 6px; }
+.ranking-row img { display: block; width: 100%; border-radius: 6px; }
 
 .ranked-img-cell { position: relative; }
 .fullscreen-toggle-btn {
@@ -2502,7 +2503,10 @@ main#content.is-stale { opacity: 0.5; pointer-events: none; }
 /* Ranked row: clouds under the score, weather + actions in the info column. */
 .score-cell .cloud-profile { width: 100%; max-width: 300px; }
 .ranking-row .cp-sun { display: none; }
-.ranking-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.ranking-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
+@media (min-width: 901px) {
+  .ranking-row .hsv-hist-plot { height: auto; aspect-ratio: 16 / 9; min-height: 0; overflow: hidden; }
+}
 .ranking-actions .btn { text-decoration: none; color: var(--text); display: inline-flex; align-items: center; gap: 6px; }
 .ranking-row .weather-stats { grid-template-columns: repeat(2, 1fr); }
 /* Narrow screens: images on one line, score/clouds and the facts on a second. */

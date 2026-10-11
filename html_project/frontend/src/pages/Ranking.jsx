@@ -88,6 +88,15 @@ function RankingRow({ row, event, allData, onLoadToHsv }) {
         <div className="ranking-title">
           <h2>{longDate(row.Date)}</h2>
           <span>{[row.Time, captureName(rawUrl, event)].filter(Boolean).join(" · ")}</span>
+          <div className="ranking-actions">
+            <button className="btn" aria-expanded={showDay} onClick={() => setShowDay(!showDay)}>
+              {showDay ? "Hide captures" : "Expand all captures"}
+              <ChevronDown size={16} className={`chevron${showDay ? " open" : ""}`} />
+            </button>
+            <Link className="btn" to={dayPath(row.Date)}>
+              Open day <ArrowRight size={16} />
+            </Link>
+          </div>
         </div>
         <div className="ranking-row">
           <ImageCell url={rawUrl} size={SIZES.photo} />
@@ -100,15 +109,6 @@ function RankingRow({ row, event, allData, onLoadToHsv }) {
           </div>
           <div className="info-cell">
             <WeatherStats w={row.Weather} />
-            <div className="ranking-actions">
-              <button className="btn" aria-expanded={showDay} onClick={() => setShowDay(!showDay)}>
-                {showDay ? "Hide captures" : "Expand all captures"}
-                <ChevronDown size={16} className={`chevron${showDay ? " open" : ""}`} />
-              </button>
-              <Link className="btn" to={dayPath(row.Date)}>
-                Open day <ArrowRight size={16} />
-              </Link>
-            </div>
           </div>
         </div>
       </div>
