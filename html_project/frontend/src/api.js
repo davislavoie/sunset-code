@@ -19,6 +19,11 @@ export function fetchCameraData(camera) {
   return cameraData.get(camera);
 }
 
+/** Drop a camera's cached data so the next load sees a change (e.g. a thumbs up/down). */
+export function forgetCameraData(camera) {
+  cameraData.delete(camera);
+}
+
 let scoringConfig = null;
 export function fetchScoringConfig() {
   scoringConfig ??= getJson("/api/scoring-config").catch((e) => {

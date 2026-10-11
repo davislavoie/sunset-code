@@ -10,6 +10,7 @@ import DayDetail from "../DayDetail.jsx";
 import Img, { SIZES, sizeForLabel } from "../Img.jsx";
 import Reveal from "../Reveal.jsx";
 import SunsetHero, { AiVerdict } from "../SunsetHero.jsx";
+import Thumbs, { exclusionFor } from "../Thumbs.jsx";
 import { Zoomable } from "../lightbox.jsx";
 
 const VIEWS = [["day", "Day"], ["week", "Week"], ["month", "Month"], ["year", "Year"]];
@@ -167,19 +168,30 @@ function DayView({ date, goTo, allData, camera, best }) {
           {best && <h4>All captures</h4>}
           <div className="day-view-grid">
             {dayImages.map((img) => (
-              <div key={img.Image} className={`day-view-card${img.AI && !img.AI.is_sunset ? " ai-not-sky" : ""}`}>
-                <Zoomable src={img.Image} alt={img.Label} loading="lazy" {...sizeForLabel(img.Label)} />
-                <div className="day-view-caption">
-                  <strong>{/^(07_|11_|12_)/.test(img.Label) ? img.Label.slice(3) : img.Label}</strong>
-                  <br />
-                  {img.Time} &middot; Score: {img.Score.toFixed(1)}%
-                  <AiVerdict ai={img.AI} compact />
-                </div>
-              </div>
+              <CaptureCard key={img.Image} img={img} camera={camera} />
             ))}
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+function CaptureCard({ img, camera }) {
+  const [thumb, setThumb] = useState(img.Thumb ?? 0);
+  const generated = /^(11_|12_)/.test(img.Label);
+  const excluded = generated ? null : exclusionFor(img, thumb);
+  return (
+    <div className={`day-view-card${excluded ? " ai-not-sky" : ""}`}>
+      <Zoomable src={img.Image} alt={img.Label} loading="lazy" {...sizeForLabel(img.Label)} />
+      <div className="day-view-caption">
+        <strong>{/^(07_|11_|12_)/.test(img.Label) ? img.Label.slice(3) : img.Label}</strong>
+        <br />
+        {img.Time} &middot; Score: {(excluded ? 0 : img["HSV Score"] ?? img.Score).toFixed(1)}%
+        {excluded && <div className="ai-verdict ai-flagged">Doesn't count: {excluded}</div>}
+        <AiVerdict ai={img.AI} compact />
+        {!generated && <Thumbs camera={camera} img={img} onChange={(s) => setThumb(s.thumb)} />}
+      </div>
     </div>
   );
 }

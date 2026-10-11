@@ -3,8 +3,10 @@
 #
 #   docker compose -f docker-compose.existing-infra.yml -f docker-compose.ai.yml up -d --build
 #
-# It judges each capture ("is this actually the sky?" + a 0-100 score and reason) and
-# writes ai_* fields next to the pipeline's own fields in InfluxDB. Runs on CPU.
+# ai-judge adds weather, view fingerprints and (optionally) local AI verdicts to each
+# capture in InfluxDB, and re-picks a day's best shot when your thumbs up/down say so.
+# The local AI is off unless AI_MODEL is set (e.g. AI_MODEL=qwen3-vl:4b in .env);
+# the ollama service only does anything when it's on.
 
 services:
   ollama:
@@ -31,9 +33,9 @@ services:
       - imageserver
     environment:
       OLLAMA_URL: http://ollama:11434
-      AI_MODEL: ${AI_MODEL:-qwen3-vl:4b}
-      # A frame can't be a day's best shot unless the AI's sky-only sunset score reaches this.
-      AI_MIN_SCORE: ${AI_MIN_SCORE:-15}
+      # Empty = AI off. When on, it only rules out frames it calls dark or "no signal";
+      # its 0-100 score is shown in the dashboard for information.
+      AI_MODEL: ${AI_MODEL:-}
       INFLUXDB_HOST: influxdb
       INFLUXDB_PORT: "8086"
       # Stored image urls use the public IMAGE_BASE_URL; fetch them via the compose network instead.
@@ -42,8 +44,10 @@ services:
       # Re-ranking writes new ranked images next to the photos, like the capture containers.
       PICTURES_DIR: /pictures
       TIMEZONE: ${TIMEZONE:-America/New_York}
+      CONFIG_DIR: /app/config        # camera LAT/LON for weather
     volumes:
       - ${HOME}/Pictures:/pictures   # same folder the capture containers use
+      - ./config:/app/config:ro
 
 volumes:
   ollama-models:

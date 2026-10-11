@@ -1,16 +1,19 @@
-"""Local AI judge for sunset captures. A sidecar to the capture pipeline: it reads
-captures from InfluxDB, asks a local vision model about each one, and writes
-ai_* fields back. It never changes the pipeline's own data or code.
+"""Sidecar to the capture pipeline: reads captures from InfluxDB and adds fields to
+them (weather, view fingerprints, thumbs rules, optional local AI verdicts), and
+re-picks a day's best shot when your thumbs say so. It never changes the
+pipeline's own fields or code.
 
-  python -m ai_judge watch      # keep judging new captures; re-pick a day's best shot if it isn't the sky
+  python -m ai_judge watch      # keep new captures filled in; re-pick days whose best shot changed
+  python -m ai_judge weather  --camera all [--since ...] [--before ...] [--refill]
+  python -m ai_judge views    --camera all   # fingerprint captures for "all shots like this"
   python -m ai_judge backfill --camera btv_echo_cam [--since 2025-07-01] [--before 2025-08-01] [--best-only] [--limit N] [--rejudge]
-  python -m ai_judge rerank   --camera btv_echo_cam [--since ...] [--before ...] [--rescore] [--ignore-ai] [--fill-missing] [--dry-run]
+  python -m ai_judge rerank   --camera btv_echo_cam [--since ...] [--before ...] [--rescore] [--hsv-only] [--fill-missing] [--dry-run]
   python -m ai_judge bakeoff  --camera btv_echo_cam --models qwen3-vl:4b,gemma3:4b [--sample 12] [--dates 2025-05-26,...]
 
 Dates are the cameras' local dates (TIMEZONE, default America/New_York): --since is
 inclusive, --before is exclusive. --camera all runs every camera.
 
-Config (env): OLLAMA_URL, AI_MODEL, INFLUXDB_HOST, INFLUXDB_PORT, IMAGE_BASE_URL,
+Config (env): OLLAMA_URL, AI_MODEL (empty turns the AI off), CONFIG_DIR, INFLUXDB_HOST, INFLUXDB_PORT, IMAGE_BASE_URL,
 IMAGE_FETCH_URL, PICTURES_DIR, TIMEZONE.
 """
 
@@ -25,9 +28,9 @@ from pathlib import Path
 
 from influxdb import InfluxDBClient
 
-from . import store
+from . import store, views, weather
 from .judge import ensure_model, judge_image
-from .rerank import gate_recent_days, rerank
+from .rerank import gate_days, rerank
 
 log = logging.getLogger("ai_judge")
 
@@ -62,19 +65,23 @@ def judge_and_save(client, point, model):
 
 def watch(_args):
     client = influx()
-    ensure_model(AI_MODEL, OLLAMA_URL)
-    log.info("Watching for new captures every %ds with %s", WATCH_INTERVAL_S, AI_MODEL)
+    if AI_MODEL:
+        ensure_model(AI_MODEL, OLLAMA_URL)
+    log.info("Watching for new captures every %ds (AI: %s)", WATCH_INTERVAL_S, AI_MODEL or "off")
     while True:
-        try:
-            for camera in store.cameras(client):
-                for point in store.captures(client, camera, recent="2d"):
-                    if store.needs_judging(point, AI_MODEL):
-                        judge_and_save(client, point, AI_MODEL)
-                # A finished day whose best shot turned out not to be the sky gets a new best
-                # shot from its real-sky captures (or no ranking at all if there are none).
-                gate_recent_days(client, camera)
-        except Exception:
-            log.exception("Watch pass failed; retrying next interval")
+        for camera in store.cameras(client):
+            # Each step on its own, so e.g. Open-Meteo being down doesn't stop thumbs from applying.
+            steps = [lambda: weather.fill(client, camera), lambda: views.fill_fingerprints(client, camera)]
+            if AI_MODEL:
+                steps.append(lambda: [judge_and_save(client, p, AI_MODEL) for p in store.captures(client, camera, recent="2d")
+                                      if store.needs_judging(p, AI_MODEL)])
+            # Then re-pick any ranked day whose best shot no longer fits the thumbs/view rules.
+            steps += [lambda: views.apply_bad_views(client, camera), lambda: gate_days(client, camera)]
+            for step in steps:
+                try:
+                    step()
+                except Exception:
+                    log.exception("%s: watch step failed; retrying next interval", camera)
         time.sleep(WATCH_INTERVAL_S)
 
 
@@ -108,7 +115,20 @@ def rerank_cmd(args):
     client = influx()
     for camera in camera_list(client, args.camera):
         rerank(client, camera, since=args.since, before=args.before, rescore=args.rescore,
-               use_ai=not args.ignore_ai, dry_run=args.dry_run, fill_missing=args.fill_missing)
+               use_rules=not args.hsv_only, dry_run=args.dry_run, fill_missing=args.fill_missing)
+
+
+def weather_cmd(args):
+    client = influx()
+    for camera in camera_list(client, args.camera):
+        weather.fill(client, camera, since=args.since, before=args.before, refill=args.refill)
+
+
+def views_cmd(args):
+    client = influx()
+    for camera in camera_list(client, args.camera):
+        views.fill_fingerprints(client, camera)
+        views.apply_bad_views(client, camera)
 
 
 def bakeoff(args):
@@ -196,7 +216,7 @@ def main():
     r.add_argument("--camera", required=True, help="camera tag, or 'all'")
     add_date_range(r)
     r.add_argument("--rescore", action="store_true", help="recompute every capture's HSV score with the current sunset_process.py first")
-    r.add_argument("--ignore-ai", action="store_true", help="pick by HSV score only, even for captures the AI judged not the sky")
+    r.add_argument("--hsv-only", action="store_true", help="pick by HSV score alone, ignoring thumbs, bad views and dark/no-signal verdicts")
     r.add_argument("--fill-missing", action="store_true", help="also rank days the pipeline never ranked (e.g. its ranked-image step failed)")
     r.add_argument("--dry-run", action="store_true", help="show what would change without changing anything")
     k = sub.add_parser("bakeoff", help="compare models on a sample (writes nothing)")
@@ -205,8 +225,15 @@ def main():
     k.add_argument("--sample", type=int, default=12)
     k.add_argument("--dates", help="comma-separated YYYY-MM-DD days to include (e.g. ones you know were obstructed)")
     k.add_argument("--out", default="bakeoff")
+    w = sub.add_parser("weather", help="add Open-Meteo hourly weather to captures")
+    w.add_argument("--camera", required=True, help="camera tag, or 'all'")
+    add_date_range(w)
+    w.add_argument("--refill", action="store_true", help="fetch again even for captures that have weather")
+    v = sub.add_parser("views", help="fingerprint captures and apply 'all shots like this' thumbs downs")
+    v.add_argument("--camera", required=True, help="camera tag, or 'all'")
     args = parser.parse_args()
-    {"backfill": backfill, "rerank": rerank_cmd, "bakeoff": bakeoff}.get(args.command, watch)(args)
+    commands = {"backfill": backfill, "rerank": rerank_cmd, "bakeoff": bakeoff, "weather": weather_cmd, "views": views_cmd}
+    commands.get(args.command, watch)(args)
 
 
 def add_date_range(parser):

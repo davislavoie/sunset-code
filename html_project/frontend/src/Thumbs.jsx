@@ -1,0 +1,54 @@
+// Thumbs up / down on one capture. Down = it never counts as the day's best shot (and,
+// with "all shots like this", neither does any near-identical shot from this camera);
+// up = it's the day's pick. ai_judge re-picks the ranked image within ~10 minutes.
+
+import { useState } from "react";
+import { forgetCameraData } from "./api.js";
+
+/** Why a capture is out, given its (possibly just changed) thumb. Mirrors backend.exclusion. */
+export function exclusionFor(img, thumb) {
+  if (thumb > 0) return null;
+  if (thumb < 0) return "thumbs down";
+  return img.Excluded === "thumbs down" ? null : img.Excluded;
+}
+
+export default function Thumbs({ camera, img, onChange }) {
+  const [state, setState] = useState({ thumb: img.Thumb ?? 0, badView: !!img.BadView });
+  const [error, setError] = useState(null);
+
+  async function save(thumb, badView = false) {
+    const previous = state;
+    const next = { thumb, badView };
+    setState(next);
+    onChange?.(next);
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/thumb", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ camera, label: img.Label, ts: img.ts, thumb, bad_view: badView }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? res.status);
+      forgetCameraData(camera);
+    } catch (e) {
+      setState(previous);
+      onChange?.(previous);
+      setError(`Couldn't save: ${e.message}`);
+    }
+  }
+
+  return (
+    <div className="thumbs">
+      <button type="button" aria-pressed={state.thumb === 1} title="Good one: make it the day's pick"
+        onClick={() => save(state.thumb === 1 ? 0 : 1)}>👍</button>
+      <button type="button" aria-pressed={state.thumb === -1} title="Never count this shot"
+        onClick={() => save(state.thumb === -1 ? 0 : -1)}>👎</button>
+      {state.thumb === -1 && (
+        <label title="Also rule out every near-identical shot from this camera (e.g. a bad preset view)">
+          <input type="checkbox" checked={state.badView} onChange={(e) => save(-1, e.target.checked)} /> all shots like this
+        </label>
+      )}
+      {error && <span className="thumbs-error">{error}</span>}
+    </div>
+  );
+}

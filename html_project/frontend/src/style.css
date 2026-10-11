@@ -2304,4 +2304,10 @@ a.show-in-calendar-btn { margin-left: 8px; }
 .ai-flagged { color: #f85149; font-weight: 600; }
 /* Captures the AI says aren't the sky: dimmed so they don't read as candidates */
 .day-view-card.ai-not-sky img { opacity: 0.45; filter: grayscale(0.6); }
+/* Thumbs.jsx */
+.thumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; font-size: 0.85em; }
+.thumbs button { background: none; border: 1px solid var(--border); border-radius: 6px; padding: 2px 8px; cursor: pointer; opacity: 0.55; }
+.thumbs button[aria-pressed="true"] { opacity: 1; border-color: var(--sun); background: var(--accent-glow); }
+.thumbs label { display: flex; align-items: center; gap: 4px; color: var(--text-secondary); cursor: pointer; }
+.thumbs-error { color: #f85149; }
 .metric-toggle { margin-bottom: 8px; }

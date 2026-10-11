@@ -60,21 +60,16 @@ function ShareButton({ path, title }) {
   );
 }
 
-const VIEW_LABELS = {
-  no_sunset: "no sunset in the sky",
-  obstructed: "no sky in view",
-  dark: "too dark",
-  no_signal: "no camera signal",
-};
+const VIEW_LABELS = { dark: "too dark", no_signal: "no camera signal" };
 
 /** The local AI judge's take on a photo (only shown once ai_judge has judged it). */
 export function AiVerdict({ ai, compact = false }) {
   if (!ai) return null;
-  if (!ai.is_sunset) {
+  // Only dark / no-signal verdicts rule a frame out; the HSV score decides the rest.
+  if (VIEW_LABELS[ai.view]) {
     return (
       <div className="ai-verdict ai-flagged" title={ai.reason || undefined}>
-        Ruled out: {VIEW_LABELS[ai.view] ?? ai.view}
-        {ai.view === "no_sunset" && ` (AI ${Math.round(ai.score)})`}
+        Ruled out: {VIEW_LABELS[ai.view]}
       </div>
     );
   }

@@ -103,7 +103,7 @@ export default function ScoreTracker({ data }) {
                   rows={(point) => [
                     { color: "var(--chart-2)", label: "Color score", value: `${point.score.toFixed(1)}%` },
                     ...(point.row.AI
-                      ? [{ color: "var(--chart-4)", label: "AI score", value: point.row.AI.is_sunset ? `${point.ai}` : `${point.ai ?? 0} (ruled out)` }]
+                      ? [{ color: "var(--chart-4)", label: "AI score", value: `${point.ai ?? 0}` }]
                       : []),
                     { color: "var(--chart-3)", label: "Best shot", value: point.row.Time },
                   ]}

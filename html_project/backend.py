@@ -65,10 +65,14 @@ def fetch_camera_data(camera_tag):
             "Time": time_str,
             "Label": point["label"],
             "Image": point["url"],
-            # A capture the AI judge says isn't the sky (wall, tree, dark...) counts as 0.
-            "Score": 0 if point.get("ai_is_sunset") is False else hsv_score,
+            # A capture that can't be a day's best shot (thumbs down, dark...) counts as 0.
+            "Score": 0 if exclusion(point) else hsv_score,
             "HSV Score": hsv_score,
             "AI": ai_fields(point),
+            "ts": point["time"],
+            "Thumb": point.get("thumb") or 0,
+            "BadView": bool(point.get("bad_view")),
+            "Excluded": exclusion(point),
         }
 
         all_data.append(data_item)
@@ -99,9 +103,26 @@ def fetch_camera_data(camera_tag):
                 "Label": point["label"],
                 # The AI judges the raw photo, so the best shot carries that photo's verdict.
                 "AI": ai_fields(matching_photo[0]) if matching_photo else None,
+                "Excluded": exclusion(matching_photo[0]) if matching_photo else None,
             })
 
     return {"sunset_data": sunset_data, "all_data": all_data, "ranked_images": ranked_images}
+
+
+AI_EXCLUSIONS = {"dark": "too dark", "no_signal": "no camera signal"}
+
+
+def exclusion(point):
+    """Why a capture can't be a day's best shot, or None. Keep in sync with ai_judge/store.py.
+    The HSV score decides everything else; a thumbs up overrides all of it."""
+    thumb = point.get("thumb") or 0
+    if thumb > 0:
+        return None
+    if thumb < 0:
+        return "thumbs down"
+    if point.get("view_blocked"):
+        return "same view as a thumbed-down shot"
+    return AI_EXCLUSIONS.get(point.get("ai_view"))
 
 
 def ai_fields(point):
@@ -215,6 +236,33 @@ def parse_env_file(filepath):
                 key, value = line.split("=", 1)
                 config[key.strip()] = value.strip()
     return config
+
+
+@app.route("/api/admin/thumb", methods=["POST"])
+def set_thumb():
+    """Thumbs up (1), down (-1) or clear (0) one capture. bad_view with a thumbs down also
+    rules out every near-identical shot from that camera (ai_judge applies it within ~10 min,
+    and re-picks affected days' best shots)."""
+    body = request.json or {}
+    camera, label, ts, thumb = (body.get(k) for k in ("camera", "label", "ts", "thumb"))
+    if thumb not in (-1, 0, 1) or not all(isinstance(v, str) for v in (camera, label, ts)):
+        return jsonify({"error": "camera, label, ts and thumb (-1, 0 or 1) required"}), 400
+    try:
+        datetime.strptime(ts, "%Y-%m-%dT%H:%M:%SZ")  # also makes ts safe to put in the query
+    except ValueError:
+        return jsonify({"error": "ts must look like 2025-05-16T22:17:26Z"}), 400
+    found = client.query(f"SELECT url FROM sunset_images WHERE camera = $camera AND label = $label AND time = '{ts}'",
+                         bind_params={"camera": camera, "label": label})
+    if not list(found.get_points()):
+        return jsonify({"error": "no such capture"}), 404
+    client.write_points([{
+        "measurement": "sunset_images",
+        "tags": {"label": label, "camera": camera},
+        "time": ts,
+        "fields": {"thumb": int(thumb), "bad_view": thumb == -1 and bool(body.get("bad_view"))},
+    }])
+    _cache.pop(camera, None)
+    return jsonify({"ok": True})
 
 
 @app.route("/api/admin/camera-configs")

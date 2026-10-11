@@ -31,8 +31,8 @@ export default function Ranking({ data, onLoadToHsv }) {
   }, []);
 
   const ascending = order === "Lowest to Highest";
-  // Days whose best shot the AI judge ruled out (no sunset in the sky, no sky in view, dark)
-  // would skew the ranking, so they're left out unless shown with the toggle.
+  // Days whose best shot doesn't count (thumbs down, bad view, dark) would skew the
+  // ranking, so they're left out unless shown with the toggle.
   const hiddenCount = data.ranked_images.filter(ruledOut).length;
   const rows = data.ranked_images.filter((r) => showHidden || !ruledOut(r)).sort((a, b) => {
     const av = a[sortBy], bv = b[sortBy];
@@ -126,7 +126,7 @@ function ImageCell({ url, size }) {
   );
 }
 
-/** True when the AI judge ruled out the day's best shot (no sunset in the sky, no sky, dark...). */
+/** True when the day's best shot doesn't count (until ai_judge re-picks the day). */
 function ruledOut(row) {
-  return row.AI?.is_sunset === false;
+  return !!row.Excluded;
 }

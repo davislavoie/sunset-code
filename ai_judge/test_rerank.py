@@ -1,4 +1,4 @@
-"""Checks for re-ranking and the AI gate with a fake InfluxDB and a fake pipeline
+"""Checks for re-ranking, the thumbs/view rules and weather with a fake InfluxDB and a fake pipeline
 (no OpenCV, model or database needed). Run: python -m unittest ai_judge.test_rerank
 """
 
@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from datetime import date
 
-from ai_judge import rerank, store
+from ai_judge import rerank, store, views, weather
 
 BASE = "http://100.107.153.41:8080"
 
@@ -49,17 +49,14 @@ class FakePipeline:
         self.calls.append(("push", label, epoch))
 
 
-def capture(label, time, score, ai=None):
-    p = {"label": label, "camera": "cam", "time": time, "score": score, "url": f"{BASE}/sunset_images/cam/{label}"}
-    if ai is not None:
-        p.update(ai_is_sunset=ai, ai_model="m")
-    return p
+def capture(label, time, score, **fields):
+    return {"label": label, "camera": "cam", "time": time, "score": score, "url": f"{BASE}/sunset_images/cam/{label}", **fields}
 
 
 # One evening: 8:12 PM EDT on May 16 is 00:12 UTC on May 17.
-WALL = capture("06_5m_pre_05-16-2025.jpg", "2025-05-17T00:12:00Z", 90.0, ai=False)
-SKY_A = capture("07_sunset_05-16-2025.jpg", "2025-05-17T00:17:00Z", 40.0, ai=True)
-SKY_B = capture("08_5m_post_05-16-2025.jpg", "2025-05-17T00:22:00Z", 60.0, ai=True)
+WALL = capture("06_5m_pre_05-16-2025.jpg", "2025-05-17T00:12:00Z", 90.0, thumb=-1)
+SKY_A = capture("07_sunset_05-16-2025.jpg", "2025-05-17T00:17:00Z", 40.0)
+SKY_B = capture("08_5m_post_05-16-2025.jpg", "2025-05-17T00:22:00Z", 60.0)
 RANKED_WALL = [capture("11_ranked_5m_pre_05-16-2025.png", WALL["time"], 90.0),
                capture("12_histogram_5m_pre_05-16-2025.png", WALL["time"], 90.0)]
 
@@ -93,8 +90,8 @@ class RerankTests(unittest.TestCase):
         self.assertEqual({c[2] for c in pushes}, {store.epoch_seconds(SKY_B)})
         self.assertFalse(os.path.exists(os.path.join(self.photo_dir, "11_ranked_old.png")))
 
-    def test_ignore_ai_picks_by_hsv_score_alone(self):
-        msg = rerank.rerank_day(FakeClient(), "cam", [WALL, SKY_A, SKY_B, *RANKED_WALL], FakePipeline(), use_ai=False)
+    def test_hsv_only_picks_by_hsv_score_alone(self):
+        msg = rerank.rerank_day(FakeClient(), "cam", [WALL, SKY_A, SKY_B, *RANKED_WALL], FakePipeline(), use_rules=False)
         self.assertTrue(msg.startswith("unchanged: 06_5m_pre"), msg)
 
     def test_already_correct_day_is_left_alone(self):
@@ -130,21 +127,65 @@ class RerankTests(unittest.TestCase):
         msg = rerank.rerank_day(FakeClient(), "cam", [SKY_A, SKY_B], pipeline, fill_missing=True)
         self.assertTrue(msg.startswith("picked 08_5m_post"), msg)
 
-    def test_gate_only_acts_on_fully_judged_days_with_a_non_sky_best_shot(self):
+    def test_rules_hsv_decides_unless_thumbs_or_dark(self):
+        pick = lambda *caps: rerank.pick(list(caps))["label"]
+        # The AI calling a frame "obstructed" or "no sunset" no longer matters; HSV decides.
+        self.assertEqual(pick(dict(SKY_B, ai_view="obstructed"), SKY_A), SKY_B["label"])
+        self.assertEqual(pick(dict(SKY_B, ai_view="dark"), SKY_A), SKY_A["label"])
+        self.assertEqual(pick(dict(SKY_B, view_blocked=True), SKY_A), SKY_A["label"])
+        # A thumbs up beats a higher score, and overrides a bad view.
+        self.assertEqual(pick(SKY_B, dict(SKY_A, thumb=1, view_blocked=True)), SKY_A["label"])
+        self.assertIsNone(rerank.pick([WALL]))
+
+    def test_gate_only_acts_on_ranked_days_whose_best_shot_changed(self):
         made = []
         factory = lambda: made.append(FakePipeline()) or made[-1]
-        unjudged = dict(SKY_B)
-        unjudged.pop("ai_model"), unjudged.pop("ai_is_sunset")
-        rerank.gate_recent_days(FakeClient([WALL, SKY_A, unjudged, *RANKED_WALL]), "cam", factory)
-        self.assertEqual(made, [])  # still waiting for SKY_B to be judged
-        rerank.gate_recent_days(FakeClient([WALL, SKY_A, SKY_B, *RANKED_WALL]), "cam", factory)
-        self.assertEqual(len(made), 1)  # now judged, and the pipeline's pick was the wall
+        right = [dict(r, time=SKY_B["time"]) for r in RANKED_WALL]
+        rerank.gate_days(FakeClient([WALL, SKY_A, SKY_B, *right]), "cam", factory)
+        rerank.gate_days(FakeClient([WALL, SKY_A, SKY_B]), "cam", factory)  # not ranked yet (today)
+        self.assertEqual(made, [])
+        rerank.gate_days(FakeClient([WALL, SKY_A, SKY_B, *RANKED_WALL]), "cam", factory)
+        self.assertEqual(len(made), 1)  # the pipeline's pick was thumbed down
 
     def test_date_range_filters_by_local_day(self):
         next_day = capture("07_sunset_05-17-2025.jpg", "2025-05-18T00:18:00Z", 30.0)
         client = FakeClient([WALL, next_day])
         found = store.points(client, "cam", since=date(2025, 5, 16), before=date(2025, 5, 17))
         self.assertEqual([p["label"] for p in found], [WALL["label"]])
+
+
+class WeatherTests(unittest.TestCase):
+    def test_each_capture_gets_its_nearest_utc_hour_without_nulls(self):
+        # The pipeline's old weather_fetch asked for the capture's UTC date in local time, so a
+        # capture after 8 PM EDT (after midnight UTC) got the next local day's midnight weather.
+        hours = {1747440000: {"cloud_cover_low": 10, "visibility": None},   # 2025-05-17 00:00 UTC
+                 1747443600: {"cloud_cover_low": 80, "visibility": 9000}}   # 01:00 UTC
+        self.assertEqual(weather.weather_for(SKY_A, hours), {"cloud_cover_low": 10.0})
+        late = dict(SKY_A, time="2025-05-17T00:40:00Z")
+        self.assertEqual(weather.weather_for(late, hours), {"cloud_cover_low": 80.0, "visibility": 9000.0})
+
+
+class ViewTests(unittest.TestCase):
+    def scene(self, shift=0, sky=(120, 140, 200), seed=0):
+        import io
+        import numpy as np
+        from PIL import Image
+        rng = np.random.default_rng(seed)
+        ground = np.kron(rng.integers(0, 255, (9, 16)), np.ones((40, 40)))  # blocky "scenery"
+        img = np.zeros((720, 640, 3), np.uint8)
+        img[:360] = sky
+        img[360:] = np.roll(ground, shift, axis=1)[:, :640, None]
+        buf = io.BytesIO()
+        Image.fromarray(img).save(buf, format="JPEG")
+        return buf.getvalue()
+
+    def test_same_view_matches_under_any_sky_and_other_views_dont(self):
+        bad = dict(SKY_A, bad_view=True, view_fp=views.fingerprint(self.scene()))
+        same = dict(SKY_B, view_fp=views.fingerprint(self.scene(shift=3, sky=(250, 120, 60))))
+        other = dict(WALL, view_fp=views.fingerprint(self.scene(seed=1)))
+        dark = dict(WALL, time="x", view_fp="")
+        flags = views.blocked_flags([bad, same, other, dark])
+        self.assertEqual(flags, {bad["time"]: True, same["time"]: True, other["time"]: False, "x": False})
 
 
 if __name__ == "__main__":

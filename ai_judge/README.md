@@ -1,39 +1,38 @@
-# ai_judge: local AI sunset judge + re-ranker
+# ai_judge: sidecar that fills in captures and re-picks best shots
 
-An optional sidecar to the capture pipeline. For every capture it asks a small
-vision model running locally in [Ollama](https://ollama.com) two things:
+An optional sidecar to the capture pipeline. The **HSV color score decides** which
+capture is a day's best shot; ai_judge adds what the score can't know:
 
-- **Is there any sky in view at all?** Trees, buildings or water in the frame, or a
-  camera aimed a little off, are normal. A frame only scores 0 when no sky is visible
-  at all (the camera is facing a wall or into a tree), or it's dark / no signal.
-- **How good is the sunset?** A 0–100 score plus a one-line reason, shown next to
-  the color (HSV) score. It never replaces it.
+- **Thumbs up / down** (Calendar → Day tab, under each capture). 👎 = this shot never
+  counts; tick **all shots like this** and every near-identical shot from that camera is
+  ruled out too (e.g. Bolton's lift-tower close-up preset). 👍 = this is the day's pick.
+  Within ~10 minutes the judge re-picks affected days and regenerates their ranked image
+  and histogram with the pipeline's own functions. A day with nothing left isn't ranked.
+- **Weather** for every capture (Open-Meteo, the hour nearest the capture, at the
+  camera's LAT/LON): `temperature_2m`, `cloud_cover_low/mid/high/total`, `visibility`,
+  ... (the fields `helpers.influxdb_push` had commented out). Groundwork for predicting
+  sunsets from the early shots + weather.
+- **View fingerprints** (`view_fp`), used by "all shots like this".
+- **Optional local AI** (Ollama, off unless `AI_MODEL` is set). It only rules out frames
+  it calls dark or "no signal"; its 0-100 score is shown for information.
 
-It reads captures from InfluxDB and writes `ai_view`, `ai_is_sunset`, `ai_score`,
-`ai_reason` and `ai_model` back onto the same points. The pipeline's code and its
-`url`/`score` fields are untouched. Everything runs on the NUC's CPU; nothing
-leaves the machine.
-
-**The gate:** a capture that isn't the sky counts as 0 in the dashboard. Once all of a
-day's captures are judged, if the pipeline's best shot turned out not to be the sky,
-the judge re-picks the day's best shot from its real-sky captures by HSV score and
-regenerates the ranked image and histogram with the pipeline's own functions. If none
-of the day's captures show the sky, that day isn't ranked at all. This happens within
-~10 minutes of the day's capture run finishing, without changing the capture pipeline.
+Everything is merged onto the capture's own InfluxDB point; the pipeline's code and its
+`url`/`score` fields are untouched. The rule for what can't win lives in
+`store.exclusion` (and the same function in `html_project/backend.py`).
 
 ## Run it on the NUC
 
 ```bash
-# Start Ollama + the judge alongside the existing stack (first run downloads the
-# model, ~3.3 GB for qwen3-vl:4b, before judging starts)
+# Start the judge alongside the existing stack. The first pass fills in weather and
+# fingerprints for all of history (a few minutes), then it checks every 10 minutes.
 docker compose -f docker-compose.existing-infra.yml -f docker-compose.ai.yml up -d --build
 
 # Follow along
 docker compose -f docker-compose.existing-infra.yml -f docker-compose.ai.yml logs -f ai-judge
 ```
 
-The `ai-judge` service then checks for new captures every 10 minutes (the last 2 days)
-and applies the gate.
+To also run the local AI, add `AI_MODEL=qwen3-vl:4b` to `.env` (first run downloads
+~3.3 GB) and `up -d` again.
 
 It uses the same photos folder as the capture containers (`${HOME}/Pictures`); re-ranking
 writes new ranked images next to the photos.
@@ -49,7 +48,17 @@ Every command takes `--camera <tag>` or `--camera all`, and `backfill`/`rerank` 
 local dates. Cameras: `bolton_summit_cam`, `btv_echo_cam`, `wcax_tower_sunrise`,
 `wcax_tower_sunset`.
 
-### 1. Pick a model first (recommended)
+### Weather and fingerprints by hand
+
+`watch` does both automatically; these are for a specific range or a redo.
+
+```bash
+judge weather --camera all                                   # all of history: one request per camera
+judge weather --camera all --since 2026-09-01 --refill       # fetch again
+judge views --camera all                                     # fingerprint + apply "all shots like this" now
+```
+
+### 1. Pick an AI model (only if you turn the AI on)
 
 Compare two models on a sample. Nothing is written to InfluxDB; it saves an HTML
 contact sheet. Without `--dates` it samples the highest-, lowest- and random-scoring
@@ -79,21 +88,20 @@ judge backfill --camera all --since 2026-09-01 --before 2026-09-08            # 
 judge backfill --camera all                                                    # everything (~6,000 captures): days
 ```
 
-`--best-only` is enough to hide not-the-sky days from the rankings. To have the gate
-re-pick a better best shot for those days, it needs the rest of that day judged too,
-so backfill those days (or everything) without `--best-only`, then run `rerank`.
+`--best-only` is enough to catch dark / no-signal best shots; `watch` then re-picks
+those days.
 
 ### 3. Re-rank (non-interactive)
 
 `rerank` re-picks each day's best shot from InfluxDB and regenerates its ranked image +
-histogram with the pipeline's functions. It skips captures the AI judged not the sky,
-and removes the ranking of days with no sky at all. Always try `--dry-run` first.
+histogram with the pipeline's functions, applying the thumbs / bad-view / dark rules, and
+removes the ranking of days where nothing can win. Always try `--dry-run` first.
 
 ```bash
 judge rerank --camera all --dry-run                                        # what would change
 judge rerank --camera all --since 2026-09-01 --before 2026-09-08
 judge rerank --camera all --rescore        # recompute every HSV score with the current sunset_process.py first
-judge rerank --camera all --ignore-ai      # HSV score only (the old behavior)
+judge rerank --camera all --hsv-only       # HSV score only, ignoring thumbs (the old behavior)
 judge rerank --camera all --fill-missing   # also rank days the pipeline never ranked
 ```
 
@@ -101,19 +109,20 @@ Before any AI judgments, a dry run over all history reports all 563 ranked days 
 "unchanged" (it agrees with every pick the pipeline made) and 37 days that were never
 ranked, which are skipped unless you pass `--fill-missing`.
 
-Unlike `tests/re_rank_sunsets.py`, it never deletes captures, so AI judgments are kept.
-That script deletes every point for the camera before re-pushing them, which would wipe
-the AI fields (they'd need a re-backfill).
+Unlike `tests/re_rank_sunsets.py`, it never deletes captures, so thumbs, weather and AI
+fields are kept. That script deletes every point for the camera before re-pushing them,
+which would wipe them all.
 
 ## In the dashboard
 
-- **Calendar → Day tab:** "AI 78 · vivid pink clouds" under the score; captures that
-  aren't the sky are dimmed, labeled, and count as 0.
-- **Ranked Images:** days whose best shot isn't the sky are hidden behind a
-  "Show N not-the-sky days" toggle.
-- **Score Tracker:** a Color score / AI score toggle (the tooltip shows both).
+- **Calendar → Day tab:** 👍 / 👎 (and "all shots like this") under each capture; shots
+  that don't count are dimmed, labeled with why, and score 0.
+- **Ranked Images:** a day whose best shot doesn't count (before the judge re-picks it) is
+  hidden behind a "Show N ruled-out days" toggle.
+- **Score Tracker:** a Color score / AI score toggle when the AI is on.
 
-Until a day has been judged, it looks exactly as before.
+The thumbs buttons call `/api/admin/thumb`; if the dashboard goes public, keep
+`/api/admin/*` behind auth like the other admin routes.
 
 ## Resource use
 
