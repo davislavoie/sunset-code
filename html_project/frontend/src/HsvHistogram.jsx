@@ -107,6 +107,8 @@ function HistChart({ hist }) {
         {SERIES.slice().reverse().map((sr) => (
           <span key={sr.key}>
             <i style={{ background: sr.swatch }} /> {sr.label}
+            {/* Always there at a fixed width so the legend doesn't shift while hovering. */}
+            <b>{hover != null && hist ? pct(sr.key) : ""}</b>
           </span>
         ))}
         {zoomed && <span className="hsv-hist-bin">{`${domain[0]}-${domain[1]} · double-click to reset`}</span>}
@@ -185,13 +187,10 @@ function HistChart({ hist }) {
                   </text>
                 </svg>
                 {hover != null && !drag && (
-                  // Flips to the left of the cursor past the middle so it stays inside the plot.
+                  // The channel value under the cursor; flips left past the middle to stay inside the plot.
                   <div className="scatter-tip hsv-hist-tip" style={x(hover) > width / 2
                     ? { right: width - x(hover) + 10, top: M.top } : { left: x(hover) + 10, top: M.top }}>
-                    <div className="scatter-tip-title">Channel value {hover}</div>
-                    {SERIES.slice().reverse().map((sr) => (
-                      <div key={sr.key}><span>{sr.label}</span> <b>{pct(sr.key)}</b></div>
-                    ))}
+                    {hover}
                   </div>
                 )}
                 </>

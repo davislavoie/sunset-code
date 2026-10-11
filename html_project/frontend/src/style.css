@@ -2485,11 +2485,11 @@ main#content.is-stale { opacity: 0.5; pointer-events: none; }
 .hsv-hist { display: flex; flex-direction: column; gap: 4px; }
 .hsv-hist-legend { display: flex; flex-wrap: wrap; gap: 2px 12px; font-size: 12px; color: var(--text-muted); min-height: 18px; }
 .hsv-hist-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
-.hsv-hist-legend b { color: var(--text); margin-left: 4px; }
+.hsv-hist-legend b { color: var(--text); margin-left: 4px; display: inline-block; min-width: 4ch; font-variant-numeric: tabular-nums; }
 .hsv-hist-bin { margin-left: auto; }
 .hsv-hist-title { font-size: 13px; font-weight: 600; color: var(--text); }
 .hsv-hist-plot { height: 200px; cursor: crosshair; position: relative; }
-.hsv-hist-tip { min-width: 130px; padding: 6px 8px; font-variant-numeric: tabular-nums; }
+.scatter-tip.hsv-hist-tip { min-width: 0; padding: 2px 6px; font-variant-numeric: tabular-nums; }
 .hsv-hist-grid { stroke: var(--border); stroke-width: 1; }
 .hsv-hist-axis-line { stroke: var(--text-muted); stroke-width: 1; }
 .hsv-hist-tick { fill: var(--text-muted); font-size: 10px; }
