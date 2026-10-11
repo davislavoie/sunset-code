@@ -5,7 +5,7 @@
 import os
 import tempfile
 import unittest
-from datetime import date
+from datetime import date, datetime, timezone
 
 from ai_judge import rerank, store, views, weather
 
@@ -142,10 +142,15 @@ class RerankTests(unittest.TestCase):
         factory = lambda: made.append(FakePipeline()) or made[-1]
         right = [dict(r, time=SKY_B["time"]) for r in RANKED_WALL]
         rerank.gate_days(FakeClient([WALL, SKY_A, SKY_B, *right]), "cam", factory)
-        rerank.gate_days(FakeClient([WALL, SKY_A, SKY_B]), "cam", factory)  # not ranked yet (today)
+        rerank.gate_days(FakeClient([SKY_A, SKY_B]), "cam", factory)  # never ranked, no votes
+        now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        rerank.gate_days(FakeClient([dict(WALL, time=now), dict(SKY_A, time=now)]), "cam", factory)  # today, still capturing
         self.assertEqual(made, [])
         rerank.gate_days(FakeClient([WALL, SKY_A, SKY_B, *RANKED_WALL]), "cam", factory)
         self.assertEqual(len(made), 1)  # the pipeline's pick was thumbed down
+        # A day the rules un-ranked comes back once a vote is cleared; never-ranked days don't.
+        rerank.gate_days(FakeClient([dict(WALL, thumb=0)]), "cam", factory)
+        self.assertEqual(len(made), 2)
 
     def test_cleanup_lists_entries_whose_photo_is_gone_and_refuses_when_most_are(self):
         for p in (SKY_A, SKY_B):

@@ -15,6 +15,7 @@ AI fields survive), and it can target a date range.
 import glob
 import logging
 import os
+from datetime import datetime
 
 from . import store
 
@@ -110,14 +111,24 @@ def rerank(client, camera, since=None, before=None, rescore=False, use_rules=Tru
 def gate_days(client, camera, pipeline_factory=Pipeline):
     """Re-pick every ranked day whose best shot no longer matches the rules (a thumbs up or
     down, a bad view, a dark frame). Days already right are left alone, so it's cheap to run
-    every pass; days the pipeline hasn't ranked yet (today, still capturing) are skipped."""
+    every pass. An unranked day is only ranked again if the rules un-ranked it and a vote
+    since then brought a capture back; days the pipeline never ranked (today, still
+    capturing, or its ranked-image step failed) are left alone."""
     pipeline = None
+    today = datetime.now(store.LOCAL_TZ).date()
     for day, day_points in sorted(store.by_day(store.points(client, camera)).items()):
+        captures = [p for p in day_points if store.is_raw_capture(p)]
         current = next((p["time"] for p in day_points if store.is_ranked(p)), None)
-        if current is None:
+        best = pick(captures)
+        if current is None and not (day < today and best and any(voted(p) for p in captures)):
             continue
-        best = pick([p for p in day_points if store.is_raw_capture(p)])
         if best is not None and best["time"] == current:
             continue
         pipeline = pipeline or pipeline_factory()
-        log.info("%s %s: best shot changed; %s", camera, day, rerank_day(client, camera, day_points, pipeline))
+        msg = rerank_day(client, camera, day_points, pipeline, fill_missing=True)
+        log.info("%s %s: best shot changed; %s", camera, day, msg)
+
+
+def voted(point):
+    """The thumbs/view rules have touched this capture (even if since cleared back to 0/false)."""
+    return point.get("thumb") is not None or point.get("view_blocked") is not None
