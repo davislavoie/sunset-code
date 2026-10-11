@@ -12,6 +12,7 @@ import io
 import logging
 
 import numpy as np
+import requests
 from PIL import Image
 
 from . import store
@@ -48,7 +49,14 @@ def fill_fingerprints(client, camera):
     for p in todo:
         try:
             writes.append(store.field_point(p, {"view_fp": fingerprint(store.image_bytes(p))}))
-        except Exception as e:  # missing file, image server down: try again next pass
+        except requests.HTTPError as e:
+            if e.response is not None and e.response.status_code == 404:
+                # The photo is gone from disk (InfluxDB still lists it): nothing to compare, don't retry.
+                log.warning("No photo for %s; skipping it from now on", p.get("url"))
+                writes.append(store.field_point(p, {"view_fp": ""}))
+            else:
+                log.warning("Can't fingerprint %s: %s", p.get("url"), e)
+        except Exception as e:  # image server down, bad file: try again next pass
             log.warning("Can't fingerprint %s: %s", p.get("url"), e)
         if len(writes) >= 200:
             client.write_points(writes)
