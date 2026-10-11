@@ -2464,8 +2464,12 @@ main#content.is-stale { opacity: 0.5; pointer-events: none; }
 .hsv-hist-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
 .hsv-hist-legend b { color: var(--text); margin-left: 4px; }
 .hsv-hist-bin { margin-left: auto; }
-.hsv-hist-plot { height: 140px; border-bottom: 1px solid var(--border); cursor: crosshair; }
-.hsv-hist-axis { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); }
+.hsv-hist-title { font-size: 13px; font-weight: 600; color: var(--text); }
+.hsv-hist-plot { height: 200px; cursor: crosshair; }
+.hsv-hist-grid { stroke: var(--border); stroke-width: 1; }
+.hsv-hist-axis-line { stroke: var(--text-muted); stroke-width: 1; }
+.hsv-hist-tick { fill: var(--text-muted); font-size: 10px; }
+.hsv-hist-axis-label { fill: var(--text-secondary); font-size: 10.5px; }
 .hsv-hist-cursor { stroke: var(--ink); stroke-width: 1; }
 .hsv-hist-empty { color: var(--text-muted); font-size: 0.85em; text-align: center; padding: 24px 0; }
 

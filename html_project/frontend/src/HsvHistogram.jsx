@@ -82,6 +82,10 @@ export default function HsvHistogram({ imageUrl }) {
   );
 }
 
+const M = { top: 6, right: 6, bottom: 34, left: 36 };
+// Gridline every 25 like the pipeline's PNG; labels every 50 so they fit a narrow cell.
+const X_TICKS = Array.from({ length: 11 }, (_, i) => i * 25);
+
 function HistChart({ hist }) {
   const [hover, setHover] = useState(null);
   const peak = hist ? Math.max(...SERIES.map((sr) => Math.max(...hist[sr.key]))) : 0;
@@ -89,6 +93,7 @@ function HistChart({ hist }) {
 
   return (
     <>
+      <div className="hsv-hist-title">HSV histogram</div>
       <div className="hsv-hist-legend">
         {SERIES.slice().reverse().map((sr) => (
           <span key={sr.key}>
@@ -103,23 +108,43 @@ function HistChart({ hist }) {
           <ParentSize>
             {({ width, height }) => {
               if (!width) return null;
-              const x = scaleLinear({ domain: [0, 255], range: [0, width] });
-              const y = scaleLinear({ domain: [0, peak || 1], range: [height, 2] });
+              const left = M.left, right = width - M.right, bottom = height - M.bottom;
+              const x = scaleLinear({ domain: [0, 255], range: [left, right] });
+              const y = scaleLinear({ domain: [0, peak || 1], range: [bottom, M.top], nice: true });
               return (
                 <svg
                   width={width}
                   height={height}
                   onMouseMove={(e) => {
                     const bin = Math.round(x.invert(e.clientX - e.currentTarget.getBoundingClientRect().left));
-                    setHover(Math.max(0, Math.min(255, bin)));
+                    setHover(bin < 0 || bin > 255 ? null : bin);
                   }}
                   onMouseLeave={() => setHover(null)}
                 >
+                  {X_TICKS.map((t) => (
+                    <g key={`x${t}`}>
+                      <line className="hsv-hist-grid" x1={x(t)} x2={x(t)} y1={M.top} y2={bottom} />
+                      {t % 50 === 0 && <text className="hsv-hist-tick" x={x(t)} y={bottom + 13} textAnchor="middle">{t}</text>}
+                    </g>
+                  ))}
+                  {y.ticks(4).map((t) => (
+                    <g key={`y${t}`}>
+                      <line className="hsv-hist-grid" x1={left} x2={right} y1={y(t)} y2={y(t)} />
+                      <text className="hsv-hist-tick" x={left - 4} y={y(t) + 3} textAnchor="end">{+(t * 100).toFixed(1)}</text>
+                    </g>
+                  ))}
                   {SERIES.map((sr) => (
                     <AreaClosed key={sr.key} data={hist[sr.key]} x={(_, i) => x(i)} y={(d) => y(d)} yScale={y}
                       curve={curveMonotoneX} fill={sr.fill} fillOpacity={sr.opacity} />
                   ))}
-                  {hover != null && <line className="hsv-hist-cursor" x1={x(hover)} x2={x(hover)} y1={0} y2={height} />}
+                  <line className="hsv-hist-axis-line" x1={left} x2={right} y1={bottom} y2={bottom} />
+                  {hover != null && <line className="hsv-hist-cursor" x1={x(hover)} x2={x(hover)} y1={M.top} y2={bottom} />}
+                  <text className="hsv-hist-axis-label" x={(left + right) / 2} y={height - 2} textAnchor="middle">
+                    Channel value (0-255)
+                  </text>
+                  <text className="hsv-hist-axis-label" transform={`translate(10 ${(M.top + bottom) / 2}) rotate(-90)`} textAnchor="middle">
+                    % of sky
+                  </text>
                 </svg>
               );
             }}
@@ -128,7 +153,6 @@ function HistChart({ hist }) {
           <div className="skeleton" style={{ height: "100%" }} />
         )}
       </div>
-      <div className="hsv-hist-axis"><span>0</span><span>128</span><span>255</span></div>
     </>
   );
 }
