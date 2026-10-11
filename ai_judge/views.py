@@ -20,6 +20,9 @@ from . import store
 log = logging.getLogger(__name__)
 
 SIMILAR = 0.4
+# Per-camera cutoffs. btv_echo_cam: lake views matched its brick-building exemplars at 0.40-0.42,
+# real matches start at 0.48. Bolton stays at 0.4: its tower in fog only scores 0.41-0.44.
+SIMILAR_BY_CAMERA = {"btv_echo_cam": 0.45}
 GRID = (48, 18)  # fingerprint resolution (width, height) of the frame's lower 60%
 
 
@@ -67,13 +70,13 @@ def fill_fingerprints(client, camera):
         log.info("%s: fingerprinted %d captures", camera, len(todo))
 
 
-def blocked_flags(captures):
+def blocked_flags(captures, similar=SIMILAR):
     """{time: view_blocked} for captures whose view matches a bad_view exemplar."""
     exemplars = [v for p in captures if p.get("bad_view") and p.get("view_fp") and (v := vector(p["view_fp"])) is not None]
     flags = {}
     for p in captures:
         v = vector(p["view_fp"]) if p.get("view_fp") else None
-        flags[p["time"]] = bool(v is not None and exemplars and max(float(v @ e) for e in exemplars) >= SIMILAR)
+        flags[p["time"]] = bool(v is not None and exemplars and max(float(v @ e) for e in exemplars) >= similar)
     return flags
 
 
@@ -81,7 +84,7 @@ def apply_bad_views(client, camera):
     """Set view_blocked on the camera's captures to match the current bad_view exemplars.
     Writes only what changed; returns how many changed."""
     captures = store.captures(client, camera)
-    flags = blocked_flags(captures)
+    flags = blocked_flags(captures, SIMILAR_BY_CAMERA.get(camera, SIMILAR))
     writes = [store.field_point(p, {"view_blocked": flags[p["time"]]}) for p in captures
               if bool(p.get("view_blocked")) != flags[p["time"]]]
     if writes:
