@@ -2317,3 +2317,16 @@ a.show-in-calendar-btn { margin-left: 8px; }
 .thumbs label { display: flex; align-items: center; gap: 4px; color: var(--text-secondary); cursor: pointer; }
 .thumbs-error { color: #f85149; }
 .metric-toggle { margin-bottom: 8px; }
+.cloud-profile { display: block; width: 100%; max-width: 460px; margin: 6px 0 10px; }
+.cloud-profile.mini { max-width: 200px; margin: 4px auto 2px; }
+.cp-sun-label { fill: #ffcf70; }
+.cp-value { font-size: 14px; font-weight: 600; fill: #fff; paint-order: stroke; stroke: rgba(0, 0, 0, 0.45); stroke-width: 3px; }
+.cp-axis { font-size: 13px; fill: var(--text-secondary); }
+.cp-cell { animation: cp-in 500ms ease-out both; }
+@keyframes cp-in { from { opacity: 0; transform: translateX(10px); } }
+@media (prefers-reduced-motion: reduce) { .cp-cell { animation: none; } }
+.light-path { font-size: 0.85em; font-weight: 600; margin: -4px 0 10px; }
+.light-path::before { content: "● "; }
+.light-path.open { color: #ffcf70; }
+.light-path.patchy { color: var(--text-secondary); }
+.light-path.blocked { color: #9aa5b8; }
