@@ -182,7 +182,6 @@ function HistChart({ hist }) {
                   )}
                   <line className="hsv-hist-axis-line" x1={left} x2={right} y1={bottom} y2={bottom} />
                   {hover != null && <line className="hsv-hist-cursor" x1={x(hover)} x2={x(hover)} y1={M.top} y2={bottom} />}
-                  {hover != null && <line className="hsv-hist-cursor" x1={left} x2={right} y1={hoverY} y2={hoverY} />}
                   <text className="hsv-hist-axis-label" x={(left + right) / 2} y={height - 2} textAnchor="middle">
                     Channel value (0-255)
                   </text>
