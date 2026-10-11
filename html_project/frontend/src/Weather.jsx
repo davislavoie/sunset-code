@@ -3,17 +3,9 @@
 
 const pct = (v) => (v == null ? "–" : `${Math.round(v)}%`);
 
-export default function Weather({ w, compact = false }) {
+export default function Weather({ w }) {
   if (!w) return null;
   const temp = w.temperature_2m != null && `${Math.round(w.temperature_2m)}°F`;
-  if (compact) {
-    return (
-      <>
-        <CloudProfile w={w} mini />
-        {temp && <div className="weather-line">{temp}</div>}
-      </>
-    );
-  }
   const rows = [
     ["Temperature", temp],
     ["Humidity", pct(w.relative_humidity_2m)],
@@ -59,22 +51,19 @@ const LAYERS = [
 const W = 336, CELL_H = 28, GROUND = 116, LEFT = 40, COL = 62, GAP = 4, SUN_X = 322;
 const colX = (i) => LEFT + i * (COL + GAP);
 
-function CloudProfile({ w, mini = false }) {
+function CloudProfile({ w }) {
   const value = (col, layer) => w[`${col.prefix}cloud_cover_${layer.key}`];
-  const title = LAYERS.map((l) => `${l.label}: ${COLUMNS.map((c) => pct(value(c, l))).join(" / ")}`).join("\n");
-  const left = mini ? 0 : LEFT;
-  const x = (i) => colX(i) - LEFT + left;
+  const summary = LAYERS.map((l) => `${l.label}: ${COLUMNS.map((c) => pct(value(c, l))).join(" / ")}`).join(". ");
 
   return (
     <svg
-      className={`cloud-profile${mini ? " mini" : ""}`}
-      viewBox={`0 0 ${mini ? W - LEFT : W} ${mini ? GROUND + 6 : GROUND + 26}`}
+      className="cloud-profile"
+      viewBox={`0 0 ${W} ${GROUND + 26}`}
       role="img"
-      aria-label={`Cloud cover overhead and 50, 150, 300 km toward the sun. ${title}`}
+      aria-label={`Cloud cover overhead and 50, 150, 300 km toward the sun. ${summary}`}
     >
-      <title>{`Cloud cover, overhead / 50 / 150 / 300 km toward the sun\n${title}`}</title>
-      <line className="cp-horizon" x1={left} x2={mini ? W - LEFT : W} y1={GROUND} y2={GROUND} />
-      <circle className="cp-sun" cx={SUN_X - (mini ? LEFT : 0)} cy={GROUND} r="7" />
+      <line className="cp-horizon" x1={LEFT} x2={W} y1={GROUND} y2={GROUND} />
+      <circle className="cp-sun" cx={SUN_X} cy={GROUND} r="7" />
 
       {LAYERS.map((layer) =>
         COLUMNS.map((col, i) => {
@@ -82,39 +71,33 @@ function CloudProfile({ w, mini = false }) {
           const blocks = i > 0 && layer.key === "low" && v >= BLOCKING;
           return (
             <g key={layer.key + i} className="cp-cell">
-              <rect className="cp-cell-frame" x={x(i)} y={layer.y} width={COL} height={CELL_H} rx="6" />
+              <rect className="cp-cell-frame" x={colX(i)} y={layer.y} width={COL} height={CELL_H} rx="6" />
               {v != null && (
-                <rect className={`cp-fill${blocks ? " blocks" : ""}`} x={x(i)} y={layer.y} rx="6"
+                <rect className={`cp-fill${blocks ? " blocks" : ""}`} x={colX(i)} y={layer.y} rx="6"
                   width={Math.max(4, (COL * v) / 100)} height={CELL_H} opacity={blocks ? 0.25 : 0.18} />
               )}
-              {!mini && (
-                <text className="cp-value" x={x(i) + 8} y={layer.y + CELL_H / 2 + 4.5}
-                  style={blocks ? { fill: "var(--destructive)" } : undefined}>
-                  {pct(v)}
-                </text>
-              )}
+              <text className="cp-value" x={colX(i) + 8} y={layer.y + CELL_H / 2 + 4.5}
+                style={blocks ? { fill: "var(--destructive)" } : undefined}>
+                {pct(v)}
+              </text>
             </g>
           );
         }),
       )}
 
-      {!mini && (
-        <>
-          {LAYERS.map((l) => (
-            <text key={l.key} x={LEFT - 8} y={l.y + CELL_H / 2 + 4} textAnchor="end" className="cp-axis">
-              {l.label}
-            </text>
-          ))}
-          {COLUMNS.map((c, i) => (
-            <text key={c.label} x={colX(i) + COL / 2} y={GROUND + 18} textAnchor="middle" className="cp-axis">
-              {c.label}
-            </text>
-          ))}
-          <text x={SUN_X} y={GROUND + 18} textAnchor="middle" className="cp-axis">
-            Sun
-          </text>
-        </>
-      )}
+      {LAYERS.map((l) => (
+        <text key={l.key} x={LEFT - 8} y={l.y + CELL_H / 2 + 4} textAnchor="end" className="cp-axis">
+          {l.label}
+        </text>
+      ))}
+      {COLUMNS.map((c, i) => (
+        <text key={c.label} x={colX(i) + COL / 2} y={GROUND + 18} textAnchor="middle" className="cp-axis">
+          {c.label}
+        </text>
+      ))}
+      <text x={SUN_X} y={GROUND + 18} textAnchor="middle" className="cp-axis">
+        Sun
+      </text>
     </svg>
   );
 }

@@ -2322,7 +2322,6 @@ main#content.is-stale { opacity: 0.5; pointer-events: none; }
 .archive-intro { color: var(--text-muted); }
 
 /* ---- Weather.jsx ---- */
-.weather-line { font-size: 0.85em; color: var(--text-muted); }
 .weather-card { display: flex; flex-direction: column; gap: 8px; margin: 8px 0; }
 .weather-card dl { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px 12px; margin: 0; }
 .weather-card dt { font-size: 12px; color: var(--text-muted); }
@@ -2330,7 +2329,6 @@ main#content.is-stale { opacity: 0.5; pointer-events: none; }
 
 /* Cloud profile: a tile, cloud cover as grey density; only low cloud that blocks the sun gets colour */
 .cloud-profile { display: block; width: 100%; max-width: 420px; }
-.cloud-profile.mini { max-width: 180px; }
 .cp-bg { fill: var(--tile); }
 .cp-cell-frame { fill: var(--hover); }
 .cp-fill { fill: var(--ink); }
@@ -2408,3 +2406,14 @@ main#content.is-stale { opacity: 0.5; pointer-events: none; }
 .sunset-hero-side .breakdown-detail, .sunset-hero-side .breakdown-total { display: none; }
 .sunset-hero-side .sunset-meta { margin-bottom: 0; }
 .sunset-hero-side .weather-card { margin: 4px 0; }
+
+/* ---- Tooltips (Tip.jsx) ---- */
+.tip-positioner { z-index: 200; }
+.tip-popup {
+  max-width: 280px; padding: 4px 8px; border-radius: 6px; font-size: 12px; line-height: 1.4;
+  background: var(--ink); color: var(--ink-contrast); box-shadow: var(--shadow-float);
+  white-space: pre-line; transform-origin: var(--transform-origin);
+  transition: opacity 150ms var(--ease-out), transform 150ms var(--ease-out);
+}
+.tip-popup[data-starting-style], .tip-popup[data-ending-style] { opacity: 0; transform: scale(0.96); }
+.tip-popup[data-instant] { transition: none; }

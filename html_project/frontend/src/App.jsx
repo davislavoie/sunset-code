@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { NavLink, Navigate, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 import { Moon, PanelLeftClose, PanelLeftOpen, Sun, Sunset } from "lucide-react";
+import Tip from "./Tip.jsx";
 import { fetchCameraData, getJson } from "./api.js";
 import Dropdown from "./Dropdown.jsx";
 import Calendar from "./pages/Calendar.jsx";
@@ -121,9 +122,11 @@ export default function App() {
     <div className={`layout${collapsed ? " sidebar-collapsed" : ""}`}>
       <aside className="sidebar">
         <div className="sidebar-inner">
-          <button className="icon-btn collapse-btn" title="Collapse sidebar" onClick={() => setCollapsed(true)}>
-            <PanelLeftClose size={18} />
-          </button>
+          <Tip label="Collapse sidebar">
+            <button className="icon-btn collapse-btn" aria-label="Collapse sidebar" onClick={() => setCollapsed(true)}>
+              <PanelLeftClose size={18} />
+            </button>
+          </Tip>
 
           <div className="sidebar-header">
             <span className="brand-tile">
@@ -155,14 +158,16 @@ export default function App() {
         </div>
       </aside>
 
-      <button
-        className="icon-btn expand-btn"
-        title="Expand sidebar"
-        hidden={!collapsed}
-        onClick={() => setCollapsed(false)}
-      >
-        <PanelLeftOpen size={18} />
-      </button>
+      <Tip label="Expand sidebar" side="right">
+        <button
+          className="icon-btn expand-btn"
+          aria-label="Expand sidebar"
+          hidden={!collapsed}
+          onClick={() => setCollapsed(false)}
+        >
+          <PanelLeftOpen size={18} />
+        </button>
+      </Tip>
 
       {switching && <div className="top-progress" role="progressbar" aria-label="Loading camera" />}
 

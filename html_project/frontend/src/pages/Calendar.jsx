@@ -12,7 +12,7 @@ import Img, { SIZES, sizeForLabel } from "../Img.jsx";
 import Reveal from "../Reveal.jsx";
 import SunsetHero, { AiVerdict } from "../SunsetHero.jsx";
 import Thumbs, { exclusionFor } from "../Thumbs.jsx";
-import Weather from "../Weather.jsx";
+import Tip from "../Tip.jsx";
 import { Zoomable } from "../lightbox.jsx";
 
 const VIEWS = [["day", "Day"], ["week", "Week"], ["month", "Month"], ["year", "Year"]];
@@ -130,13 +130,17 @@ export default function Calendar({ data, camera, onLoadToHsv }) {
 function CalendarHeader({ title, onPrev, onNext, prevDisabled, nextDisabled, prevTitle, nextTitle }) {
   return (
     <div className="calendar-header">
-      <button className="btn cal-arrow" title={prevTitle} disabled={prevDisabled} onClick={onPrev}>
-        <ChevronLeft size={18} />
-      </button>
+      <Tip label={prevTitle}>
+        <button className="btn cal-arrow" aria-label="Previous" disabled={prevDisabled} onClick={onPrev}>
+          <ChevronLeft size={18} />
+        </button>
+      </Tip>
       <div className="calendar-title">{title}</div>
-      <button className="btn cal-arrow" title={nextTitle} disabled={nextDisabled} onClick={onNext}>
-        <ChevronRight size={18} />
-      </button>
+      <Tip label={nextTitle}>
+        <button className="btn cal-arrow" aria-label="Next" disabled={nextDisabled} onClick={onNext}>
+          <ChevronRight size={18} />
+        </button>
+      </Tip>
     </div>
   );
 }
@@ -214,10 +218,10 @@ export function CaptureCard({ img, camera, selected = false, onSelect }) {
         <strong>{/^(07_|11_|12_)/.test(img.Label) ? img.Label.slice(3) : img.Label}</strong>
         <span>
           {img.Time} &middot; Score: {(excluded ? 0 : img["HSV Score"] ?? img.Score).toFixed(1)}%
+          {img.Weather?.temperature_2m != null && <> &middot; {Math.round(img.Weather.temperature_2m)}°F</>}
         </span>
         {excluded && <span className="bubble destructive">Doesn't count: {excluded}</span>}
         <AiVerdict ai={img.AI} compact />
-        <Weather w={img.Weather} compact />
         {!generated && <Thumbs camera={camera} img={img} onChange={(s) => setThumb(s.thumb)} />}
       </div>
     </div>
@@ -286,14 +290,15 @@ function WeekView({ date, goTo, allData }) {
                 return (
                   <td key={d.iso}>
                     <div className="week-day-thumb-wrap">
-                      <Zoomable
-                        {...sizeForLabel(img.Label)}
-                        alt={img.Label}
-                        className="week-day-thumb"
-                        src={img.Image}
-                        loading="lazy"
-                        title={`${img.Time} — Score: ${img.Score.toFixed(1)}%`}
-                      />
+                      <Tip label={`${img.Time} · Score ${img.Score.toFixed(1)}%`}>
+                        <Zoomable
+                          {...sizeForLabel(img.Label)}
+                          alt={img.Label}
+                          className="week-day-thumb"
+                          src={img.Image}
+                          loading="lazy"
+                        />
+                      </Tip>
                       <div className="week-thumb-score">{`${img.Score.toFixed(0)}%`}</div>
                     </div>
                   </td>
@@ -353,7 +358,9 @@ function YearMonthRow({ year, month, name, byDate, allData, onLoadToHsv, permali
               className={`year-mini-cell has-image${iso === openDate ? " selected" : ""}`}
               onClick={() => setOpenDate(iso === openDate ? null : iso)}
             >
-              <Img src={entry.Image} alt={iso} loading="lazy" {...SIZES.photo} title={`${iso} — ${entry.Score.toFixed(0)}%`} />
+              <Tip label={`${iso} · ${entry.Score.toFixed(0)}%`}>
+                <Img src={entry.Image} alt={iso} loading="lazy" {...SIZES.photo} />
+              </Tip>
             </div>
           ))}
         </div>

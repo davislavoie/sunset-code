@@ -8,6 +8,7 @@ import { sunsetPath } from "./api.js";
 import { sizeForLabel } from "./Img.jsx";
 import { Zoomable } from "./lightbox.jsx";
 import ScoreBreakdown from "./ScoreBreakdown.jsx";
+import Tip from "./Tip.jsx";
 import Weather from "./Weather.jsx";
 
 export default function SunsetHero({ shots, index, onSelect, best, camera, date }) {
@@ -38,12 +39,16 @@ export default function SunsetHero({ shots, index, onSelect, best, camera, date 
         />
         {shots.length > 1 && (
           <>
-            <button className="icon-btn hero-nav prev" title="Previous shot (←)" onClick={() => step(-1)}>
-              <ChevronLeft size={20} />
-            </button>
-            <button className="icon-btn hero-nav next" title="Next shot (→)" onClick={() => step(1)}>
-              <ChevronRight size={20} />
-            </button>
+            <Tip label="Previous shot (←)">
+              <button className="icon-btn hero-nav prev" aria-label="Previous shot" onClick={() => step(-1)}>
+                <ChevronLeft size={20} />
+              </button>
+            </Tip>
+            <Tip label="Next shot (→)">
+              <button className="icon-btn hero-nav next" aria-label="Next shot" onClick={() => step(1)}>
+                <ChevronRight size={20} />
+              </button>
+            </Tip>
             <div className="hero-count">{`${index + 1} / ${shots.length}`}</div>
           </>
         )}
@@ -103,15 +108,17 @@ export function AiVerdict({ ai, compact = false }) {
   // Only dark / no-signal verdicts rule a frame out; the HSV score decides the rest.
   if (VIEW_LABELS[ai.view]) {
     return (
-      <span className="bubble destructive" title={ai.reason || undefined}>
-        Ruled out: {VIEW_LABELS[ai.view]}
-      </span>
+      <Tip label={ai.reason}>
+        <span className="bubble destructive">Ruled out: {VIEW_LABELS[ai.view]}</span>
+      </Tip>
     );
   }
   return (
-    <div className="ai-verdict" title={`Judged by ${ai.model}`}>
-      <span className="ai-score">AI {Math.round(ai.score)}</span>
-      {!compact && ai.reason && <> · {ai.reason}</>}
-    </div>
+    <Tip label={`Judged by ${ai.model}`}>
+      <div className="ai-verdict">
+        <span className="ai-score">AI {Math.round(ai.score)}</span>
+        {!compact && ai.reason && <> · {ai.reason}</>}
+      </div>
+    </Tip>
   );
 }

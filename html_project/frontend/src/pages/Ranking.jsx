@@ -7,6 +7,7 @@ import { dayPath } from "../api.js";
 import DayDetail from "../DayDetail.jsx";
 import Img, { SIZES } from "../Img.jsx";
 import Reveal from "../Reveal.jsx";
+import Tip from "../Tip.jsx";
 import { useLightbox } from "../lightbox.jsx";
 import Select from "../Select.jsx";
 
@@ -113,16 +114,18 @@ function ImageCell({ url, size }) {
   return (
     <div className="ranked-img-cell">
       <Img src={url} alt="" loading="lazy" {...size} />
-      <button
-        className="fullscreen-toggle-btn"
-        title={isOpen ? "Close fullscreen" : "View fullscreen"}
-        onClick={(e) => {
-          e.stopPropagation();
-          isOpen ? lightbox.close() : lightbox.open(url);
-        }}
-      >
-        {isOpen ? <X size={16} /> : <Maximize2 size={16} />}
-      </button>
+      <Tip label={isOpen ? "Close fullscreen" : "View fullscreen"}>
+        <button
+          className="fullscreen-toggle-btn"
+          aria-label={isOpen ? "Close fullscreen" : "View fullscreen"}
+          onClick={(e) => {
+            e.stopPropagation();
+            isOpen ? lightbox.close() : lightbox.open(url);
+          }}
+        >
+          {isOpen ? <X size={16} /> : <Maximize2 size={16} />}
+        </button>
+      </Tip>
     </div>
   );
 }
