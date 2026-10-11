@@ -72,7 +72,7 @@ export default function SunsetHero({ shots, index, onSelect, best, camera, date 
           </div>
         </div>
         <AiVerdict ai={shot.AI} />
-        <Weather w={shot.Weather} />
+        <Weather w={shot.Weather} fill />
         {!generated && <ScoreBreakdown imageUrl={shot.Image} />}
       </aside>
     </div>

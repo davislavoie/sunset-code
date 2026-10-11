@@ -5,12 +5,12 @@ import { ParentSize } from "@visx/responsive";
 
 const pct = (v) => (v == null ? "–" : `${Math.round(v)}%`);
 
-export default function Weather({ w }) {
+export default function Weather({ w, fill = false }) {
   if (!w) return null;
   return (
     <div className="weather-card">
       <div className="metric-label">Clouds toward the sun</div>
-      <CloudProfile w={w} />
+      <CloudProfile w={w} fill={fill} />
       <WeatherStats w={w} />
     </div>
   );
