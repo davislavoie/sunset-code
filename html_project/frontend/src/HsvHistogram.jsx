@@ -90,6 +90,7 @@ const FULL = [0, 255];
 // Drag across the chart to zoom into that range; double-click to zoom back out.
 function HistChart({ hist }) {
   const [hover, setHover] = useState(null);
+  const [hoverY, setHoverY] = useState(null); // cursor height in px, for the y readout
   const [domain, setDomain] = useState(FULL);
   const [drag, setDrag] = useState(null); // [startBin, currentBin] while dragging
   const clipId = useId();
@@ -138,6 +139,7 @@ function HistChart({ hist }) {
                   onMouseMove={(e) => {
                     const bin = binAt(e);
                     setHover(bin < domain[0] || bin > domain[1] ? null : bin);
+                    setHoverY(Math.max(M.top, Math.min(bottom, e.clientY - e.currentTarget.getBoundingClientRect().top)));
                     if (drag) setDrag([drag[0], clampBin(bin)]);
                   }}
                   onMouseUp={() => {
@@ -180,6 +182,7 @@ function HistChart({ hist }) {
                   )}
                   <line className="hsv-hist-axis-line" x1={left} x2={right} y1={bottom} y2={bottom} />
                   {hover != null && <line className="hsv-hist-cursor" x1={x(hover)} x2={x(hover)} y1={M.top} y2={bottom} />}
+                  {hover != null && <line className="hsv-hist-cursor" x1={left} x2={right} y1={hoverY} y2={hoverY} />}
                   <text className="hsv-hist-axis-label" x={(left + right) / 2} y={height - 2} textAnchor="middle">
                     Channel value (0-255)
                   </text>
@@ -190,8 +193,8 @@ function HistChart({ hist }) {
                 {hover != null && !drag && (
                   // The channel value under the cursor; flips left past the middle to stay inside the plot.
                   <div className="scatter-tip hsv-hist-tip" style={x(hover) > width / 2
-                    ? { right: width - x(hover) + 10, top: M.top } : { left: x(hover) + 10, top: M.top }}>
-                    {hover}
+                    ? { right: width - x(hover) + 10, top: Math.max(0, hoverY - 22) } : { left: x(hover) + 10, top: Math.max(0, hoverY - 22) }}>
+                    {`${hover}, ${(y.invert(hoverY) * 100).toFixed(1)}%`}
                   </div>
                 )}
                 </>
