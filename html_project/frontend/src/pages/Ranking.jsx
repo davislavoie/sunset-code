@@ -2,13 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
-import { ArrowRight, Maximize2, X } from "lucide-react";
+import { ArrowRight, ChevronDown, Maximize2, X } from "lucide-react";
 import { dayPath } from "../api.js";
 import DayDetail from "../DayDetail.jsx";
 import HsvHistogram from "../HsvHistogram.jsx";
 import Img, { SIZES } from "../Img.jsx";
 import Reveal from "../Reveal.jsx";
 import Tip from "../Tip.jsx";
+import { CloudProfile, WeatherStats } from "../Weather.jsx";
 import { useLightbox } from "../lightbox.jsx";
 import Select from "../Select.jsx";
 
@@ -87,17 +88,24 @@ function RankingRow({ row, allData, onLoadToHsv }) {
         <div className="score-cell">
           <div className="metric-label">Score</div>
           <div className="metric-value">{row.Score.toFixed(2)}%</div>
+          {row.Weather && <CloudProfile w={row.Weather} />}
         </div>
         <div className="info-cell">
-          <div><strong>Date:</strong> {row.Date || "N/A"}</div>
-          <div><strong>Time:</strong> {row.Time || "N/A"}</div>
-          <div><strong>Label:</strong> {rawUrl ? rawUrl.split("/").pop().split(".")[0] : "No raw image"}</div>
-          <button className="btn show-in-calendar-btn" onClick={() => setShowDay(!showDay)}>
-            {showDay ? "Hide" : "Show in calendar"}
-          </button>
-          <Link className="btn show-in-calendar-btn" to={dayPath(row.Date)}>
-            Open day <ArrowRight size={16} />
-          </Link>
+          <div className="info-facts">
+            <div><strong>Date:</strong> {row.Date || "N/A"}</div>
+            <div><strong>Time:</strong> {row.Time || "N/A"}</div>
+            <div><strong>Label:</strong> {rawUrl ? rawUrl.split("/").pop().split(".")[0] : "No raw image"}</div>
+          </div>
+          <WeatherStats w={row.Weather} />
+          <div className="ranking-actions">
+            <button className="btn" aria-expanded={showDay} onClick={() => setShowDay(!showDay)}>
+              {showDay ? "Hide captures" : "Expand all captures"}
+              <ChevronDown size={16} className={`chevron${showDay ? " open" : ""}`} />
+            </button>
+            <Link className="btn" to={dayPath(row.Date)}>
+              Open day <ArrowRight size={16} />
+            </Link>
+          </div>
         </div>
       </div>
       <Reveal show={showDay}>

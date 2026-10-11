@@ -665,7 +665,7 @@ button {
 
 .ranking-row {
   display: grid;
-  grid-template-columns: 2fr 2fr 2fr 1fr 2fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
   align-items: center;
   padding: 16px;
@@ -2072,7 +2072,7 @@ a.nav-btn { text-decoration: none; }
 .sunset-score { font-size: 2.6em; font-weight: 600; letter-spacing: -0.02em; color: var(--sun); line-height: 1; }
 .sunset-meta { color: var(--text-secondary); margin-bottom: 8px; }
 .sunset-actions { display: flex; gap: 8px; margin-top: auto; padding-top: 12px; }
-.sunset-actions a.btn, .detail-header-actions a.btn, a.show-in-calendar-btn {
+.sunset-actions a.btn, .detail-header-actions a.btn {
   text-decoration: none;
   color: inherit;
   display: inline-flex;
@@ -2254,7 +2254,6 @@ main#content.is-stale { opacity: 0.5; pointer-events: none; }
 .gallery-loader { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 
 /* Leave a little breathing room above the day viewer when scrolling to it */
-.show-in-calendar-btn { margin-top: 10px; }
 .ranking-hidden-toggle { align-self: flex-end; }
 
 .detail-scroll-target { scroll-margin-top: 16px; }
@@ -2324,9 +2323,9 @@ main#content.is-stale { opacity: 0.5; pointer-events: none; }
 
 /* ---- Weather.jsx ---- */
 .weather-card { display: flex; flex-direction: column; gap: 8px; margin: 8px 0; }
-.weather-card dl { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px 12px; margin: 0; }
-.weather-card dt { font-size: 12px; color: var(--text-muted); }
-.weather-card dd { margin: 0; font-weight: 600; color: var(--text); }
+.weather-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px 12px; margin: 0; }
+.weather-stats dt { font-size: 12px; color: var(--text-muted); }
+.weather-stats dd { margin: 0; font-weight: 600; color: var(--text); }
 
 /* Cloud profile: a tile, cloud cover as grey density; only low cloud that blocks the sun gets colour */
 .cloud-profile { display: block; width: 100%; max-width: 420px; }
@@ -2387,7 +2386,7 @@ main#content.is-stale { opacity: 0.5; pointer-events: none; }
 @media (hover: hover) and (pointer: fine) { .hero-nav:hover { background: rgb(0 0 0 / 0.65); color: #fff; } }
 .hero-count { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); z-index: 2;
   background: rgb(0 0 0 / 0.45); color: #f8faff; padding: 2px 10px; border-radius: 6px; font-size: 12px; }
-.weather-card dl { grid-template-columns: repeat(3, 1fr); }
+.weather-stats { grid-template-columns: repeat(3, 1fr); }
 .day-view-card.selected { box-shadow: 0 0 0 2px var(--sun), var(--shadow-card); }
 .day-view-card > img[class]:not(.zoomable) { cursor: pointer; }
 @media (min-width: 769px) {
@@ -2494,3 +2493,22 @@ main#content.is-stale { opacity: 0.5; pointer-events: none; }
 .scatter-tip div { display: flex; justify-content: space-between; gap: 12px; }
 .scatter-tip span { opacity: 0.75; }
 .scatter-tip-title { font-weight: 600; margin-bottom: 2px; }
+
+/* Ranked row: clouds under the score, weather + actions in the info column. */
+/* Second line of the card: score + clouds under the first image, facts + weather + actions across the rest. */
+.ranking-row .score-cell { flex-direction: row; justify-content: flex-start; align-items: center; gap: 20px; text-align: left; }
+.ranking-row .score-cell > .metric-label { display: none; }
+.score-cell .cloud-profile { flex: 1; min-width: 0; max-width: 300px; }
+.ranking-row .info-cell { grid-column: span 2; display: grid; grid-template-columns: auto 1fr; gap: 12px 32px; align-items: start; }
+.ranking-row .info-facts { display: flex; flex-direction: column; gap: 6px; }
+.ranking-row .ranking-actions { grid-column: 1 / -1; }
+.ranking-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.ranking-actions .btn { text-decoration: none; color: var(--text); display: inline-flex; align-items: center; gap: 6px; }
+.chevron { transition: transform 200ms var(--ease-out); }
+.chevron.open { transform: rotate(180deg); }
+.info-cell .weather-stats { width: 100%; font-size: 0.9em; }
+.hsv-hist-brush { fill: var(--ink); fill-opacity: 0.08; stroke: var(--ink); stroke-opacity: 0.4; }
+.hsv-hist-plot svg { user-select: none; }
+@media (max-width: 768px) {
+  .ranking-row .info-cell { grid-column: 1 / -1; grid-template-columns: 1fr; }
+}

@@ -5,6 +5,18 @@ const pct = (v) => (v == null ? "–" : `${Math.round(v)}%`);
 
 export default function Weather({ w }) {
   if (!w) return null;
+  return (
+    <div className="weather-card">
+      <div className="metric-label">Clouds toward the sun</div>
+      <CloudProfile w={w} />
+      <WeatherStats w={w} />
+    </div>
+  );
+}
+
+/** Temperature, humidity, rain and visibility at capture time. */
+export function WeatherStats({ w }) {
+  if (!w) return null;
   const temp = w.temperature_2m != null && `${Math.round(w.temperature_2m)}°F`;
   const rows = [
     ["Temperature", temp],
@@ -15,18 +27,14 @@ export default function Weather({ w }) {
     ["Visibility", w.visibility != null && `${(w.visibility / 1000).toFixed(1)} km`],
   ].filter(([, v]) => v);
   return (
-    <div className="weather-card">
-      <div className="metric-label">Clouds toward the sun</div>
-      <CloudProfile w={w} />
-      <dl>
-        {rows.map(([label, value]) => (
-          <div key={label}>
-            <dt>{label}</dt>
-            <dd>{value}</dd>
-          </div>
-        ))}
-      </dl>
-    </div>
+    <dl className="weather-stats">
+      {rows.map(([label, value]) => (
+        <div key={label}>
+          <dt>{label}</dt>
+          <dd>{value}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 
@@ -52,7 +60,7 @@ const LAYERS = [
 const W = 336, CELL_H = 28, GROUND = 116, LEFT = 40, COL = 62, GAP = 4, SUN_X = 322;
 const colX = (i) => LEFT + i * (COL + GAP);
 
-function CloudProfile({ w }) {
+export function CloudProfile({ w }) {
   const value = (col, layer) => w[`${col.prefix}cloud_cover_${layer.key}`];
   const summary = LAYERS.map((l) => `${l.label}: ${COLUMNS.map((c) => pct(value(c, l))).join(" / ")}`).join(". ");
 

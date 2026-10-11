@@ -2,7 +2,7 @@
 // the pipeline's 12_histogram PNG (sunset_process.py: cv2.calcHist on the top half + 30 rows),
 // drawn as three overlaid area charts. Shares of sky pixels rather than raw counts.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { AreaClosed } from "@visx/shape";
 import { scaleLinear } from "@visx/scale";
 import { ParentSize } from "@visx/responsive";
@@ -85,10 +85,19 @@ export default function HsvHistogram({ imageUrl }) {
 const M = { top: 6, right: 6, bottom: 34, left: 36 };
 // Gridline every 25 like the pipeline's PNG; labels every 50 so they fit a narrow cell.
 const X_TICKS = Array.from({ length: 11 }, (_, i) => i * 25);
+const FULL = [0, 255];
 
+// Drag across the chart to zoom into that range; double-click to zoom back out.
 function HistChart({ hist }) {
   const [hover, setHover] = useState(null);
-  const peak = hist ? Math.max(...SERIES.map((sr) => Math.max(...hist[sr.key]))) : 0;
+  const [domain, setDomain] = useState(FULL);
+  const [drag, setDrag] = useState(null); // [startBin, currentBin] while dragging
+  const clipId = useId();
+  const zoomed = domain !== FULL;
+  // Y fits the tallest bar in view, so small peaks grow when zoomed in.
+  const peak = hist
+    ? Math.max(...SERIES.map((sr) => Math.max(...hist[sr.key].slice(domain[0], domain[1] + 1))))
+    : 0;
   const pct = (key) => (hist[key][hover] == null ? "–" : `${(hist[key][hover] * 100).toFixed(1)}%`);
 
   return (
@@ -102,6 +111,7 @@ function HistChart({ hist }) {
           </span>
         ))}
         {hover != null && <span className="hsv-hist-bin">at {hover}</span>}
+        {hover == null && zoomed && <span className="hsv-hist-bin">{`${domain[0]}-${domain[1]} · double-click to reset`}</span>}
       </div>
       <div className="hsv-hist-plot">
         {hist ? (
@@ -109,22 +119,45 @@ function HistChart({ hist }) {
             {({ width, height }) => {
               if (!width) return null;
               const left = M.left, right = width - M.right, bottom = height - M.bottom;
-              const x = scaleLinear({ domain: [0, 255], range: [left, right] });
+              const x = scaleLinear({ domain, range: [left, right] });
+              const binAt = (e) => Math.round(x.invert(e.clientX - e.currentTarget.getBoundingClientRect().left));
+              const clampBin = (b) => Math.max(domain[0], Math.min(domain[1], b));
+              const xTicks = zoomed ? x.ticks(5) : X_TICKS;
               const y = scaleLinear({ domain: [0, peak || 1], range: [bottom, M.top], nice: true });
               return (
                 <svg
                   width={width}
                   height={height}
-                  onMouseMove={(e) => {
-                    const bin = Math.round(x.invert(e.clientX - e.currentTarget.getBoundingClientRect().left));
-                    setHover(bin < 0 || bin > 255 ? null : bin);
+                  onMouseDown={(e) => {
+                    e.preventDefault(); // no text selection while dragging
+                    const b = clampBin(binAt(e));
+                    setDrag([b, b]);
                   }}
-                  onMouseLeave={() => setHover(null)}
+                  onMouseMove={(e) => {
+                    const bin = binAt(e);
+                    setHover(bin < domain[0] || bin > domain[1] ? null : bin);
+                    if (drag) setDrag([drag[0], clampBin(bin)]);
+                  }}
+                  onMouseUp={() => {
+                    if (drag) {
+                      const [a, b] = [Math.min(...drag), Math.max(...drag)];
+                      if (b - a >= 3) setDomain([a, b]);
+                      setDrag(null);
+                    }
+                  }}
+                  onMouseLeave={() => {
+                    setHover(null);
+                    setDrag(null);
+                  }}
+                  onDoubleClick={() => setDomain(FULL)}
                 >
-                  {X_TICKS.map((t) => (
+                  <clipPath id={clipId}>
+                    <rect x={left} y={0} width={right - left} height={bottom} />
+                  </clipPath>
+                  {xTicks.map((t) => (
                     <g key={`x${t}`}>
                       <line className="hsv-hist-grid" x1={x(t)} x2={x(t)} y1={M.top} y2={bottom} />
-                      {t % 50 === 0 && <text className="hsv-hist-tick" x={x(t)} y={bottom + 13} textAnchor="middle">{t}</text>}
+                      {(zoomed || t % 50 === 0) && <text className="hsv-hist-tick" x={x(t)} y={bottom + 13} textAnchor="middle">{t}</text>}
                     </g>
                   ))}
                   {y.ticks(4).map((t) => (
@@ -133,10 +166,16 @@ function HistChart({ hist }) {
                       <text className="hsv-hist-tick" x={left - 4} y={y(t) + 3} textAnchor="end">{+(t * 100).toFixed(1)}</text>
                     </g>
                   ))}
-                  {SERIES.map((sr) => (
-                    <AreaClosed key={sr.key} data={hist[sr.key]} x={(_, i) => x(i)} y={(d) => y(d)} yScale={y}
-                      curve={curveMonotoneX} fill={sr.fill} fillOpacity={sr.opacity} />
-                  ))}
+                  <g clipPath={`url(#${clipId})`}>
+                    {SERIES.map((sr) => (
+                      <AreaClosed key={sr.key} data={hist[sr.key]} x={(_, i) => x(i)} y={(d) => y(Math.min(d, y.domain()[1]))} yScale={y}
+                        curve={curveMonotoneX} fill={sr.fill} fillOpacity={sr.opacity} />
+                    ))}
+                  </g>
+                  {drag && drag[0] !== drag[1] && (
+                    <rect className="hsv-hist-brush" x={x(Math.min(...drag))} y={M.top}
+                      width={Math.abs(x(drag[1]) - x(drag[0]))} height={bottom - M.top} />
+                  )}
                   <line className="hsv-hist-axis-line" x1={left} x2={right} y1={bottom} y2={bottom} />
                   {hover != null && <line className="hsv-hist-cursor" x1={x(hover)} x2={x(hover)} y1={M.top} y2={bottom} />}
                   <text className="hsv-hist-axis-label" x={(left + right) / 2} y={height - 2} textAnchor="middle">
