@@ -7,7 +7,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { dayPath, useDocumentTitle } from "../api.js";
-import DayDetail from "../DayDetail.jsx";
+import DayDetail, { captureName } from "../DayDetail.jsx";
 import Img, { SIZES, sizeForLabel } from "../Img.jsx";
 import Reveal from "../Reveal.jsx";
 import SunsetHero, { AiVerdict } from "../SunsetHero.jsx";
@@ -163,6 +163,7 @@ function DayView({ date, goTo, allData, camera, best }) {
   const [selected, setSelected] = useState(null);
   const bestIndex = Math.max(0, dayImages.findIndex((img) => img.Image === best?.["Raw Image"]));
   const shown = selected != null && selected < dayImages.length ? selected : bestIndex;
+  const event = dayImages.some((img) => /^\d+_sunrise/.test(img.Label)) ? "sunrise" : "sunset";
 
   return (
     <div>
@@ -182,13 +183,18 @@ function DayView({ date, goTo, allData, camera, best }) {
           <div ref={heroRef} className="detail-scroll-target">
             <SunsetHero shots={dayImages} index={shown} onSelect={setSelected} best={best} camera={camera} date={date} />
           </div>
-          <h4>All captures</h4>
-          <div className="day-view-grid">
+          <div className="detail day-captures">
+            <div className="detail-title">
+              <h3>All captures</h3>
+              <span>{`${dayImages.length} from ${title}`}</span>
+            </div>
+            <div className="day-view-grid">
             {dayImages.map((img, i) => (
               <CaptureCard
                 key={img.Image}
                 img={img}
                 camera={camera}
+                event={event}
                 selected={i === shown}
                 onSelect={() => {
                   setSelected(i);
@@ -196,6 +202,7 @@ function DayView({ date, goTo, allData, camera, best }) {
                 }}
               />
             ))}
+            </div>
           </div>
         </>
       )}
@@ -203,7 +210,7 @@ function DayView({ date, goTo, allData, camera, best }) {
   );
 }
 
-export function CaptureCard({ img, camera, selected = false, onSelect }) {
+export function CaptureCard({ img, camera, event = "sunset", selected = false, onSelect }) {
   const [thumb, setThumb] = useState(img.Thumb ?? 0);
   const generated = /^(11_|12_)/.test(img.Label);
   const excluded = generated ? null : exclusionFor(img, thumb);
@@ -215,7 +222,7 @@ export function CaptureCard({ img, camera, selected = false, onSelect }) {
         <Zoomable src={img.Image} alt={img.Label} loading="lazy" {...sizeForLabel(img.Label)} />
       )}
       <div className="day-view-caption">
-        <strong>{/^(07_|11_|12_)/.test(img.Label) ? img.Label.slice(3) : img.Label}</strong>
+        <strong>{captureName(img.Label, event)}</strong>
         <span>
           {img.Time} &middot; Score: {(excluded ? 0 : img["HSV Score"] ?? img.Score).toFixed(1)}%
           {img.Weather?.temperature_2m != null && <> &middot; {Math.round(img.Weather.temperature_2m)}°F</>}

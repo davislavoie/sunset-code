@@ -107,11 +107,9 @@ function HistChart({ hist }) {
         {SERIES.slice().reverse().map((sr) => (
           <span key={sr.key}>
             <i style={{ background: sr.swatch }} /> {sr.label}
-            {hover != null && hist && <b>{pct(sr.key)}</b>}
           </span>
         ))}
-        {hover != null && <span className="hsv-hist-bin">at {hover}</span>}
-        {hover == null && zoomed && <span className="hsv-hist-bin">{`${domain[0]}-${domain[1]} · double-click to reset`}</span>}
+        {zoomed && <span className="hsv-hist-bin">{`${domain[0]}-${domain[1]} · double-click to reset`}</span>}
       </div>
       <div className="hsv-hist-plot">
         {hist ? (
@@ -125,6 +123,7 @@ function HistChart({ hist }) {
               const xTicks = zoomed ? x.ticks(5) : X_TICKS;
               const y = scaleLinear({ domain: [0, peak || 1], range: [bottom, M.top], nice: true });
               return (
+                <>
                 <svg
                   width={width}
                   height={height}
@@ -185,6 +184,17 @@ function HistChart({ hist }) {
                     % of sky
                   </text>
                 </svg>
+                {hover != null && !drag && (
+                  // Flips to the left of the cursor past the middle so it stays inside the plot.
+                  <div className="scatter-tip hsv-hist-tip" style={x(hover) > width / 2
+                    ? { right: width - x(hover) + 10, top: M.top } : { left: x(hover) + 10, top: M.top }}>
+                    <div className="scatter-tip-title">Channel value {hover}</div>
+                    {SERIES.slice().reverse().map((sr) => (
+                      <div key={sr.key}><span>{sr.label}</span> <b>{pct(sr.key)}</b></div>
+                    ))}
+                  </div>
+                )}
+                </>
               );
             }}
           </ParentSize>
