@@ -50,9 +50,21 @@ def influxdb_push(photo_file, time_epoch, label, camera_tag, score=0.0):
     #python3 -m http.server 8080
 
     timestamp_iso = datetime.fromtimestamp(time_epoch, tz=timezone.utc).isoformat()
-    date_str = datetime.fromtimestamp(time_epoch, tz=timezone.utc).strftime('%Y-%m-%d')
 
-    #current_weather = weather_fetch(date=date_str, time_epoch = time_epoch)
+    # Weather for the capture (not the generated 11_/12_ images). Best effort: if Open-Meteo
+    # is down the capture is still saved, and ai_judge fills the weather in later.
+    weather_fields = {}
+    if not label.startswith(("11_", "12_")):
+        try:
+            current_weather = weather_fetch(time_epoch=time_epoch)
+            for name in ["temperature_2m", "relative_humidity_2m", "dew_point_2m", "precipitation_probability",
+                         "precipitation", "rain", "showers", "snowfall", "cloud_cover_low", "cloud_cover_mid",
+                         "cloud_cover_high", "cloud_cover_total", "visibility"]:
+                value = float(current_weather[name].values[0])
+                if not np.isnan(value):  # InfluxDB rejects NaN, which would lose the whole point
+                    weather_fields[name] = value
+        except Exception as e:
+            print(f"[WARN] Weather fetch failed, saving capture without it: {e}")
 
     influxdb_host = os.environ.get("INFLUXDB_HOST", "localhost")
     influxdb_port = int(os.environ.get("INFLUXDB_PORT", 8086))
@@ -95,20 +107,7 @@ def influxdb_push(photo_file, time_epoch, label, camera_tag, score=0.0):
             "fields": {
                 "url": url,
                 "score": float(score),
-
-                # "temperature_2m": float(current_weather['temperature_2m'].values[0]),
-                # "relative_humidity_2m": float(current_weather['relative_humidity_2m'].values[0]),
-                # "dew_point_2m": float(current_weather['dew_point_2m'].values[0]),
-                # "precipitation_probability": float(current_weather['precipitation_probability'].values[0]),
-                # "precipitation": float(current_weather['precipitation'].values[0]),
-                # "rain": float(current_weather['rain'].values[0]),
-                # "showers": float(current_weather['showers'].values[0]),
-                # "snowfall": float(current_weather['snowfall'].values[0]),
-                # "cloud_cover_low": float(current_weather['cloud_cover_low'].values[0]),
-                # "cloud_cover_mid": float(current_weather['cloud_cover_mid'].values[0]),
-                # "cloud_cover_high": float(current_weather['cloud_cover_high'].values[0]),
-                # "cloud_cover_total": float(current_weather['cloud_cover_total'].values[0]),
-                # "visibility": float(current_weather['visibility'].values[0]),   
+                **weather_fields,
             }
         }
     ]

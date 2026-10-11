@@ -5,11 +5,26 @@ from retry_requests import retry
 from timezonefinder import TimezoneFinder
 from datetime import datetime, timezone
 import time
+import os
+from zoneinfo import ZoneInfo
 
 
-def weather_fetch(latitude= 44.494563, longitude = -73.436528, date = pd.Timestamp.now().strftime('%Y-%m-%d'), time_epoch = time.time()):
+def weather_fetch(latitude=None, longitude=None, date=None, time_epoch=None):
+	# Defaults are worked out per call (a default like time.time() in the signature is
+	# evaluated once, at import). Location defaults to the camera's LAT/LON from its config.
+	latitude = float(latitude if latitude is not None else os.environ.get("LAT", 44.494563))
+	longitude = float(longitude if longitude is not None else os.environ.get("LON", -73.436528))
+	time_epoch = time.time() if time_epoch is None else time_epoch
+
 	# Initialize timezone finder
 	tf = TimezoneFinder()
+	timezone_str = tf.timezone_at(lat=latitude, lng=longitude)
+
+	# The API reads start/end dates in the location's local time ("timezone": "auto"), so the
+	# date must be local too. A UTC date is the next day for an evening capture after
+	# midnight UTC (8 PM EDT), which returned the next day's midnight weather.
+	if date is None:
+		date = datetime.fromtimestamp(time_epoch, tz=ZoneInfo(timezone_str)).strftime('%Y-%m-%d')
 
 	# Setup the Open-Meteo API client with cache and retry on error
 	cache_session = requests_cache.CachedSession('.cache', expire_after = 3600)
@@ -84,11 +99,6 @@ def weather_fetch(latitude= 44.494563, longitude = -73.436528, date = pd.Timesta
 	hourly_data["visibility"] = hourly_visibility
 
 	hourly_dataframe = pd.DataFrame(data = hourly_data)
-
-	# Get timezone for the specified coordinates
-	latitude = params["latitude"]
-	longitude = params["longitude"]
-	timezone_str = tf.timezone_at(lat=latitude, lng=longitude)
 
 	# Convert UTC times to local timezone
 	hourly_dataframe['local_time'] = hourly_dataframe['date'].dt.tz_convert(timezone_str)
