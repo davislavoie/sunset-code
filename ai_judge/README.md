@@ -10,8 +10,10 @@ capture is a day's best shot; ai_judge adds what the score can't know:
   and histogram with the pipeline's own functions. A day with nothing left isn't ranked.
 - **Weather** for every capture (Open-Meteo, the hour nearest the capture, at the
   camera's LAT/LON): `temperature_2m`, `cloud_cover_low/mid/high/total`, `visibility`,
-  ... (the fields `helpers.influxdb_push` had commented out). Groundwork for predicting
-  sunsets from the early shots + weather.
+  ... Groundwork for predicting sunsets from the early shots + weather. New captures get
+  it at capture time (`helpers.influxdb_push` → `weather_fetch`); ai_judge backfills
+  history (`judge weather --camera all`) and fills any capture that missed it. Shown on
+  the Calendar Day tab.
 - **View fingerprints** (`view_fp`), used by "all shots like this".
 - **Optional local AI** (Ollama, off unless `AI_MODEL` is set). It only rules out frames
   it calls dark or "no signal"; its 0-100 score is shown for information.
@@ -117,6 +119,7 @@ which would wipe them all.
 
 - **Calendar → Day tab:** 👍 / 👎 (and "all shots like this") under each capture; shots
   that don't count are dimmed, labeled with why, and score 0.
+- **Admin → Archive:** every shot that doesn't count, by day and reason, with 👍/👎 to undo.
 - **Ranked Images:** a day whose best shot doesn't count (before the judge re-picks it) is
   hidden behind a "Show N ruled-out days" toggle.
 - **Score Tracker:** a Color score / AI score toggle when the AI is on.

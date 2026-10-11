@@ -11,6 +11,7 @@ import Img, { SIZES, sizeForLabel } from "../Img.jsx";
 import Reveal from "../Reveal.jsx";
 import SunsetHero, { AiVerdict } from "../SunsetHero.jsx";
 import Thumbs, { exclusionFor } from "../Thumbs.jsx";
+import Weather from "../Weather.jsx";
 import { Zoomable } from "../lightbox.jsx";
 
 const VIEWS = [["day", "Day"], ["week", "Week"], ["month", "Month"], ["year", "Year"]];
@@ -177,7 +178,7 @@ function DayView({ date, goTo, allData, camera, best }) {
   );
 }
 
-function CaptureCard({ img, camera }) {
+export function CaptureCard({ img, camera }) {
   const [thumb, setThumb] = useState(img.Thumb ?? 0);
   const generated = /^(11_|12_)/.test(img.Label);
   const excluded = generated ? null : exclusionFor(img, thumb);
@@ -190,6 +191,7 @@ function CaptureCard({ img, camera }) {
         {img.Time} &middot; Score: {(excluded ? 0 : img["HSV Score"] ?? img.Score).toFixed(1)}%
         {excluded && <div className="ai-verdict ai-flagged">Doesn't count: {excluded}</div>}
         <AiVerdict ai={img.AI} compact />
+        <Weather w={img.Weather} compact />
         {!generated && <Thumbs camera={camera} img={img} onChange={(s) => setThumb(s.thumb)} />}
       </div>
     </div>

@@ -3,6 +3,7 @@ import { NavLink, Navigate, Route, Routes, useLocation, useNavigate, useParams, 
 import { fetchCameraData, getJson } from "./api.js";
 import Dropdown from "./Dropdown.jsx";
 import Calendar from "./pages/Calendar.jsx";
+import Archive from "./pages/Archive.jsx";
 import Compare from "./pages/Compare.jsx";
 import Config from "./pages/Config.jsx";
 import HsvTuner, { INITIAL_TUNER, loadGalleryCanvas } from "./pages/HsvTuner.jsx";
@@ -31,6 +32,7 @@ const PUBLIC_PAGES = [
 const ADMIN_PAGES = [
   ["/admin/config", "Config"],
   ["/admin/scoring", "Scoring"],
+  ["/admin/archive", "Archive"],
 ];
 
 export default function App() {
@@ -173,6 +175,10 @@ export default function App() {
             <Route
               path="/calendar"
               element={withData((d) => <Calendar data={d} camera={dataCamera} onLoadToHsv={loadToHsv} />, "calendar")}
+            />
+            <Route
+              path="/admin/archive"
+              element={withData((d) => <Archive data={d} camera={dataCamera} />, "rows")}
             />
             <Route
               path="/ranking"

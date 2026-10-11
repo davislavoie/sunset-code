@@ -7,6 +7,7 @@ import { sunsetPath } from "./api.js";
 import { SIZES } from "./Img.jsx";
 import { Zoomable } from "./lightbox.jsx";
 import ScoreBreakdown from "./ScoreBreakdown.jsx";
+import Weather from "./Weather.jsx";
 
 export default function SunsetHero({ best, camera, date }) {
   return (
@@ -22,6 +23,7 @@ export default function SunsetHero({ best, camera, date }) {
         <div className="sunset-score">{best.Score.toFixed(1)}%</div>
         <div className="sunset-meta">Best shot at {best.Time}</div>
         <AiVerdict ai={best.AI} />
+        <Weather w={best.Weather} />
         {best["Raw Image"] && <ScoreBreakdown imageUrl={best["Raw Image"]} />}
         <div className="sunset-actions">
           {/* Share the /sunset/... permalink: Flask adds link-preview tags there. */}

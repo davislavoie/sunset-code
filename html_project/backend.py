@@ -73,6 +73,7 @@ def fetch_camera_data(camera_tag):
             "Thumb": point.get("thumb") or 0,
             "BadView": bool(point.get("bad_view")),
             "Excluded": exclusion(point),
+            "Weather": weather_fields(point),
         }
 
         all_data.append(data_item)
@@ -104,6 +105,7 @@ def fetch_camera_data(camera_tag):
                 # The AI judges the raw photo, so the best shot carries that photo's verdict.
                 "AI": ai_fields(matching_photo[0]) if matching_photo else None,
                 "Excluded": exclusion(matching_photo[0]) if matching_photo else None,
+                "Weather": weather_fields(matching_photo[0]) if matching_photo else None,
             })
 
     return {"sunset_data": sunset_data, "all_data": all_data, "ranked_images": ranked_images}
@@ -123,6 +125,17 @@ def exclusion(point):
     if point.get("view_blocked"):
         return "same view as a thumbed-down shot"
     return AI_EXCLUSIONS.get(point.get("ai_view"))
+
+
+WEATHER_FIELDS = ["temperature_2m", "relative_humidity_2m", "dew_point_2m", "precipitation_probability",
+                  "precipitation", "rain", "showers", "snowfall", "cloud_cover_low", "cloud_cover_mid",
+                  "cloud_cover_high", "cloud_cover_total", "visibility"]
+
+
+def weather_fields(point):
+    """Open-Meteo weather saved with the capture (°F, %, mm, m), or None if it has none yet."""
+    weather = {k: point[k] for k in WEATHER_FIELDS if point.get(k) is not None}
+    return weather or None
 
 
 def ai_fields(point):

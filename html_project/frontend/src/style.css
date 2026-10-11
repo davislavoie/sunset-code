@@ -2304,6 +2304,12 @@ a.show-in-calendar-btn { margin-left: 8px; }
 .ai-flagged { color: #f85149; font-weight: 600; }
 /* Captures the AI says aren't the sky: dimmed so they don't read as candidates */
 .day-view-card.ai-not-sky img { opacity: 0.45; filter: grayscale(0.6); }
+.archive-intro { color: var(--text-muted); }
+/* Weather.jsx */
+.weather-line { font-size: 0.85em; color: var(--text-secondary); }
+.weather-card dl { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px 12px; margin: 4px 0 0; }
+.weather-card dt { font-size: 0.75em; color: var(--text-secondary); }
+.weather-card dd { margin: 0; font-weight: 600; }
 /* Thumbs.jsx */
 .thumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; font-size: 0.85em; }
 .thumbs button { background: none; border: 1px solid var(--border); border-radius: 6px; padding: 2px 8px; cursor: pointer; opacity: 0.55; }
