@@ -15,13 +15,13 @@ export default function Archive({ data, camera }) {
     <div>
       <h1>Archive</h1>
       <p className="archive-intro">
-        {out.length} {camera} shots don't count toward rankings. Clear a 👎 to bring one back; the
-        day's best shot updates within 10 minutes.
+        {out.length} {camera} shots don't count toward rankings. Clear a thumbs down to bring one
+        back; the day's best shot updates within 10 minutes.
       </p>
       <div className="rank-chips">
         {[["all", out.length], ...Object.entries(counts)].map(([key, n]) => (
           <button key={key} className={`rank-chip${reason === key ? " active" : ""}`} onClick={() => setReason(key)}>
-            {key === "all" ? "All" : key} ({n})
+            {key === "all" ? "All" : key[0].toUpperCase() + key.slice(1)} ({n})
           </button>
         ))}
       </div>

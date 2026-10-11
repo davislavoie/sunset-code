@@ -3,6 +3,7 @@
 
 import { useState } from "react";
 import { Link } from "react-router";
+import { ArrowRight, ChevronLeft, ChevronRight, X } from "lucide-react";
 import Img, { sizeForLabel } from "./Img.jsx";
 import { Zoomable } from "./lightbox.jsx";
 
@@ -28,7 +29,7 @@ export default function DayDetail({ date, allData, onClose, onLoadToHsv, permali
         <div className="detail-header-actions">
           {permalink && (
             <Link className="btn" to={permalink}>
-              Open day →
+              Open day <ArrowRight size={16} />
             </Link>
           )}
           {onLoadToHsv && (
@@ -38,7 +39,7 @@ export default function DayDetail({ date, allData, onClose, onLoadToHsv, permali
           )}
           {onClose && (
             <button className="btn" onClick={onClose}>
-              ✕ Close
+              <X size={16} /> Close
             </button>
           )}
         </div>
@@ -46,13 +47,13 @@ export default function DayDetail({ date, allData, onClose, onLoadToHsv, permali
 
       <div className="detail-nav">
         <button className="btn" onClick={() => setIndex(i === 0 ? images.length - 1 : i - 1)}>
-          ← Previous
+          <ChevronLeft size={16} /> Previous
         </button>
         <div className="info">
           {`Image ${i + 1} of ${images.length} | Time: ${current.Time} | Score: ${current.Score.toFixed(1)}%`}
         </div>
         <button className="btn" onClick={() => setIndex(i >= images.length - 1 ? 0 : i + 1)}>
-          Next →
+          Next <ChevronRight size={16} />
         </button>
       </div>
 

@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { NavLink, Navigate, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
+import { Moon, PanelLeftClose, PanelLeftOpen, Sun, Sunset } from "lucide-react";
 import { fetchCameraData, getJson } from "./api.js";
 import Dropdown from "./Dropdown.jsx";
 import Calendar from "./pages/Calendar.jsx";
@@ -20,12 +21,12 @@ const MOBILE_BREAKPOINT = 768;
 const isMobile = () => window.innerWidth <= MOBILE_BREAKPOINT;
 
 const PUBLIC_PAGES = [
-  ["/calendar", "Sunset Calendar"],
-  ["/ranking", "Ranked Images"],
-  ["/score-tracker", "Score Tracker"],
-  ["/hsv-tuner", "HSV Tuner"],
-  ["/ranking-explained", "Ranking Explained"],
-  ["/map", "Camera Map"],
+  ["/calendar", "Sunset calendar"],
+  ["/ranking", "Ranked images"],
+  ["/score-tracker", "Score tracker"],
+  ["/hsv-tuner", "HSV tuner"],
+  ["/ranking-explained", "Ranking explained"],
+  ["/map", "Camera map"],
   ["/compare", "Compare"],
 ];
 // Everything that writes lives under /admin so a reverse proxy can gate it.
@@ -121,14 +122,17 @@ export default function App() {
       <aside className="sidebar">
         <div className="sidebar-inner">
           <button className="icon-btn collapse-btn" title="Collapse sidebar" onClick={() => setCollapsed(true)}>
-            «
+            <PanelLeftClose size={18} />
           </button>
 
           <div className="sidebar-header">
-            <h2>Navigation</h2>
+            <span className="brand-tile">
+              <Sunset size={18} />
+            </span>
+            <h2>Sunsets</h2>
           </div>
 
-          <h3>Camera Selection</h3>
+          <h3>Camera</h3>
           <Dropdown
             className="dd-block"
             label="Camera"
@@ -146,6 +150,8 @@ export default function App() {
 
           <h3>Admin</h3>
           {ADMIN_PAGES.map(navLink)}
+
+          <ThemeToggle />
         </div>
       </aside>
 
@@ -155,7 +161,7 @@ export default function App() {
         hidden={!collapsed}
         onClick={() => setCollapsed(false)}
       >
-        »
+        <PanelLeftOpen size={18} />
       </button>
 
       {switching && <div className="top-progress" role="progressbar" aria-label="Loading camera" />}
@@ -227,4 +233,31 @@ function SunsetPermalink() {
   const { camera, date } = useParams();
   const params = new URLSearchParams({ view: "day", date, camera });
   return <Navigate to={`/calendar?${params}`} replace />;
+}
+
+/** Light / dark switch. Starts from the OS setting; a choice sticks in localStorage. */
+function ThemeToggle() {
+  const systemDark = () => window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const [dark, setDark] = useState(() => {
+    const chosen = document.documentElement.dataset.theme;
+    return chosen ? chosen === "dark" : systemDark();
+  });
+
+  function toggle() {
+    const next = dark ? "light" : "dark";
+    document.documentElement.dataset.theme = next;
+    try {
+      localStorage.setItem("theme", next);
+    } catch {
+      // storage blocked: the choice lasts for this visit
+    }
+    setDark(!dark);
+  }
+
+  return (
+    <button className="nav-btn theme-toggle" onClick={toggle}>
+      {dark ? <Sun size={16} /> : <Moon size={16} />}
+      {dark ? "Light mode" : "Dark mode"}
+    </button>
+  );
 }

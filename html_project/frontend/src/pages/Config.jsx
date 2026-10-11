@@ -42,12 +42,12 @@ export default function Config() {
 
   return (
     <>
-      <h2>Camera Configuration</h2>
+      <h1>Camera configuration</h1>
       <p>View and manage camera configurations.</p>
       <hr />
 
       <section>
-        <h3>Current Cameras</h3>
+        <h3>Current cameras</h3>
         <div className="configs-grid">
           {loadError ? (
             <div className="empty">Failed to load configs: {loadError}</div>
@@ -222,7 +222,7 @@ function AddCameraForm({ onAdded }) {
 
   return (
     <section>
-      <h3>Add New Camera</h3>
+      <h3>Add a camera</h3>
       <form className="add-camera-form" onSubmit={onSubmit}>
         <CameraFields includeTag />
         <div className="form-actions">
@@ -263,7 +263,7 @@ function RebuildSection() {
 
   return (
     <section>
-      <h3>Rebuild Containers</h3>
+      <h3>Rebuild containers</h3>
       <p>Apply config changes by rebuilding the Docker containers.</p>
       <div className="rebuild-actions">
         <button className="btn btn-primary" disabled={busy} onClick={rebuild}>

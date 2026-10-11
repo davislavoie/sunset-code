@@ -70,9 +70,9 @@ export function AiVerdict({ ai, compact = false }) {
   // Only dark / no-signal verdicts rule a frame out; the HSV score decides the rest.
   if (VIEW_LABELS[ai.view]) {
     return (
-      <div className="ai-verdict ai-flagged" title={ai.reason || undefined}>
+      <span className="bubble destructive" title={ai.reason || undefined}>
         Ruled out: {VIEW_LABELS[ai.view]}
-      </div>
+      </span>
     );
   }
   return (

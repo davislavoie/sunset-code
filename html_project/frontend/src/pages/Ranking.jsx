@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
+import { ArrowRight, Maximize2, X } from "lucide-react";
 import { dayPath } from "../api.js";
 import DayDetail from "../DayDetail.jsx";
 import Img, { SIZES } from "../Img.jsx";
@@ -43,7 +44,7 @@ export default function Ranking({ data, onLoadToHsv }) {
 
   return (
     <>
-      <h2>Ranked Images</h2>
+      <h1>Ranked images</h1>
       <div className="ranking-controls">
         <Select label="Sort by:" options={["Score", "Date", "Time"]} value={sortBy} onChange={setSortBy} />
         <Select label="Order:" options={["Highest to Lowest", "Lowest to Highest"]} value={order} onChange={setOrder} />
@@ -92,10 +93,10 @@ function RankingRow({ row, allData, onLoadToHsv }) {
           <div><strong>Label:</strong> {rawUrl ? rawUrl.split("/").pop().split(".")[0] : "No raw image"}</div>
           <Weather w={row.Weather} compact />
           <button className="btn show-in-calendar-btn" onClick={() => setShowDay(!showDay)}>
-            {showDay ? "Hide" : "Show in Calendar"}
+            {showDay ? "Hide" : "Show in calendar"}
           </button>
           <Link className="btn show-in-calendar-btn" to={dayPath(row.Date)}>
-            Open day →
+            Open day <ArrowRight size={16} />
           </Link>
         </div>
       </div>
@@ -122,7 +123,7 @@ function ImageCell({ url, size }) {
           isOpen ? lightbox.close() : lightbox.open(url);
         }}
       >
-        {isOpen ? "✕" : "⛶"}
+        {isOpen ? <X size={16} /> : <Maximize2 size={16} />}
       </button>
     </div>
   );

@@ -5,6 +5,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { dayPath, useDocumentTitle } from "../api.js";
 import DayDetail from "../DayDetail.jsx";
 import Img, { SIZES, sizeForLabel } from "../Img.jsx";
@@ -69,7 +70,7 @@ export default function Calendar({ data, camera, onLoadToHsv }) {
   if (!sunsetData.length) {
     return (
       <>
-        <h3>Sunset Calendar</h3>
+        <h1>Sunset calendar</h1>
         <div className="empty">No data available.</div>
       </>
     );
@@ -91,7 +92,7 @@ export default function Calendar({ data, camera, onLoadToHsv }) {
 
   return (
     <>
-      <h3>Sunset Calendar</h3>
+      <h1>Sunset calendar</h1>
 
       <div className="view-tabs">
         <div className="view-tab-group">
@@ -130,11 +131,11 @@ function CalendarHeader({ title, onPrev, onNext, prevDisabled, nextDisabled, pre
   return (
     <div className="calendar-header">
       <button className="btn cal-arrow" title={prevTitle} disabled={prevDisabled} onClick={onPrev}>
-        ‹
+        <ChevronLeft size={18} />
       </button>
       <div className="calendar-title">{title}</div>
       <button className="btn cal-arrow" title={nextTitle} disabled={nextDisabled} onClick={onNext}>
-        ›
+        <ChevronRight size={18} />
       </button>
     </div>
   );
@@ -191,11 +192,12 @@ export function CaptureCard({ img, camera }) {
       <Zoomable src={img.Image} alt={img.Label} loading="lazy" {...sizeForLabel(img.Label)} />
       <div className="day-view-caption">
         <strong>{/^(07_|11_|12_)/.test(img.Label) ? img.Label.slice(3) : img.Label}</strong>
-        <br />
-        {img.Time} &middot; Score: {(excluded ? 0 : img["HSV Score"] ?? img.Score).toFixed(1)}%
-        {excluded && <div className="ai-verdict ai-flagged">Doesn't count: {excluded}</div>}
+        <span>
+          {img.Time} &middot; Score: {(excluded ? 0 : img["HSV Score"] ?? img.Score).toFixed(1)}%
+        </span>
+        {excluded && <span className="bubble destructive">Doesn't count: {excluded}</span>}
         <AiVerdict ai={img.AI} compact />
-        <Weather w={img.Weather} compact />
+        <Weather w={img.Weather} compact verdict={false} />
         {!generated && <Thumbs camera={camera} img={img} onChange={(s) => setThumb(s.thumb)} />}
       </div>
     </div>

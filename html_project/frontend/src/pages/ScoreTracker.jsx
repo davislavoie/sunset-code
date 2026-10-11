@@ -40,7 +40,7 @@ export default function ScoreTracker({ data }) {
 
   const header = (
     <>
-      <h2>Score Tracker</h2>
+      <h1>Score tracker</h1>
       <p>Track and visualize sunset scores over time</p>
     </>
   );

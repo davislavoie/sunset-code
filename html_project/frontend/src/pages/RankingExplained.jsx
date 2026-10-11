@@ -86,12 +86,12 @@ export default function RankingExplained({ rankedImages, admin = false }) {
 
   return (
     <>
-      <h2>How Sunset Ranking Works</h2>
+      <h1>How sunset ranking works</h1>
       <p>Each sunset image is scored from 0-100 based on the colors detected in the sky portion of the image.</p>
       <hr />
 
       <section key={inputsVersion}>
-        <h3>Color Detection &amp; Multipliers</h3>
+        <h3>Color detection &amp; multipliers</h3>
         <p>
           The algorithm analyzes the <strong>top half</strong> of each image (the sky) and identifies pixels in
           specific hue ranges:
@@ -153,7 +153,7 @@ export default function RankingExplained({ rankedImages, admin = false }) {
           )}
         </div>
 
-        <h3>Score Calculation</h3>
+        <h3>Score calculation</h3>
         <p>For each color, a weighted score is calculated:</p>
 
         <div className="formula-box editable-formula">
@@ -200,7 +200,7 @@ export default function RankingExplained({ rankedImages, admin = false }) {
       <hr />
 
       <section>
-        <h3>Test Scoring</h3>
+        <h3>Test scoring</h3>
         <p>
           Add images to see how they score with the current multipliers. Scores update in real-time as you adjust
           the values above.
@@ -249,7 +249,7 @@ export default function RankingExplained({ rankedImages, admin = false }) {
       <hr />
 
       <section>
-        <h3>Why These Multipliers?</h3>
+        <h3>Why these multipliers?</h3>
         <table className="info-table">
           <tbody>
             <tr>
@@ -338,7 +338,7 @@ function GalleryPicker({ rankedImages, onPick, onClose }) {
   return (
     <div className="edit-modal" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="edit-modal-content" style={{ maxWidth: 800 }}>
-        <h3>Select Images from Gallery</h3>
+        <h3>Select images from the gallery</h3>
         <div className="gallery-picker-grid">
           {rankedImages.length === 0 && <div className="empty">No images available</div>}
           {rankedImages.slice(0, 30).map((img, i) => (

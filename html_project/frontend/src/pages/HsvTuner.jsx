@@ -2,6 +2,7 @@
 // App so "Load to HSV Tuner" on other pages can add images before navigating here.
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { X } from "lucide-react";
 import Dropdown from "../Dropdown.jsx";
 import RangeSlider from "../RangeSlider.jsx";
 import { loadImage, maskCanvas, toResizedCanvas } from "../hsv.js";
@@ -73,7 +74,7 @@ export default function HsvTuner({ allData, tuner, setTuner, onLoadToHsv }) {
 
   return (
     <>
-      <h2>HSV Mask Tuner for Sunset Analysis</h2>
+      <h1>HSV mask tuner</h1>
 
       <div className="hsv-layout">
         <div className="hsv-sliders">
@@ -103,7 +104,7 @@ export default function HsvTuner({ allData, tuner, setTuner, onLoadToHsv }) {
 
       <hr />
 
-      <h4>Load Image from Gallery</h4>
+      <h4>Load an image from the gallery</h4>
       <div className="gallery-loader">
         <Dropdown
           label="Day"
@@ -123,14 +124,14 @@ export default function HsvTuner({ allData, tuner, setTuner, onLoadToHsv }) {
           onChange={setSelectedUrl}
         />
         <button className="btn" onClick={loadSelected}>
-          Load Image
+          Load image
         </button>
         <button
           className="btn"
           disabled={!tuner.loaded.length}
           onClick={() => setTuner((t) => ({ ...t, loaded: [] }))}
         >
-          Clear All
+          Clear all
         </button>
       </div>
       <div style={{ color: "var(--text-muted)", margin: "4px 0 12px" }}>{status}</div>
@@ -194,7 +195,7 @@ function SideBySide({ label, source, ranges, onRemove }) {
     <div className="side-by-side-block">
       {onRemove && (
         <button className="btn remove-loaded-btn" onClick={onRemove}>
-          ✕ Remove
+          <X size={16} /> Remove
         </button>
       )}
       <div className="side-by-side">

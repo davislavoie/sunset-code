@@ -8,7 +8,7 @@ export const INSTANT_TOOLTIP = { springConfig: SNAPPY_SPRING, damping: 0 };
 
 // Solid, clearly visible gridlines like the old Plotly charts (bklit's default is a faint fading dash).
 export const GRID_STYLE = {
-  stroke: "rgba(255, 255, 255, 0.1)",
+  stroke: "var(--border)",
   strokeDasharray: "0",
   fadeHorizontal: false,
 };

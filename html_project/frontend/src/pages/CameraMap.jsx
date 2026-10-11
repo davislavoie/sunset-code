@@ -55,10 +55,10 @@ export default function CameraMap() {
 
   return (
     <>
-      <h2>Camera Map</h2>
+      <h1>Camera map</h1>
 
       <section>
-        <h3>Camera Locations</h3>
+        <h3>Camera locations</h3>
         <div className="map-container">
           <div className="map-controls">
             <div className="map-slider-control">
@@ -98,7 +98,7 @@ export default function CameraMap() {
       <hr />
 
       <section>
-        <h3>Sunrise &amp; Sunset Analysis</h3>
+        <h3>Sunrise &amp; sunset times</h3>
         <div className="sun-data-layout">
           <div className="sun-chart-container">
             <div className="sun-chart-controls">

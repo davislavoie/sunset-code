@@ -1,6 +1,7 @@
 // Two sunsets side by side, any camera and any day: /compare?a=camera:date&b=camera:date
 
 import { Link, useSearchParams } from "react-router";
+import { ArrowRight } from "lucide-react";
 import { sunsetPath, useCameraData, useDocumentTitle } from "../api.js";
 import Dropdown from "../Dropdown.jsx";
 import { SIZES } from "../Img.jsx";
@@ -52,7 +53,7 @@ export default function Compare({ cameras, defaultCamera }) {
 
   return (
     <>
-      <h2>Compare Sunsets</h2>
+      <h1>Compare sunsets</h1>
       <p>Pick any two days, from any camera.</p>
       <div className="compare-grid">
         <ComparePane
@@ -120,7 +121,9 @@ function ComparePane({ cameras, camera, state, entry, isWinner, onChange }) {
           />
           <div className="compare-score">
             <span className="sunset-score">{entry.Score.toFixed(1)}%</span>
-            <Link to={sunsetPath(camera, entry.Date)}>Sunset page →</Link>
+            <Link className="btn" to={sunsetPath(camera, entry.Date)}>
+              Sunset page <ArrowRight size={16} />
+            </Link>
           </div>
           {entry["Raw Image"] && <ScoreBreakdown imageUrl={entry["Raw Image"]} />}
         </>

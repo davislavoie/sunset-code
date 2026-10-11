@@ -3,6 +3,7 @@
 // up = it's the day's pick. ai_judge re-picks the ranked image within ~10 minutes.
 
 import { useState } from "react";
+import { ThumbsDown, ThumbsUp } from "lucide-react";
 import { forgetCameraData } from "./api.js";
 
 /** Why a capture is out, given its (possibly just changed) thumb. Mirrors backend.exclusion. */
@@ -39,10 +40,14 @@ export default function Thumbs({ camera, img, onChange }) {
 
   return (
     <div className="thumbs">
-      <button type="button" aria-pressed={state.thumb === 1} title="Good one: make it the day's pick"
-        onClick={() => save(state.thumb === 1 ? 0 : 1)}>👍</button>
-      <button type="button" aria-pressed={state.thumb === -1} title="Never count this shot"
-        onClick={() => save(state.thumb === -1 ? 0 : -1)}>👎</button>
+      <button type="button" className="thumb-up" aria-pressed={state.thumb === 1} aria-label="Thumbs up"
+        title="Good one: make it the day's pick" onClick={() => save(state.thumb === 1 ? 0 : 1)}>
+        <ThumbsUp size={14} />
+      </button>
+      <button type="button" className="thumb-down" aria-pressed={state.thumb === -1} aria-label="Thumbs down"
+        title="Never count this shot" onClick={() => save(state.thumb === -1 ? 0 : -1)}>
+        <ThumbsDown size={14} />
+      </button>
       {state.thumb === -1 && (
         <label title="Also rule out every near-identical shot from this camera (e.g. a bad preset view)">
           <input type="checkbox" checked={state.badView} onChange={(e) => save(-1, e.target.checked)} /> all shots like this

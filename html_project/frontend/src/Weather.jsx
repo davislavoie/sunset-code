@@ -3,14 +3,14 @@
 
 const pct = (v) => (v == null ? "–" : `${Math.round(v)}%`);
 
-export default function Weather({ w, compact = false }) {
+export default function Weather({ w, compact = false, verdict = true }) {
   if (!w) return null;
   const temp = w.temperature_2m != null && `${Math.round(w.temperature_2m)}°F`;
   if (compact) {
     return (
       <>
         <CloudProfile w={w} mini />
-        <LightPath w={w} />
+        {verdict && <LightPath w={w} />}
         {temp && <div className="weather-line">{temp}</div>}
       </>
     );
@@ -26,9 +26,11 @@ export default function Weather({ w, compact = false }) {
   ].filter(([, v]) => v);
   return (
     <div className="weather-card">
-      <div className="metric-label">Clouds toward the sun at the best shot</div>
+      <div className="metric-label">Clouds toward the sun</div>
       <CloudProfile w={w} />
-      <LightPath w={w} />
+      <div>
+        <LightPath w={w} />
+      </div>
       <dl>
         {rows.map(([label, value]) => (
           <div key={label}>
@@ -50,16 +52,16 @@ function LightPath({ w }) {
   if (low.every(([, v]) => v == null)) return null;
   const wall = low.find(([, v]) => v >= BLOCKING);
   const [text, tone] = wall
-    ? [`Low cloud blocks the sun ${wall[0]} km out`, "blocked"]
+    ? [`Low cloud blocks the sun ${wall[0]} km out`, "destructive"]
     : low.every(([, v]) => v == null || v < 30)
-      ? ["Clear path to the sun", "open"]
-      : ["Patchy low cloud toward the sun", "patchy"];
-  return <div className={`light-path ${tone}`}>{text}</div>;
+      ? ["Clear path to the sun", "success"]
+      : ["Patchy low cloud toward the sun", "warning"];
+  return <span className={`bubble ${tone}`}>{text}</span>;
 }
 
 // A side view of the sky from the camera out toward the sun: cloud cover in each layer
-// overhead and 50 / 150 / 300 km along the sunset (sunrise) direction. Low cloud out
-// toward the sun is what blocks the light; high and mid cloud overhead is what catches it.
+// overhead and 50 / 150 / 300 km along the sunset (sunrise) direction, one bar per cell.
+// Low cloud out toward the sun is what blocks the light, so only that gets colour.
 const COLUMNS = [
   { prefix: "", label: "Overhead" },
   { prefix: "path50_", label: "50 km" },
@@ -67,79 +69,44 @@ const COLUMNS = [
   { prefix: "path300_", label: "300 km" },
 ];
 const LAYERS = [
-  { key: "high", label: "High", y: 22, color: "#f6a5b8" },
-  { key: "mid", label: "Mid", y: 64, color: "#f7b267" },
-  { key: "low", label: "Low", y: 106, color: "#9aa5b8" },
+  { key: "high", label: "High", y: 8 },
+  { key: "mid", label: "Mid", y: 44 },
+  { key: "low", label: "Low", y: 80 },
 ];
-const W = 400, GROUND = 146, BAND = 32, LEFT = 40, COL = 74, SUN_X = 372;
-// Cloud thickness and brightness both follow coverage, so each row reads like a bar graph.
-const thick = (v) => 4 + (BAND - 6) * (v / 100);
-const colX = (i) => LEFT + 6 + i * (COL + 4);
+const W = 336, CELL_H = 28, GROUND = 116, LEFT = 40, COL = 62, GAP = 4, SUN_X = 322;
+const colX = (i) => LEFT + i * (COL + GAP);
 
 function CloudProfile({ w, mini = false }) {
   const value = (col, layer) => w[`${col.prefix}cloud_cover_${layer.key}`];
-  // Light reaching the sky over the camera has to get past low cloud out toward the sun.
-  const blocked = Math.max(0, ...COLUMNS.slice(1).map((c) => value(c, LAYERS[2]) ?? 0)) / 100;
   const title = LAYERS.map((l) => `${l.label}: ${COLUMNS.map((c) => pct(value(c, l))).join(" / ")}`).join("\n");
+  const left = mini ? 0 : LEFT;
+  const x = (i) => colX(i) - LEFT + left;
 
   return (
     <svg
       className={`cloud-profile${mini ? " mini" : ""}`}
-      viewBox={`0 0 ${W} ${mini ? GROUND + 4 : GROUND + 22}`}
+      viewBox={`0 0 ${mini ? W - LEFT : W} ${mini ? GROUND + 6 : GROUND + 26}`}
       role="img"
       aria-label={`Cloud cover overhead and 50, 150, 300 km toward the sun. ${title}`}
     >
-      {mini && <title>{`Cloud cover, overhead / 50 / 150 / 300 km toward the sun\n${title}`}</title>}
-      <defs>
-        <linearGradient id="cp-sky" x1="0" x2="1" y1="0" y2="1">
-          <stop offset="0" stopColor="#141a33" />
-          <stop offset="0.65" stopColor="#3b2a4a" />
-          <stop offset="1" stopColor="#c8643a" />
-        </linearGradient>
-        <radialGradient id="cp-sun">
-          <stop offset="0" stopColor="#ffe8a3" />
-          <stop offset="0.35" stopColor="#ffb347" stopOpacity="0.9" />
-          <stop offset="1" stopColor="#ff7a3d" stopOpacity="0" />
-        </radialGradient>
-        <linearGradient id="cp-ray" x1="1" x2="0">
-          <stop offset="0" stopColor="#ffcf70" />
-          <stop offset="1" stopColor="#ffcf70" stopOpacity="0.15" />
-        </linearGradient>
-        <clipPath id="cp-clip">
-          <rect width={W} height={GROUND} rx="8" />
-        </clipPath>
-        <filter id="cp-soft" x="-10%" y="-30%" width="120%" height="160%">
-          <feGaussianBlur stdDeviation={mini ? 1.5 : 2.5} />
-        </filter>
-      </defs>
-
-      <g clipPath="url(#cp-clip)">
-        <rect width={W} height={GROUND} fill="url(#cp-sky)" />
-        <circle cx={SUN_X + 10} cy={GROUND} r="58" fill="url(#cp-sun)" />
-        <circle cx={SUN_X + 10} cy={GROUND} r="11" fill="#ffd57a" />
-      </g>
-      {/* Sunlight skimming the horizon up to the clouds over the camera, dimmed by low cloud on the way. */}
-      <line
-        x1={SUN_X} y1={GROUND - 6} x2={colX(0) + COL / 2} y2={LAYERS[0].y + BAND}
-        stroke="url(#cp-ray)" strokeWidth={mini ? 3 : 2} strokeDasharray={mini ? undefined : "6 5"}
-        opacity={1 - 0.85 * blocked}
-      />
+      <title>{`Cloud cover, overhead / 50 / 150 / 300 km toward the sun\n${title}`}</title>
+      <line className="cp-horizon" x1={left} x2={mini ? W - LEFT : W} y1={GROUND} y2={GROUND} />
+      <circle className="cp-sun" cx={SUN_X - (mini ? LEFT : 0)} cy={GROUND} r="7" />
 
       {LAYERS.map((layer) =>
         COLUMNS.map((col, i) => {
           const v = value(col, layer);
-          const x = colX(i);
+          const blocks = i > 0 && layer.key === "low" && v >= BLOCKING;
           return (
-            <g key={layer.key + i} className="cp-cell" style={{ animationDelay: `${(3 - i) * 70}ms` }}>
-              {!mini && <title>{`${layer.label} cloud, ${i ? `${col.label} toward the sun` : "overhead"}: ${pct(v)}`}</title>}
-              <rect x={x} y={layer.y} width={COL} height={BAND} rx="6"
-                fill="none" stroke="rgba(255,255,255,0.12)" strokeDasharray={v == null ? "3 3" : undefined} />
+            <g key={layer.key + i} className="cp-cell">
+              <rect className="cp-cell-frame" x={x(i)} y={layer.y} width={COL} height={CELL_H} rx="6" />
               {v != null && (
-                <rect x={x + 3} y={layer.y + BAND / 2 - thick(v) / 2} width={COL - 6} height={thick(v)} rx={thick(v) / 2}
-                  fill={layer.color} opacity={0.25 + 0.7 * (v / 100)} filter="url(#cp-soft)" />
+                <rect className={`cp-fill${blocks ? " blocks" : ""}`} x={x(i)} y={layer.y} rx="6"
+                  width={Math.max(4, (COL * v) / 100)} height={CELL_H} opacity={blocks ? 0.25 : 0.18} />
               )}
               {!mini && (
-                <text x={x + COL / 2} y={layer.y + BAND / 2 + 4} textAnchor="middle" className="cp-value">
+                <text className="cp-value" x={x(i) + 8} y={layer.y + CELL_H / 2 + 4.5}
+                  style={blocks ? { fill: "var(--destructive)" } : undefined}>
                   {pct(v)}
                 </text>
               )}
@@ -151,16 +118,18 @@ function CloudProfile({ w, mini = false }) {
       {!mini && (
         <>
           {LAYERS.map((l) => (
-            <text key={l.key} x={LEFT - 4} y={l.y + BAND / 2 + 4} textAnchor="end" className="cp-axis">
+            <text key={l.key} x={LEFT - 8} y={l.y + CELL_H / 2 + 4} textAnchor="end" className="cp-axis">
               {l.label}
             </text>
           ))}
           {COLUMNS.map((c, i) => (
-            <text key={c.label} x={colX(i) + COL / 2} y={GROUND + 15} textAnchor="middle" className="cp-axis">
+            <text key={c.label} x={colX(i) + COL / 2} y={GROUND + 18} textAnchor="middle" className="cp-axis">
               {c.label}
             </text>
           ))}
-          <text x={SUN_X + 10} y={GROUND + 15} textAnchor="middle" className="cp-axis cp-sun-label">sun</text>
+          <text x={SUN_X} y={GROUND + 18} textAnchor="middle" className="cp-axis">
+            Sun
+          </text>
         </>
       )}
     </svg>
