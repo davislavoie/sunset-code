@@ -5,6 +5,7 @@ import { Link } from "react-router";
 import { ArrowRight, Maximize2, X } from "lucide-react";
 import { dayPath } from "../api.js";
 import DayDetail from "../DayDetail.jsx";
+import HsvHistogram from "../HsvHistogram.jsx";
 import Img, { SIZES } from "../Img.jsx";
 import Reveal from "../Reveal.jsx";
 import Tip from "../Tip.jsx";
@@ -82,7 +83,7 @@ function RankingRow({ row, allData, onLoadToHsv }) {
       <div className="ranking-row">
         <ImageCell url={row["Ranked Image"]} size={SIZES.ranked} />
         <ImageCell url={rawUrl} size={SIZES.photo} />
-        <ImageCell url={row["HSV Image"]} size={SIZES.histogram} />
+        <HsvHistogram imageUrl={rawUrl} />
         <div className="score-cell">
           <div className="metric-label">Score</div>
           <div className="metric-value">{row.Score.toFixed(2)}%</div>

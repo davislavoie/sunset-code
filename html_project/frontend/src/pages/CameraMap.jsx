@@ -241,15 +241,17 @@ function LeafletMap({ configs, date }) {
       const sunTimes = SunCalc.getTimes(date, lat, lon);
       const sunPos = SunCalc.getPosition(mode === "sunrise" ? sunTimes.sunrise : sunTimes.sunset, lat, lon);
 
-      // SunCalc azimuth is from South, clockwise; convert to a compass bearing and round it
-      // the way the pipeline does, so the points sit where the clouds were actually read.
+      // SunCalc azimuth is from South, clockwise; convert to a compass bearing. The points use it
+      // rounded the way the pipeline does, so they sit where the clouds were actually read (and
+      // step every few days, up to 2.5 degrees off the ray).
       const exact = ((sunPos.azimuth * 180) / Math.PI + 180 + 360) % 360;
       const bearing = Math.round(exact / BEARING_STEP) * BEARING_STEP;
       const cls = `sun-ray ${mode}`;
 
-      linesRef.current.push(
-        L.polyline([[lat, lon], destination(lat, lon, bearing, RAY_KM)], { className: cls, weight: 3, interactive: false }).addTo(map),
-      );
+      // The ray follows the exact sun direction, drawn as a great circle (a 2-point Leaflet line is
+      // straight in Mercator and bows ~2 km south of where the reading points sit).
+      const ray = Array.from({ length: RAY_KM / 10 + 1 }, (_, i) => destination(lat, lon, exact, i * 10));
+      linesRef.current.push(L.polyline(ray, { className: cls, weight: 3, interactive: false }).addTo(map));
       for (const km of PATH_KM) {
         linesRef.current.push(
           L.circleMarker(destination(lat, lon, bearing, km), { className: `path-point ${mode}`, radius: 6, weight: 2 })

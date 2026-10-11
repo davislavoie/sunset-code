@@ -2457,3 +2457,34 @@ main#content.is-stale { opacity: 0.5; pointer-events: none; }
 .sun-readout dt { font-size: 12px; color: var(--text-muted); }
 .sun-readout dd { margin: 0; font-weight: 600; color: var(--text); min-height: 1.5em; }
 .sun-readout > div:first-child dt { font-size: 15px; font-weight: 600; color: var(--sun); line-height: 2.6; }
+
+/* ---- HSV histograms (HsvHistogram.jsx, Ranked tab) ---- */
+.hsv-hist { display: flex; flex-direction: column; gap: 8px; }
+.hsv-hist-row { display: flex; flex-direction: column; gap: 2px; }
+.hsv-hist-label { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-muted); }
+.hsv-hist-label span:last-child { color: var(--text); font-weight: 600; }
+.hsv-hist-plot { height: 34px; border-bottom: 1px solid var(--border); cursor: crosshair; }
+.hsv-hist-cursor { stroke: var(--ink); stroke-width: 1; }
+.hsv-hist-empty { color: var(--text-muted); font-size: 0.85em; text-align: center; padding: 24px 0; }
+
+/* ---- Score tracker: Compare (ScoreScatter.jsx) ---- */
+.scatter-controls { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 16px; margin-bottom: 8px; }
+.scatter-controls label { display: flex; flex-direction: column; gap: 4px; min-width: 240px; }
+.scatter-vs { color: var(--text-muted); padding-bottom: 8px; }
+.scatter-stat { margin-left: auto; padding-bottom: 8px; color: var(--text-secondary); }
+.scatter-stat strong { color: var(--sun); }
+.scatter-chart { height: 440px; background: var(--card); border-radius: 8px; box-shadow: var(--shadow-card); padding: 12px 8px 4px; }
+.scatter-wrap { position: relative; }
+.scatter-wrap svg { display: block; cursor: crosshair; }
+.scatter-grid { stroke: var(--border); stroke-width: 1; }
+.scatter-tick { fill: var(--text-muted); font-size: 11px; }
+.scatter-dot { fill: var(--sun); fill-opacity: 0.55; }
+.scatter-dot.active { fill-opacity: 1; stroke: var(--card); stroke-width: 2; pointer-events: none; }
+.scatter-trend { stroke: var(--ink); stroke-width: 2; stroke-dasharray: 6 4; }
+.scatter-tip {
+  position: absolute; pointer-events: none; min-width: 180px; padding: 8px 10px; border-radius: 6px;
+  background: var(--ink); color: var(--ink-contrast); font-size: 12px; box-shadow: var(--shadow-float);
+}
+.scatter-tip div { display: flex; justify-content: space-between; gap: 12px; }
+.scatter-tip span { opacity: 0.75; }
+.scatter-tip-title { font-weight: 600; margin-bottom: 2px; }

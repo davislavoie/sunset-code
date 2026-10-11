@@ -11,6 +11,7 @@ import { XAxis } from "@/components/charts/x-axis";
 import { YAxis } from "@/components/charts/y-axis";
 import { GRID_STYLE, INSTANT_TOOLTIP, monthTicks } from "../chartTheme.js";
 import Img, { SIZES } from "../Img.jsx";
+import ScoreScatter from "./ScoreScatter.jsx";
 
 const SCORE_TICKS = [0, 20, 40, 60, 80, 100];
 
@@ -41,7 +42,7 @@ export default function ScoreTracker({ data }) {
   const header = (
     <>
       <h1>Score tracker</h1>
-      <p>Track and visualize sunset scores over time</p>
+      <p>Sunset scores over time, and against everything logged with them</p>
     </>
   );
 
@@ -61,7 +62,7 @@ export default function ScoreTracker({ data }) {
       {header}
 
       <div className="tabs">
-        {[["chart", "Line Chart"], ["data", "Data"]].map(([key, name]) => (
+        {[["chart", "Over time"], ["compare", "Compare"], ["data", "Data"]].map(([key, name]) => (
           <button key={key} className={`tab-btn${tab === key ? " active" : ""}`} onClick={() => setTab(key)}>
             {name}
           </button>
@@ -69,7 +70,12 @@ export default function ScoreTracker({ data }) {
       </div>
 
       <div>
-        {tab === "chart" ? (
+        {tab === "compare" ? (
+          <>
+            <ScoreScatter rows={rows} onSelect={setSelected} />
+            {selected && <PointDetail row={selected} />}
+          </>
+        ) : tab === "chart" ? (
           <>
             {hasAi && (
               <div className="rank-chips metric-toggle" role="group" aria-label="Score shown">
