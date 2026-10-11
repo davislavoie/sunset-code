@@ -8,6 +8,7 @@ import { sunsetPath } from "./api.js";
 import { sizeForLabel } from "./Img.jsx";
 import { Zoomable } from "./lightbox.jsx";
 import ScoreBreakdown from "./ScoreBreakdown.jsx";
+import { FlagPill } from "./Thumbs.jsx";
 import Tip from "./Tip.jsx";
 import Weather from "./Weather.jsx";
 
@@ -68,6 +69,7 @@ export default function SunsetHero({ shots, index, onSelect, best, camera, date 
           <div className="sunset-score">{(isBest ? best.Score : shot.Score).toFixed(1)}%</div>
           <div className="score-row-meta">
             {isBest && <span className="bubble">Best shot</span>}
+            <FlagPill reason={shot.Excluded} />
             <div className="sunset-meta">{`${shot.Label.slice(3).replaceAll("_", " ")} · ${shot.Time}`}</div>
           </div>
         </div>

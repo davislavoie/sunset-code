@@ -6,6 +6,7 @@ import { Link } from "react-router";
 import { ArrowRight, ChevronLeft, ChevronRight, X } from "lucide-react";
 import Img, { sizeForLabel } from "./Img.jsx";
 import { Zoomable } from "./lightbox.jsx";
+import { FlagPill } from "./Thumbs.jsx";
 import Tip from "./Tip.jsx";
 
 const isSpecial = (img) => /ranked|histogram/i.test(img.Label);
@@ -43,6 +44,7 @@ export default function DayDetail({ date, allData, onClose, onLoadToHsv, permali
         <div className="detail-title">
           <h3>{captureName(current.Label, event)}</h3>
           <span>{`${current.Time} · Score ${current.Score.toFixed(1)}%`}</span>
+          <FlagPill reason={current.Excluded} />
         </div>
         <div className="detail-header-actions">
           {permalink && (

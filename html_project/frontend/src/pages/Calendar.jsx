@@ -11,7 +11,7 @@ import DayDetail, { captureName } from "../DayDetail.jsx";
 import Img, { SIZES, sizeForLabel } from "../Img.jsx";
 import Reveal from "../Reveal.jsx";
 import SunsetHero, { AiVerdict } from "../SunsetHero.jsx";
-import Thumbs, { exclusionFor } from "../Thumbs.jsx";
+import Thumbs, { exclusionFor, FlagPill } from "../Thumbs.jsx";
 import Tip from "../Tip.jsx";
 import { Zoomable } from "../lightbox.jsx";
 
@@ -55,11 +55,8 @@ function normalizeLabel(label) {
 }
 
 export default function Calendar({ data, camera, onLoadToHsv }) {
-  // Shots that don't count (thumbs down, bad view, dark) only show in Admin → Archive.
-  const counts = (img) => !img.Excluded;
-  const { ranked_images: rankedImages } = data;
-  const allData = useMemo(() => data.all_data.filter(counts), [data]);
-  const sunsetData = useMemo(() => data.sunset_data.filter(counts), [data]);
+  // Shots that don't count (thumbs down, bad view, dark) still show, scored 0% with a pill saying why.
+  const { ranked_images: rankedImages, all_data: allData, sunset_data: sunsetData } = data;
   const [params, setParams] = useSearchParams();
   const [cellHeight, setCellHeight] = useState(110);
 
@@ -227,7 +224,7 @@ export function CaptureCard({ img, camera, event = "sunset", selected = false, o
           {img.Time} &middot; Score: {(excluded ? 0 : img["HSV Score"] ?? img.Score).toFixed(1)}%
           {img.Weather?.temperature_2m != null && <> &middot; {Math.round(img.Weather.temperature_2m)}°F</>}
         </span>
-        {excluded && <span className="bubble destructive">Doesn't count: {excluded}</span>}
+        <FlagPill reason={excluded} />
         <AiVerdict ai={img.AI} compact />
         {!generated && <Thumbs camera={camera} img={img} onChange={(s) => setThumb(s.thumb)} />}
       </div>
@@ -307,6 +304,7 @@ function WeekView({ date, goTo, allData }) {
                         />
                       </Tip>
                       <div className="week-thumb-score">{`${img.Score.toFixed(0)}%`}</div>
+                      <FlagPill reason={img.Excluded} className="on-photo" />
                     </div>
                   </td>
                 );
@@ -362,10 +360,10 @@ function YearMonthRow({ year, month, name, byDate, allData, onLoadToHsv, permali
           {days.map(({ iso, entry }) => (
             <div
               key={iso}
-              className={`year-mini-cell has-image${iso === openDate ? " selected" : ""}`}
+              className={`year-mini-cell has-image${entry.Excluded ? " flagged" : ""}${iso === openDate ? " selected" : ""}`}
               onClick={() => setOpenDate(iso === openDate ? null : iso)}
             >
-              <Tip label={`${iso} · ${entry.Score.toFixed(0)}%`}>
+              <Tip label={`${iso} · ${entry.Score.toFixed(0)}%${entry.Excluded ? ` · doesn't count: ${entry.Excluded}` : ""}`}>
                 <Img src={entry.Image} alt={iso} loading="lazy" {...SIZES.photo} />
               </Tip>
             </div>
@@ -460,6 +458,7 @@ function MonthView({ date, goTo, byDate, allData, onLoadToHsv, permalinkFor, cel
                     <Img src={entry.Image} alt={iso} loading="lazy" />
                     <div className="day-time">{entry.Time}</div>
                     <div className="day-score">{`${entry.Score.toFixed(0)}%`}</div>
+                    <FlagPill reason={entry.Excluded} className="on-photo" />
                   </>
                 )}
               </div>
