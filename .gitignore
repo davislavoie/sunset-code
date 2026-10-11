@@ -4,3 +4,4 @@ __pycache__/
 docker-compose.override.yml
 node_modules/
 html_project/frontend/dist/
+analysis_export/
