@@ -54,7 +54,11 @@ function normalizeLabel(label) {
 }
 
 export default function Calendar({ data, camera, onLoadToHsv }) {
-  const { sunset_data: sunsetData, all_data: allData, ranked_images: rankedImages } = data;
+  // Shots that don't count (thumbs down, bad view, dark) only show in Admin → Archive.
+  const counts = (img) => !img.Excluded;
+  const { ranked_images: rankedImages } = data;
+  const allData = useMemo(() => data.all_data.filter(counts), [data]);
+  const sunsetData = useMemo(() => data.sunset_data.filter(counts), [data]);
   const [params, setParams] = useSearchParams();
   const [cellHeight, setCellHeight] = useState(110);
 
