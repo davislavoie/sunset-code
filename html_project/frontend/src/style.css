@@ -617,8 +617,8 @@ main#content {
 }
 .detail-strip-title { font-size: 13px; font-weight: 600; color: var(--text); margin: 4px 0 8px; }
 
-.detail-main-img { display: flex; justify-content: center; margin: 12px 0; }
-.detail-main-img img { max-width: 700px; width: 100%; border-radius: 6px; }
+.detail-main-img { position: relative; max-width: 760px; margin: 12px auto; }
+.detail-main-img img { display: block; width: 100%; border-radius: 6px; }
 
 .thumb-strip { display: grid; gap: 8px; }
 .thumb-strip .thumb {
@@ -676,14 +676,18 @@ button {
   box-shadow: var(--shadow-card);
 }
 .ranking-title { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 14px; margin-bottom: 12px; }
-.ranking-title h2 { margin: 0; font-size: 1.35em; color: var(--text); }
+.ranking-title h2 { margin: 0; font-size: 1.2em; color: var(--text); }
+.ranking-score { padding-right: 18px; margin-right: 4px; border-right: 1px solid var(--border); }
+.ranking-score-value { font-size: 2.2em; font-weight: 700; line-height: 1.05; color: var(--text); font-variant-numeric: tabular-nums; }
+.ranking-when { display: flex; flex-direction: column; gap: 2px; }
+.rank-media-empty { color: var(--text-muted); font-size: 0.85em; }
 .ranking-title span { color: var(--text-muted); font-weight: 500; }
 .ranking-row {
   display: grid;
   grid-template-columns: 2fr 2fr 2fr 1.6fr 1.5fr;
   gap: 16px;
-  /* Bottoms line up: photo, overlay and the chart's x-axis title share one baseline. */
-  align-items: end;
+  /* Titles share the top line; photo, overlay and the chart's x-axis share the bottom one. */
+  align-items: stretch;
 }
 .ranking-row img { display: block; width: 100%; border-radius: 6px; }
 
@@ -2506,17 +2510,21 @@ main#content.is-stale { opacity: 0.5; pointer-events: none; }
 .scatter-tip-title { font-weight: 600; margin-bottom: 2px; }
 
 /* Ranked row: clouds under the score, weather + actions in the info column. */
-.score-cell .cloud-profile { width: 100%; max-width: 300px; }
+.ranking-row .cloud-profile { width: 100%; max-width: 320px; }
 .ranking-row .cp-sun { display: none; }
 .ranking-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
 @media (min-width: 901px) {
   .ranking-row .hsv-hist-plot { height: auto; aspect-ratio: 16 / 9; min-height: 0; overflow: hidden; }
+  .ranking-row .ranked-img-cell, .ranking-row .hsv-hist-plot { margin-top: auto; }
+}
+@media (max-width: 768px) {
+  .ranking-score { border-right: none; padding-right: 0; flex-basis: 100%; }
+  .rank-media .hsv-hist-legend:empty { display: none; }
 }
 .ranking-actions .btn { text-decoration: none; color: var(--text); display: inline-flex; align-items: center; gap: 6px; }
 .ranking-row .weather-stats { grid-template-columns: repeat(2, 1fr); }
 /* Narrow screens: images on one line, score/clouds and the facts on a second. */
 @media (max-width: 900px) {
-  .ranking-row .score-cell .cloud-profile { flex: 1; min-width: 0; }
   .ranking-row .info-cell { grid-column: span 2; }
   .ranking-row .weather-stats { grid-template-columns: repeat(3, 1fr); }
 }
@@ -2537,7 +2545,7 @@ main#content.is-stale { opacity: 0.5; pointer-events: none; }
 .score-overlay-skeleton { position: absolute; inset: 0; }
 .score-overlay.empty { display: grid; place-items: center; color: var(--text-muted); font-size: 0.85em; }
 .rank-media { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.rank-media-sub { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ranking-row .cloud-profile, .ranking-row .weather-stats { margin-top: 4px; }
 .rank-media .hsv-hist-legend span { font-variant-numeric: tabular-nums; }
 @media (hover: hover) and (pointer: fine) {
   .score-overlay:hover .fullscreen-toggle-btn { opacity: 1; }

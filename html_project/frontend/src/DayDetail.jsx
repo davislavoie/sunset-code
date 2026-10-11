@@ -6,6 +6,7 @@ import { Link } from "react-router";
 import { ArrowRight, ChevronLeft, ChevronRight, X } from "lucide-react";
 import Img, { sizeForLabel } from "./Img.jsx";
 import { Zoomable } from "./lightbox.jsx";
+import Tip from "./Tip.jsx";
 
 const isSpecial = (img) => /ranked|histogram/i.test(img.Label);
 
@@ -41,15 +42,9 @@ export default function DayDetail({ date, allData, onClose, onLoadToHsv, permali
       <div className="detail-header">
         <div className="detail-title">
           <h3>{captureName(current.Label, event)}</h3>
-          <span>{`${current.Time} · Score ${current.Score.toFixed(1)}% · ${i + 1} of ${images.length}`}</span>
+          <span>{`${current.Time} · Score ${current.Score.toFixed(1)}%`}</span>
         </div>
         <div className="detail-header-actions">
-          <button className="icon-btn" aria-label="Previous capture" onClick={() => step(-1)}>
-            <ChevronLeft size={18} />
-          </button>
-          <button className="icon-btn" aria-label="Next capture" onClick={() => step(1)}>
-            <ChevronRight size={18} />
-          </button>
           {permalink && (
             <Link className="btn" to={permalink}>
               Open day <ArrowRight size={16} />
@@ -75,6 +70,17 @@ export default function DayDetail({ date, allData, onClose, onLoadToHsv, permali
           fetchPriority="high"
           {...sizeForLabel(current.Label)}
         />
+        <Tip label="Previous capture">
+          <button className="icon-btn hero-nav prev" aria-label="Previous capture" onClick={() => step(-1)}>
+            <ChevronLeft size={20} />
+          </button>
+        </Tip>
+        <Tip label="Next capture">
+          <button className="icon-btn hero-nav next" aria-label="Next capture" onClick={() => step(1)}>
+            <ChevronRight size={20} />
+          </button>
+        </Tip>
+        <div className="hero-count">{`${i + 1} / ${images.length}`}</div>
       </div>
 
       <div className="detail-strip-title">All captures from {date}</div>

@@ -86,8 +86,14 @@ function RankingRow({ row, event, allData, onLoadToHsv }) {
     <>
       <div className="ranking-card">
         <div className="ranking-title">
-          <h2>{longDate(row.Date)}</h2>
-          <span>{[row.Time, captureName(rawUrl, event)].filter(Boolean).join(" · ")}</span>
+          <div className="ranking-score">
+            <div className="metric-label">Score</div>
+            <div className="ranking-score-value">{row.Score.toFixed(1)}%</div>
+          </div>
+          <div className="ranking-when">
+            <h2>{longDate(row.Date)}</h2>
+            <span>{[row.Time, captureName(rawUrl, event)].filter(Boolean).join(" · ")}</span>
+          </div>
           <div className="ranking-actions">
             <button className="btn" aria-expanded={showDay} onClick={() => setShowDay(!showDay)}>
               {showDay ? "Hide captures" : "Expand all captures"}
@@ -99,16 +105,15 @@ function RankingRow({ row, event, allData, onLoadToHsv }) {
           </div>
         </div>
         <div className="ranking-row">
-          <ImageCell url={rawUrl} size={SIZES.photo} title="Original photo"
-            sub={row.AI?.score != null ? `AI ${Math.round(row.AI.score)}${row.AI.reason ? ` · ${row.AI.reason}` : ""}` : "Best shot of the day"} />
+          <ImageCell url={rawUrl} size={SIZES.photo} title="Original photo" />
           <ScoreOverlay imageUrl={rawUrl} />
           <HsvHistogram imageUrl={rawUrl} />
-          <div className="score-cell">
-            <div className="metric-label">Score</div>
-            <div className="metric-value">{row.Score.toFixed(2)}%</div>
-            {row.Weather && <CloudProfile w={row.Weather} />}
+          <div className="rank-media">
+            <div className="hsv-hist-title">Clouds toward the sun</div>
+            {row.Weather ? <CloudProfile w={row.Weather} /> : <div className="rank-media-empty">No weather saved</div>}
           </div>
-          <div className="info-cell">
+          <div className="rank-media info-cell">
+            <div className="hsv-hist-title">Weather</div>
             <WeatherStats w={row.Weather} />
           </div>
         </div>
@@ -120,7 +125,7 @@ function RankingRow({ row, event, allData, onLoadToHsv }) {
   );
 }
 
-function ImageCell({ url, size, title, sub }) {
+function ImageCell({ url, size, title }) {
   const lightbox = useLightbox();
   if (!url) return <div />;
   const isOpen = lightbox.src === url;
@@ -128,7 +133,7 @@ function ImageCell({ url, size, title, sub }) {
   return (
     <div className="rank-media">
       <div className="hsv-hist-title">{title}</div>
-      <div className="hsv-hist-legend rank-media-sub">{sub}</div>
+      <div className="hsv-hist-legend" />
       <div className="ranked-img-cell">
         <Img src={url} alt="" loading="lazy" {...size} />
         <Tip label={isOpen ? "Close fullscreen" : "View fullscreen"}>
