@@ -147,6 +147,17 @@ class RerankTests(unittest.TestCase):
         rerank.gate_days(FakeClient([WALL, SKY_A, SKY_B, *RANKED_WALL]), "cam", factory)
         self.assertEqual(len(made), 1)  # the pipeline's pick was thumbed down
 
+    def test_cleanup_lists_entries_whose_photo_is_gone_and_refuses_when_most_are(self):
+        for p in (SKY_A, SKY_B):
+            open(store.local_path(p), "w").close()
+        many = [dict(SKY_A, label=f"{i:02}_x.jpg") for i in range(10)]
+        for p in many:
+            open(store.local_path(p), "w").close()
+        days = store.missing_files(FakeClient([WALL, SKY_A, SKY_B, *many]), "cam")
+        self.assertEqual({d: [p["label"] for p in v] for d, v in days.items()}, {date(2025, 5, 16): [WALL["label"]]})
+        with self.assertRaises(SystemExit):  # photos folder not mounted: everything looks missing
+            store.missing_files(FakeClient([WALL, SKY_A, SKY_B]), "cam", max_share=0.2)
+
     def test_date_range_filters_by_local_day(self):
         next_day = capture("07_sunset_05-17-2025.jpg", "2025-05-18T00:18:00Z", 30.0)
         client = FakeClient([WALL, next_day])

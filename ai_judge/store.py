@@ -148,5 +148,24 @@ def field_point(point, fields):
     }
 
 
+def delete_point(client, point):
+    client.query(
+        f"DELETE FROM {MEASUREMENT} WHERE camera = $camera AND label = $label AND time = '{point['time']}'",
+        bind_params={"camera": point["camera"], "label": point["label"]},
+    )
+
+
+def missing_files(client, camera, max_share=0.2):
+    """Points whose photo is gone from PICTURES_DIR (e.g. deleted by hand), grouped by local date.
+    Refuses if more than max_share of the camera's photos look missing: that means the folder
+    isn't mounted / PICTURES_DIR is wrong, not that you deleted them."""
+    pts = points(client, camera)
+    gone = [p for p in pts if not os.path.exists(local_path(p))]
+    if pts and len(gone) > max_share * len(pts):
+        raise SystemExit(f"{camera}: {len(gone)} of {len(pts)} photos missing from "
+                         f"{os.environ.get('PICTURES_DIR')}; is the photos folder mounted? Not touching anything.")
+    return by_day(gone)
+
+
 def epoch_seconds(point):
     return int(parse_time(point).timestamp())

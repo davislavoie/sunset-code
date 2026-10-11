@@ -6,6 +6,7 @@ pipeline's own fields or code.
   python -m ai_judge watch      # keep new captures filled in; re-pick days whose best shot changed
   python -m ai_judge weather  --camera all [--since ...] [--before ...] [--refill]
   python -m ai_judge views    --camera all   # fingerprint captures for "all shots like this"
+  python -m ai_judge cleanup  --camera all [--delete]   # list (or remove) entries whose photo you deleted
   python -m ai_judge backfill --camera btv_echo_cam [--since 2025-07-01] [--before 2025-08-01] [--best-only] [--limit N] [--rejudge]
   python -m ai_judge rerank   --camera btv_echo_cam [--since ...] [--before ...] [--rescore] [--hsv-only] [--fill-missing] [--dry-run]
   python -m ai_judge bakeoff  --camera btv_echo_cam --models qwen3-vl:4b,gemma3:4b [--sample 12] [--dates 2025-05-26,...]
@@ -124,6 +125,23 @@ def weather_cmd(args):
         weather.fill(client, camera, since=args.since, before=args.before, refill=args.refill)
 
 
+def cleanup_cmd(args):
+    """Photos deleted by hand leave their InfluxDB entries behind (broken images in the
+    dashboard, junk rows for training). Lists them per day; --delete removes the entries."""
+    client = influx()
+    for camera in camera_list(client, args.camera):
+        days = store.missing_files(client, camera)
+        for day, gone in sorted(days.items()):
+            log.info("%s %s: %d entries with no photo (%s)", camera, day, len(gone),
+                     ", ".join(sorted(p["label"][:12] for p in gone)))
+            if args.delete:
+                for p in gone:
+                    store.delete_point(client, p)
+        total = sum(map(len, days.values()))
+        log.info("%s: %d entries on %d days %s", camera, total, len(days),
+                 "deleted" if args.delete else "would be deleted (dry run; add --delete)")
+
+
 def views_cmd(args):
     client = influx()
     for camera in camera_list(client, args.camera):
@@ -231,8 +249,12 @@ def main():
     w.add_argument("--refill", action="store_true", help="fetch again even for captures that have weather")
     v = sub.add_parser("views", help="fingerprint captures and apply 'all shots like this' thumbs downs")
     v.add_argument("--camera", required=True, help="camera tag, or 'all'")
+    x = sub.add_parser("cleanup", help="list (or --delete) entries whose photo file is gone")
+    x.add_argument("--camera", required=True, help="camera tag, or 'all'")
+    x.add_argument("--delete", action="store_true", help="actually remove them (default: just list)")
     args = parser.parse_args()
-    commands = {"backfill": backfill, "rerank": rerank_cmd, "bakeoff": bakeoff, "weather": weather_cmd, "views": views_cmd}
+    commands = {"backfill": backfill, "rerank": rerank_cmd, "bakeoff": bakeoff, "weather": weather_cmd,
+                "views": views_cmd, "cleanup": cleanup_cmd}
     commands.get(args.command, watch)(args)
 
 

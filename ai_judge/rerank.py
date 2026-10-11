@@ -89,10 +89,7 @@ def rerank_day(client, camera, day_points, pipeline, rescore=False, use_rules=Tr
 def remove_ranked(client, camera, ranked):
     """Delete a day's 11_/12_ points (and their files) so the day isn't ranked."""
     for p in ranked:
-        client.query(
-            f"DELETE FROM {store.MEASUREMENT} WHERE camera = $camera AND label = $label AND time = '{p['time']}'",
-            bind_params={"camera": camera, "label": p["label"]},
-        )
+        store.delete_point(client, p)
         try:
             os.remove(store.local_path(p))
         except (OSError, ValueError):
