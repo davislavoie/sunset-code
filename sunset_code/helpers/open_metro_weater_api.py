@@ -120,17 +120,21 @@ def weather_fetch(latitude=None, longitude=None, date=None, time_epoch=None):
 # clear). Stored as path50_/path150_/path300_ + cloud_cover_low/mid/high.
 
 PATH_KM = [50, 150, 300]
+# The bearing is rounded to this many degrees (26 km sideways at 300 km), so days share
+# locations and a backfill needs far fewer Open-Meteo calls.
+BEARING_STEP = 5
 PATH_LAYERS = ["cloud_cover_low", "cloud_cover_mid", "cloud_cover_high"]
 
 
 def sun_bearing(day, latitude, longitude, mode="sunset"):
-	"""Compass bearing (whole degrees) of the sun at that local day's sunset or sunrise."""
+	"""Compass bearing (to BEARING_STEP degrees) of the sun at that local day's sunset or sunrise."""
 	from astral import Observer
 	from astral.sun import azimuth, sunrise, sunset
 	observer = Observer(latitude=latitude, longitude=longitude)
 	# Local time zone: in UTC an evening sunset is on the next date, and some UTC dates have none.
 	tz = ZoneInfo(TimezoneFinder().timezone_at(lat=latitude, lng=longitude))
-	return round(azimuth(observer, (sunrise if mode == "sunrise" else sunset)(observer, date=day, tzinfo=tz)))
+	bearing = azimuth(observer, (sunrise if mode == "sunrise" else sunset)(observer, date=day, tzinfo=tz))
+	return round(bearing / BEARING_STEP) * BEARING_STEP
 
 
 def path_points(latitude, longitude, bearing):

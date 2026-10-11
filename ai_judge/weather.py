@@ -63,7 +63,9 @@ def fill(client, camera, since=None, before=None, refill=False):
 
 def fill_path(client, camera, since=None, before=None, refill=False):
     """Clouds along the sunset (sunrise) direction, with the pipeline's own functions so history
-    matches what captures get live. One request per sun bearing (whole degrees)."""
+    matches what captures get live. One request per run of days sharing a sun bearing, covering
+    just those days: Open-Meteo counts a long date range as many calls. If it rate-limits us,
+    what's fetched so far is saved and a re-run picks up the rest."""
     from sunset_code.helpers.open_metro_weater_api import path_hourly, sun_bearing
 
     todo = [p for p in store.captures(client, camera, since=since, before=before)
@@ -72,18 +74,30 @@ def fill_path(client, camera, since=None, before=None, refill=False):
         return 0
     config = camera_config(camera)
     lat, lon, mode = float(config["LAT"]), float(config["LON"]), config.get("MODE", "sunset")
-    bearings = {}
-    for day in {store.local_date(p) for p in todo}:
-        bearings.setdefault(sun_bearing(day, lat, lon, mode), set()).add(day)
-    writes = []
-    for bearing, days in sorted(bearings.items()):
-        hours = path_hourly(lat, lon, bearing, str(min(days) - timedelta(days=1)), str(max(days) + timedelta(days=1)))
-        writes += [store.field_point(p, f) for p in todo if store.local_date(p) in days
-                   and (f := hours.get(round(store.epoch_seconds(p) / 3600) * 3600))]
-    if writes:
-        client.write_points(writes, batch_size=1000)
-    log.info("%s: clouds toward the %s added to %d of %d captures", camera, mode, len(writes), len(todo))
-    return len(writes)
+    runs = []  # [bearing, [days]]: consecutive days (in date order) with the same bearing
+    for day in sorted({store.local_date(p) for p in todo}):
+        bearing = sun_bearing(day, lat, lon, mode)
+        if runs and runs[-1][0] == bearing:
+            runs[-1][1].append(day)
+        else:
+            runs.append([bearing, [day]])
+    done = 0
+    for bearing, days in runs:
+        try:
+            hours = path_hourly(lat, lon, bearing, str(days[0] - timedelta(days=1)), str(days[-1] + timedelta(days=1)))
+        except requests.HTTPError as e:
+            if e.response is not None and e.response.status_code == 429:
+                log.warning("%s: Open-Meteo rate limit reached after %d captures; re-run later to fill the rest",
+                            camera, done)
+                break
+            raise
+        writes = [store.field_point(p, f) for p in todo if store.local_date(p) in set(days)
+                  and (f := hours.get(round(store.epoch_seconds(p) / 3600) * 3600))]
+        if writes:
+            client.write_points(writes, batch_size=1000)
+            done += len(writes)
+    log.info("%s: clouds toward the %s added to %d of %d captures (%d requests)", camera, mode, done, len(todo), len(runs))
+    return done
 
 
 def fill_overhead(client, camera, since=None, before=None, refill=False):
