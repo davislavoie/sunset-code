@@ -28,7 +28,7 @@ export default function SunsetHero({ shots, index, onSelect, best, camera, date 
 
   return (
     <div className="sunset-hero">
-      <div className="sunset-hero-photo">
+      <div className={`sunset-hero-photo${generated ? " generated" : ""}`}>
         <Zoomable
           className="sunset-hero-img"
           src={shot.Image}
