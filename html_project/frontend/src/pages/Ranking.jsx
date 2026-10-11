@@ -8,6 +8,7 @@ import Img, { SIZES } from "../Img.jsx";
 import Reveal from "../Reveal.jsx";
 import { useLightbox } from "../lightbox.jsx";
 import Select from "../Select.jsx";
+import Weather from "../Weather.jsx";
 
 const PAGE_SIZE = 20;
 
@@ -89,6 +90,7 @@ function RankingRow({ row, allData, onLoadToHsv }) {
           <div><strong>Date:</strong> {row.Date || "N/A"}</div>
           <div><strong>Time:</strong> {row.Time || "N/A"}</div>
           <div><strong>Label:</strong> {rawUrl ? rawUrl.split("/").pop().split(".")[0] : "No raw image"}</div>
+          <Weather w={row.Weather} compact />
           <button className="btn show-in-calendar-btn" onClick={() => setShowDay(!showDay)}>
             {showDay ? "Hide" : "Show in Calendar"}
           </button>
