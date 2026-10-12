@@ -302,6 +302,31 @@ are in `aloft.md`.
 - Recommendation: if the live forecast grows past the 3-feature line, add along_700/along_500 at h1/h2.
   They are cheap, since they come from the same Open-Meteo call.
 
+## Horizon light gap from the photos, no AI (follow-up)
+
+`horizon_gap.py` runs plain image analysis on every 1h-pre and 30m-pre sunset thumb (about 1,100
+photos in 4 s). For each photo:
+- **Horizon**: the topmost row with a strong edge running across the whole frame, with darker or busier
+  ground below it. This copes with btv's changing presets.
+- **Sky profile**: for each row above the horizon, brightness and texture (share of pixels with real
+  local gradient). Colour did not separate cloud from hazy clear sky on these webcams.
+- **Gap**: a band just above the horizon that is much smoother than a structured cloud deck above it,
+  or clearly brighter than a flat grey deck. The sun and its glare are masked out first.
+
+Sample overlays are in `horizon_gap_examples.jpg`; tables are in `horizon_gap.md`.
+
+- By eye on 20 samples, about 6–7 of the 10 flagged gaps are real. The misses come from a wrong
+  horizon (Bolton's tower preset, or a cloud edge taken as the horizon). It also misses some textbook
+  gaps (for example 2025-08-13: a warm strip under flat overcast). It flags rarely: 21 of 511 days
+  (btv 5 %, wcax 8.5 %, Bolton 1 %).
+- Outcome: gap days have median 64th pct, top-25 33 %, top-10 19 % (n=21). Cloud without a gap: 50th,
+  24 %, 11 % (n=373). "Clear" (smooth sky): 52nd, 30 %, 10 % (n=117).
+- Leave-one-month-out it adds nothing to the weather features (AUC 0.716 → 0.708 ridge, 0.724 → 0.730
+  gbm). On its own it is at chance.
+- Verdict: the 320 px thumbs, auto exposure, glare and PTZ presets make a pixel-rule gap detector too
+  noisy to help. The AI's horizon_clear (above) and Open-Meteo's far-path low cloud carry the same idea
+  better.
+
 ## Caveats
 
 - `ai_view` (dark / no-signal) isn't in the export, so those captures weren't excluded. They can
@@ -319,6 +344,7 @@ are in `aloft.md`.
 - `horizons.py`: the per-shot forecast fit and backtest (writes `ai_judge/predict_coefs.json`).
 - `backtest.py`: the weather-only backtest.
 - `vision.py`, `vision_eval.py`, `vision_compare.py`: the Ollama vision-model test and its comparison with Open-Meteo.
+- `horizon_gap.py`: image-based horizon light gap (`horizon_gap.md`, `horizon_gap_examples.jpg`).
 - `aloft.py`: upper-level wind along the sun line (`aloft.md`).
 - `reflection.py`: btv glass-lake detector vs wind (`analysis_export/reflection.parquet`).
 - Charts: `heatmap_sunset.png`, `heatmap_sunrise.png`, `heatmap_<camera>.png`, `effects.png`,
