@@ -327,6 +327,33 @@ Sample overlays are in `horizon_gap_examples.jpg`; tables are in `horizon_gap.md
   noisy to help. The AI's horizon_clear (above) and Open-Meteo's far-path low cloud carry the same idea
   better.
 
+## Cloud models compared (follow-up)
+
+`models.py` pulls Open-Meteo's historical-forecast cloud cover (total, low/mid/high and
+850/700/500 hPa) from five models, 1 h before sunset. Points: over each camera, and 13/40/80/150 km
+out on the bearing (240–300°) nearest the sun. The features are near (13–40 km) and far (80–150 km)
+cloud for each layer, plus overhead. AUC is leave-one-month-out ridge for a top-25 % day (517
+camera-days). Tables are in `models.md`.
+
+| model | AI photo cover vs total overhead (rho) | AUC low/mid/high | + pressure levels |
+|:--|--:|--:|--:|
+| best_match (= HRRR here) | 0.76 | 0.701 | 0.712 |
+| ECMWF IFS 0.25° | 0.70 | 0.728 | 0.728 |
+| GEM HRDPS | 0.69 | 0.728 | 0.730 |
+| ICON seamless | 0.71 | **0.755** | **0.766** |
+
+- HRRR (which Open-Meteo's best_match picks over Vermont, and what the live weather fetch uses)
+  agrees best with what the camera sees overhead. It is the *worst* of the five at predicting the
+  sunset from the path cloud.
+- ICON is clearly best. Its 10 path features alone (0.755; 0.766 with pressure levels) beat the
+  full HRRR blanket-plus-met feature set (about 0.71–0.72). Two models together add little beyond
+  ICON alone (best pair GEM + ICON: 0.761).
+- The pressure-level cloud cover (850/700/500 hPa) adds about +0.01.
+- Recommendation: fetch the path cloud with `models=icon_seamless` (same API, same call cost),
+  alongside or instead of best_match. This is the cheapest real gain found so far.
+- Other free sources worth a look: GOES-East observed cloud (item 6, below), KBTV METAR ceilings, and
+  more Open-Meteo models (UKMO, ARPEGE, ensemble spread).
+
 ## Caveats
 
 - `ai_view` (dark / no-signal) isn't in the export, so those captures weren't excluded. They can
@@ -345,6 +372,7 @@ Sample overlays are in `horizon_gap_examples.jpg`; tables are in `horizon_gap.md
 - `backtest.py`: the weather-only backtest.
 - `vision.py`, `vision_eval.py`, `vision_compare.py`: the Ollama vision-model test and its comparison with Open-Meteo.
 - `horizon_gap.py`: image-based horizon light gap (`horizon_gap.md`, `horizon_gap_examples.jpg`).
+- `models.py`: cloud models compared (`models.md`).
 - `aloft.py`: upper-level wind along the sun line (`aloft.md`).
 - `reflection.py`: btv glass-lake detector vs wind (`analysis_export/reflection.parquet`).
 - Charts: `heatmap_sunset.png`, `heatmap_sunrise.png`, `heatmap_<camera>.png`, `effects.png`,
