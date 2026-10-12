@@ -1,4 +1,5 @@
-"""Observed cloud toward the sun from the GOES-East satellite, written onto pre-sunset captures.
+"""Observed cloud toward the sun from the GOES-East satellite, written onto every capture
+(the forecast reads it on the pre shots; the dashboard shows it on all of them).
 
 NOAA's public bucket noaa-goes19 (anonymous HTTPS), product ABI-L2-ACMC: the CONUS clear-sky mask,
 2 km, a scan every 5 min, files ~4 min after the scan. The netCDF files are HDF5, so h5py reads them
@@ -160,14 +161,13 @@ def observe(when, lat0, lon0, azimuth, session=requests):
 
 
 def fill(client, camera, recent="2d", since=None, before=None):
-    """Add GOES fields to pre-sunset (pre-sunrise) shots lacking them. Returns how many got them."""
+    """Add GOES fields to captures lacking them. Returns how many got them."""
     from sunset_code.helpers.open_metro_weater_api import sun_bearing
 
-    from .predict import label_of
     from .weather import camera_config
 
     todo = [p for p in store.captures(client, camera, recent=None if since or before else recent, since=since, before=before)
-            if label_of(p) and p.get("goes_fan") is None]
+            if p.get("goes_fan") is None]
     if not todo:
         return 0
     config = camera_config(camera)
@@ -185,9 +185,9 @@ def fill(client, camera, recent="2d", since=None, before=None):
         if len(writes) >= 50:  # save as we go: a backfill of history takes hours
             client.write_points(writes)
             done, writes = done + len(writes), []
-            log.info("%s: GOES %d of %d pre shots", camera, i, len(todo))
+            log.info("%s: GOES %d of %d captures", camera, i, len(todo))
     if writes:
         client.write_points(writes)
         done += len(writes)
-    log.info("%s: GOES cloud added to %d of %d pre shots", camera, done, len(todo))
+    log.info("%s: GOES cloud added to %d of %d captures", camera, done, len(todo))
     return done

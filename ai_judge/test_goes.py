@@ -88,7 +88,7 @@ def fake_pipeline():
 
 
 class Fill(unittest.TestCase):
-    def test_writes_goes_fields_on_pre_shots_only_and_skips_failures(self):
+    def test_writes_goes_fields_on_captures_lacking_them_and_skips_failures(self):
         points = [{"time": "2026-09-01T22:00:00Z", "camera": "btv_echo_cam", "label": "02_1h_pre"},
                   {"time": "2026-09-01T22:30:00Z", "camera": "btv_echo_cam", "label": "04_30m_pre"},
                   {"time": "2026-09-01T23:30:00Z", "camera": "btv_echo_cam", "label": "07_sunset"},
@@ -97,10 +97,11 @@ class Fill(unittest.TestCase):
         client = mock.Mock()
         with fake_pipeline(), mock.patch.object(goes.store, "captures", return_value=points), \
                 mock.patch.object(weather, "camera_config", return_value={"LAT": "44.47", "LON": "-73.22"}), \
-                mock.patch.object(goes, "observe", side_effect=[reading, TimeoutError("S3 slow")]):
-            self.assertEqual(goes.fill(client, "btv_echo_cam"), 1)
+                mock.patch.object(goes, "observe", side_effect=[reading, TimeoutError("S3 slow"), reading]) as observe:
+            self.assertEqual(goes.fill(client, "btv_echo_cam"), 2)
+        self.assertEqual(observe.call_count, 3)  # the shot that already had GOES is skipped
         (written,), _ = client.write_points.call_args
-        self.assertEqual(written[0]["tags"]["label"], "02_1h_pre")
+        self.assertEqual([w["tags"]["label"] for w in written], ["02_1h_pre", "07_sunset"])
         self.assertEqual(written[0]["fields"], {"goes_over": 1.0, "goes_near": 0.5, "goes_fan": 0.4})
 
 

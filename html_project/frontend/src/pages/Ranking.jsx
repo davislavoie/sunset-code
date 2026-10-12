@@ -11,7 +11,7 @@ import Img, { SIZES } from "../Img.jsx";
 import Reveal from "../Reveal.jsx";
 import ScoreOverlay from "../ScoreOverlay.jsx";
 import Tip from "../Tip.jsx";
-import { CloudProfile, WeatherStats } from "../Weather.jsx";
+import { CloudProfile, WeatherStats, cloudSource } from "../Weather.jsx";
 import { useLightbox } from "../lightbox.jsx";
 import { GlassPill } from "../Thumbs.jsx";
 import Select from "../Select.jsx";
@@ -114,7 +114,7 @@ function RankingRow({ row, event, allData, onLoadToHsv }) {
           <ScoreOverlay imageUrl={rawUrl} />
           <HsvHistogram imageUrl={rawUrl} />
           <div className="rank-media">
-            <div className="hsv-hist-title">Clouds toward the sun</div>
+            <div className="hsv-hist-title">Clouds toward the sun{row.Weather && <span className="cp-source"> · {cloudSource(row.Weather)}</span>}</div>
             {row.Weather ? <CloudProfile w={row.Weather} fill /> : <div className="rank-media-empty">No weather saved</div>}
           </div>
           <div className="rank-media info-cell">

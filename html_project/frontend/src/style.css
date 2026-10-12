@@ -2351,6 +2351,8 @@ main#content.is-stale { opacity: 0.5; pointer-events: none; }
 .cp-value { font-size: 13px; font-weight: 600; fill: var(--text); }
 .cp-value.on-fill { fill: var(--ink-contrast); }
 .cp-axis { font-size: 12px; fill: var(--text-muted); }
+.cp-value.cp-big { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.cp-source { font-weight: 400; color: var(--text-muted); text-transform: none; letter-spacing: 0; }
 .cp-horizon { stroke: var(--border); stroke-width: 1; }
 .cp-sun { fill: var(--sun); }
 .cp-cell { animation: cp-in 200ms var(--ease-out) both; }

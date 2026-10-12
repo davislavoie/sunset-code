@@ -5,7 +5,7 @@ pipeline's own fields or code.
 
   python -m ai_judge watch      # keep new captures filled in; re-pick days whose best shot changed
   python -m ai_judge weather  --camera all [--since ...] [--before ...] [--refill]
-  python -m ai_judge goes     --camera all [--since ...] [--before ...]   # GOES-East observed cloud on pre shots (history; watch does recent ones)
+  python -m ai_judge goes     --camera all [--since ...] [--before ...]   # GOES-East observed cloud on captures (history; watch does recent ones)
   python -m ai_judge predict  --camera all [--since ...] [--before ...] [--refill]   # sunset forecast on the pre shots
   python -m ai_judge views    --camera all   # fingerprint captures for "all shots like this"
   python -m ai_judge reflect  --camera all   # "Glass lake" badge: mirror score on btv_echo_cam captures
@@ -275,7 +275,7 @@ def main():
     f.add_argument("--refill", action="store_true", help="recompute even for captures that have a forecast")
     v = sub.add_parser("views", help="fingerprint captures and apply 'all shots like this' thumbs downs")
     v.add_argument("--camera", required=True, help="camera tag, or 'all'")
-    g = sub.add_parser("goes", help="add GOES-East observed cloud toward the sun to pre shots (about 1 s each)")
+    g = sub.add_parser("goes", help="add GOES-East observed cloud toward the sun to captures (about 1 s each)")
     g.add_argument("--camera", required=True, help="camera tag, or 'all'")
     add_date_range(g)
     m = sub.add_parser("reflect", help="add the glass-lake mirror score to btv_echo_cam captures that lack one")

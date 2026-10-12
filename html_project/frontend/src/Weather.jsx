@@ -1,5 +1,5 @@
-// Weather at the time of a capture (Open-Meteo, saved with the capture in InfluxDB).
-// Cloud layers matter most for sunsets: high/mid clouds catch the color, a low deck blocks it.
+// Weather at the time of a capture, saved with it in InfluxDB: observed cloud toward the sun from
+// the GOES-East satellite (ai_judge/goes.py), and Open-Meteo for the rest (temperature, humidity...).
 
 import { ParentSize } from "@visx/responsive";
 
@@ -9,7 +9,7 @@ export default function Weather({ w, fill = false }) {
   if (!w) return null;
   return (
     <div className="weather-card">
-      <div className="metric-label">Clouds toward the sun</div>
+      <div className="metric-label">Clouds toward the sun <span className="cp-source">· {cloudSource(w)}</span></div>
       <CloudProfile w={w} fill={fill} />
       <WeatherStats w={w} />
     </div>
@@ -62,19 +62,73 @@ const LAYERS = [
 const W = 336, GROUND = 116, LEFT = 40, COL = 62, GAP = 4, SUN_X = 322;
 const colX = (i) => LEFT + i * (COL + GAP);
 
-/** Cloud profile at its natural height, or (fill) stretched to its box's height. */
+/** Clouds toward the sun at its natural height, or (fill) stretched to its box's height. What the
+ * satellite saw when the capture has a reading; otherwise Open-Meteo's forecast by layer. */
 export function CloudProfile({ w, fill = false }) {
-  if (!fill) return <CloudProfileSvg w={w} ground={GROUND} />;
+  const Svg = w?.goes_fan != null ? SatelliteSvg : CloudProfileSvg;
+  if (!fill) return <Svg w={w} ground={GROUND} />;
   return (
     <div className="cloud-profile-fill">
       <ParentSize>
         {({ width, height }) => width > 0 && height > 0 && (
           // Same width scale as normal, so text keeps its size; only the rows get taller.
-          <CloudProfileSvg w={w} ground={Math.max(GROUND, (W * height) / width - 26)} />
+          <Svg w={w} ground={Math.max(GROUND, (W * height) / width - 26)} />
         )}
       </ParentSize>
     </div>
   );
+}
+
+// The satellite sees cloud or no cloud, not layers: one tall bar per zone, from the camera out
+// toward the sun. A far zone mostly cloudy is the bank that blocks the light, so it gets colour.
+const ZONES = [
+  { key: "goes_over", label: "Overhead" },
+  { key: "goes_near", label: "3–25 mi" },
+  { key: "goes_far", label: "50–190 mi" },
+];
+const ZONE_COL = (SUN_X - 16 - LEFT - GAP * (ZONES.length - 1)) / ZONES.length;
+
+function SatelliteSvg({ w, ground }) {
+  const top = 8, cellH = ground - top - 8;
+  const x = (i) => LEFT + i * (ZONE_COL + GAP);
+  const summary = ZONES.map((z) => `${z.label} ${pct(w[z.key] != null ? 100 * w[z.key] : null)}`).join(", ");
+  return (
+    <svg
+      className="cloud-profile"
+      viewBox={`0 0 ${W} ${ground + 26}`}
+      role="img"
+      aria-label={`Cloud seen by the GOES-East satellite toward the sun: ${summary}`}
+    >
+      <line className="cp-horizon" x1={LEFT} x2={W} y1={ground} y2={ground} />
+      <circle className="cp-sun" cx={SUN_X} cy={ground} r="7" />
+      {ZONES.map((z, i) => {
+        const v = w[z.key] != null ? 100 * w[z.key] : null;
+        const blocks = z.key === "goes_far" && v >= BLOCKING;
+        const h = v == null ? 0 : Math.max(4, (cellH * v) / 100);
+        return (
+          <g key={z.key} className="cp-cell">
+            <rect className="cp-cell-frame" x={x(i)} y={top} width={ZONE_COL} height={cellH} rx="6" />
+            {v != null && (
+              <rect className={`cp-fill${blocks ? " blocks" : ""}`} x={x(i)} y={top + cellH - h} rx="6"
+                width={ZONE_COL} height={h} opacity={blocks ? 0.25 : 0.18} />
+            )}
+            <text className="cp-value cp-big" x={x(i) + ZONE_COL / 2} y={top + cellH / 2 + 6} textAnchor="middle"
+              style={blocks ? { fill: "var(--destructive)" } : undefined}>
+              {pct(v)}
+            </text>
+            <text x={x(i) + ZONE_COL / 2} y={ground + 18} textAnchor="middle" className="cp-axis">{z.label}</text>
+          </g>
+        );
+      })}
+      <text x={LEFT - 8} y={top + cellH / 2 + 4} textAnchor="end" className="cp-axis">Cloud</text>
+      <text x={SUN_X} y={ground + 18} textAnchor="middle" className="cp-axis cp-sun">Sun</text>
+    </svg>
+  );
+}
+
+/** "Satellite" or "Forecast": where the cloud panel's numbers come from. */
+export function cloudSource(w) {
+  return w?.goes_fan != null ? "Satellite" : "Forecast";
 }
 
 function CloudProfileSvg({ w, ground }) {
