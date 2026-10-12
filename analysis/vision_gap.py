@@ -4,6 +4,7 @@ on the same photos. Uses the local 320 px 1h-pre thumbs (the image server is off
 appended to analysis_export/vision_gap_<model>.jsonl (resumable).
 
     python analysis/vision_gap.py qwen3-vl:4b          # run (about 10 s per photo on CPU)
+    python analysis/vision_gap.py qwen3-vl:4b --all    # all 160 days (reuses the 40 done)
     python analysis/vision_gap.py qwen3-vl:4b --eval   # compare -> vision_gap.md
 """
 
@@ -45,12 +46,14 @@ SCHEMA = {
 }
 
 
-def sample():
-    """15 top-25 % days, 15 bottom-25 %, 10 in between, from the first prompt's 160 days."""
+def sample(everything=False):
+    """15 top-25 % days, 15 bottom-25 %, 10 in between, from the first prompt's 160 days (or all 160)."""
     v = pd.DataFrame(map(json.loads, (data.EXPORT / "vision_qwen3-vl_4b.jsonl").read_text().splitlines()))
     v = v.drop_duplicates(["camera", "day"], keep="last").assign(day=lambda x: pd.to_datetime(x.day).dt.date)
     t = pd.read_parquet(data.EXPORT / "analysis_table.parquet")[["camera", "day", "y_pct_late"]]
     d = v.merge(t, on=["camera", "day"]).dropna(subset=["y_pct_late"])
+    if everything:
+        return d
     top, bottom = d[d.y_pct_late >= .75], d[d.y_pct_late < .25]
     mid = d[(d.y_pct_late >= .25) & (d.y_pct_late < .75)]
     return pd.concat([top.sample(15, random_state=0), bottom.sample(15, random_state=0), mid.sample(10, random_state=0)])
@@ -67,10 +70,10 @@ def ask(model, path):
     return json.loads(resp.json()["message"]["content"])
 
 
-def run(model):
+def run(model, everything=False):
     out = data.EXPORT / f"vision_gap_{model.replace(':', '_')}.jsonl"
     done = {(r["camera"], r["day"]) for r in map(json.loads, out.read_text().splitlines())} if out.exists() else set()
-    todo = [r for r in sample().itertuples() if (r.camera, str(r.day)) not in done]
+    todo = [r for r in sample(everything).itertuples() if (r.camera, str(r.day)) not in done]
     print(f"{len(todo)} photos to judge", flush=True)
     with out.open("a") as f:
         for i, r in enumerate(todo, 1):
@@ -82,8 +85,8 @@ def run(model):
 
 
 def evaluate(model):
-    s = sample()
     g = pd.DataFrame(map(json.loads, (data.EXPORT / f"vision_gap_{model.replace(':', '_')}.jsonl").read_text().splitlines()))
+    s = sample(everything=len(g) > 40)
     g = g.assign(day=lambda x: pd.to_datetime(x.day).dt.date).add_prefix("new_").rename(columns={"new_camera": "camera", "new_day": "day"})
     img = pd.read_parquet(data.EXPORT / "horizon_gap.parquet").query("tag == 'g1h'")[["camera", "day", "gap", "gap_thickness"]]
     d = s.merge(g, on=["camera", "day"]).merge(img.add_prefix("img_").rename(columns={"img_camera": "camera", "img_day": "day"}),
@@ -96,10 +99,13 @@ def evaluate(model):
             "new: overhead cloud + gap yes": outcome(d.new_clouds_overhead & (d.new_gap == "yes")),
             "new: underside lit likely": outcome(d.new_underside_lit == "likely"),
             "old: horizon_clear": outcome(d.horizon_clear), "old: not horizon_clear": outcome(~d.horizon_clear),
-            "image: gap": outcome(d.img_gap.fillna(False).astype(bool)), "all 40": outcome(pct.notna())}
+            "image: gap": outcome(d.img_gap.fillna(False).astype(bool)), f"all {len(d)}": outcome(pct.notna())}
+    for lo, hi in ((-1, 0), (0, 20), (20, 35), (35, 100)):
+        rows[f"new: gap_thickness {lo + 1}-{hi}"] = outcome((d.new_gap_thickness > lo) & (d.new_gap_thickness <= hi))
     out = [f"# Sharper horizon-gap prompt vs the first prompt vs horizon_gap.py ({len(d)} photos, 1h-pre)\n",
-           f"Sample: 15 top-25 %, 15 bottom-25 %, 10 middle days (late best score percentile). "
-           f"{d.new_sec.mean():.0f} s per photo.\n",
+           ("All 160 days the first prompt judged. " if len(d) > 40 else
+            "Sample: 15 top-25 %, 15 bottom-25 %, 10 middle days (late best score percentile). ")
+           + f"{d.new_sec.mean():.0f} s per photo (no-think; the first prompt took about 54 s).\n",
            "## Spearman with the outcome\n",
            pd.Series({"new predicted_quality": rho("new_predicted_quality"), "old predicted_quality": rho("predicted_quality"),
                       "new cloud_cover": rho("new_cloud_cover"), "old cloud_cover": rho("cloud_cover"),
@@ -113,11 +119,43 @@ def evaluate(model):
            "\n## Answers\n", d[["camera", "day", "y_pct_late", "new_gap", "new_gap_thickness", "new_cloud_base", "new_clouds_overhead",
                                "new_underside_lit", "new_predicted_quality", "predicted_quality", "horizon_clear", "img_gap", "new_reason"]]
            .sort_values("y_pct_late", ascending=False).round(2).to_markdown(index=False)]
+    out += ["\n## Added to the live forecast (1h-pre shot, icon+goes line, leave-one-month-out)\n",
+            forecast_gain(d).round(3).to_markdown(index=False)]
     text = "\n".join(out)
     (data.ROOT / "analysis" / "vision_gap.md").write_text(text, encoding="utf-8")
     print(text)
 
 
+def forecast_gain(d):
+    """Does either prompt's answer add to the live icon+goes forecast at the 1h-pre shot?"""
+    import horizons
+
+    t = horizons.build()
+    answers = d.assign(new_gap_yes=d.new_gap.eq("yes").astype(float), old_clear=d.horizon_clear.astype(float))
+    t = t[t.horizon == "02_1h_pre"].merge(answers[[
+        "camera", "day", "new_gap_thickness", "new_predicted_quality", "new_cloud_cover", "new_gap_yes",
+        "predicted_quality", "cloud_cover", "old_clear"]], on=["camera", "day"])
+    live = horizons.SETS["icon+goes"]
+    t = t.dropna(subset=live).reset_index(drop=True)
+    for c in ("new_gap_thickness", "new_predicted_quality", "new_cloud_cover", "predicted_quality", "cloud_cover"):
+        t[c] = t[c].astype(float) / 100
+    res = []
+    for name, extra in (("icon+goes (live)", []), ("+ new gap_thickness", ["new_gap_thickness"]),
+                        ("+ new quality, cover, gap_thickness", ["new_predicted_quality", "new_cloud_cover", "new_gap_thickness"]),
+                        ("+ old quality, cover, horizon_clear", ["predicted_quality", "cloud_cover", "old_clear"])):
+        g = t.copy()
+        g["p"] = horizons.lomo(g, live + extra)
+        g["call"] = [predict_call(p) for p in g.p]
+        m = horizons.metrics(g)
+        res.append({"features": name, **{k: m[k] for k in ("days", "spearman", "AUC top-25%", "MAE (percentile pts)")}})
+    return pd.DataFrame(res)
+
+
+def predict_call(p):
+    from horizons import predict
+    return predict.call(p)
+
+
 if __name__ == "__main__":
     model = sys.argv[1] if len(sys.argv) > 1 else "qwen3-vl:4b"
-    evaluate(model) if "--eval" in sys.argv else run(model)
+    evaluate(model) if "--eval" in sys.argv else run(model, "--all" in sys.argv)

@@ -354,7 +354,7 @@ camera-days). Tables are in `models.md`.
 - Other free sources worth a look: GOES-East observed cloud (item 6, below), KBTV METAR ceilings, and
   more Open-Meteo models (UKMO, ARPEGE, ensemble spread).
 
-## Sharper horizon-gap prompt, 40 photos (follow-up)
+## Sharper horizon-gap prompt, 40 then 160 photos (follow-up)
 
 `vision_gap.py` asks qwen3-vl:4b a structured prompt on the 1h-pre thumb: horizon found, cloud cover,
 cloud base height, gap yes/no/unclear and its thickness, clouds overhead, underside lit, quality. It
@@ -371,64 +371,21 @@ and the image method compare on the same photos. Tables are in `vision_gap.md`.
 - As a yes/no, "gap" says yes on 35 of 40, so it barely discriminates: the 5 "no" days were all bad
   (median 11th pct). The old horizon_clear splits better as a binary (75th vs 16th pct). The image
   method (`horizon_gap.py`) flagged none of the 40.
-- Reading: gap_thickness and the quality score from the no-think structured prompt look at least as
-  good as the old prompt at a third of the cost. That is worth confirming on all 160 days (about
-  45 min at 16 s per photo) before trusting it.
-
-## Observed cloud: GOES-East satellite and KBTV METAR (follow-up)
-
-`goes.py` reads GOES-19's ABI-L2-ACMC clear-sky mask (CONUS, 2 km, every 5 min) from NOAA's public
-S3 bucket. h5py reads the netCDF straight over HTTP range requests, so each scan costs about 0.7 MB
-(of 4 MB) and under 1 s. The projection maths is checked against the GOES-R PUG worked example. For
-the scans nearest 1 h before sunset and nearest sunset, it computes cloud fractions over:
-- overhead (≤10 km);
-- the near fan (sun ±30°, 5–40 km);
-- the far fan (80–300 km);
-- the whole fan;
-- a narrow path (±10°, 40–300 km).
-
-KBTV METARs come from the Iowa Environmental Mesonet: the report nearest 1 h before sunset, giving
-cover, ceiling, lowest base and visibility. 513 sunset camera-days; tables are in `goes.md`.
-
-- Agreement: GOES overhead vs the AI's photo cover 0.75; GOES fan vs Open-Meteo's blanket 0.76; GOES
-  overhead vs Open-Meteo total at the camera only 0.63; METAR vs GOES overhead 0.71.
-- GOES caught **8 of the 9** days Open-Meteo called clear while the photos were plainly cloudy
-  (overhead 0.55–1.0). METAR caught 6.
-- vs outcome: GOES fan cloud has Spearman −0.55 (−0.56 at sunset), against Open-Meteo total −0.42 to
-  −0.47. METAR cover −0.49, ceiling +0.45.
-- Leave-one-month-out at 1h, AUC for a top-25 % day: weather 0.715 → **0.773** with GOES (ridge;
-  gbm 0.729 → 0.766). GOES alone (5 numbers) reaches 0.758. METAR adds +0.01 on its own and nothing on
-  top of GOES. **This is the largest gain of anything tried.**
-- Live cost: one scan every 5 min, files land about 4 min after the scan starts. About 0.7 MB and 1 s
-  per camera per forecast. No API key, free, anonymous.
-- Recommendation: add GOES fan/near/far cloud fractions (1h-pre, and refresh at 30m/15m) to the live
-  forecast. With ICON path cloud it is the next thing to wire in.
-
-## ICON + GOES wired into the live forecast (follow-up)
-
-`ai_judge/predict.py` now carries several coefficient sets per horizon (in `predict_coefs.json`,
-fitted by `horizons.py`). Each shot uses the best set it has every input for:
-- **icon+goes**: weather, cur_pct, max_pct, ICON clear-path, GOES fan cloud;
-- **base**: the old three-feature line, used when ICON or GOES is missing.
-
-The forecast records which set it used in `predicted_with`, and redoes a shot when better inputs
-arrive later. For the refit, GOES was read at every historical pre-sunset capture, exactly as live
-(the latest scan landed by the capture time: `goes.py --shots`). ICON came from `models.py`'s cache
-(grid bearing ≤10° off). Leave-one-month-out, same 477–482 shots per horizon (`horizons.md`):
-
-| horizon | AUC top-25 % before → after | Spearman before → after | MAE pct pts before → after |
-|:--|:--|:--|:--|
-| 2h | 0.681 → **0.750** | 0.51 → 0.60 | 20.3 → 18.7 |
-| 1h | 0.683 → **0.751** | 0.55 → 0.63 | 19.1 → 17.9 |
-| 45m | 0.702 → **0.764** | 0.57 → 0.64 | 18.8 → 17.7 |
-| 30m | 0.725 → **0.764** | 0.63 → 0.67 | 17.8 → 17.1 |
-| 15m | 0.794 → 0.803 | 0.75 → 0.76 | 14.0 → 14.0 |
-| 5m | 0.899 → 0.897 | 0.87 → 0.87 | 9.9 → 10.0 |
-
-- Almost all of the gain is GOES: GOES alone scores 0.749–0.764 at 2h–30m, and ICON adds about
-  +0.001 on top. ICON alone, without GOES, adds +0.005 to +0.02.
-- By 15m and 5m the HSV scores already seen dominate, and neither source adds anything.
-- Poor calls on top-25 % days drop at every horizon up to 15m (for example 7.4 % → 4.1 % at 1h).
+- **All 160 days** (follow-up run, same photos as the first prompt, 17 s/photo):
+  - Spearman with the outcome: new cloud_cover −0.62 (old −0.56), gap_thickness 0.61, new quality
+    0.50 (old 0.54), gap==yes 0.39 (old horizon_clear 0.50).
+  - Gap yes/no: "no" (n=16) means a bad evening (median 12th pct, 0 % top-25). "Yes" (n=144) is
+    almost everything (56th pct, 32 % top-25, 12 % top-10). The old horizon_clear splits more evenly
+    (yes 59th / 35 % / 14 %, n=124; no 19th / 8 % / 3 %, n=36).
+  - gap_thickness clusters at 30: 0 → 12th pct (n=16), 21–35 → 56th (n=132), >35 → 81st pct with 70 %
+    top-25 and 20 % top-10 (n=10). So a thick gap is a strong but rare signal.
+  - On top of the live icon+goes forecast at the 1h shot (leave-one-month-out, 143 days with all
+    inputs): AUC 0.701 → 0.721 with gap_thickness alone, Spearman 0.61 → 0.63, MAE 18.6 → 17.8. Adding
+    the new quality and cover too gives about the same (0.719). The old prompt's answers add nothing
+    (0.702).
+  - Live cost: about 17 s per 1h-pre photo on the NUC-class CPU with the empty-think prefill. One photo
+    per camera per evening, so it would fit in `watch`. The gain is modest (+0.02 AUC) and measured on
+    only 143 days; worth wiring only as an optional input that the forecast skips when the AI is off.
 
 ## Caveats
 
