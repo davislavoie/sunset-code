@@ -280,6 +280,28 @@ sky brightness ramp is removed per row, so neither counts.
 - Proposal: no wind term in the forecast. If anything, add an image-based "glass lake" badge or a small
   bonus on btv's judged shot: +5 at ≥0.35, +8 at ≥0.45.
 
+## Upper-level wind along the sun line (follow-up)
+
+`aloft.py` takes Open-Meteo's historical-forecast wind at 850, 700 and 500 hPa over each camera, 1 h and
+2 h before sunset (517 sunset camera-days). It splits each wind into the component along the sun line:
+positive means it blows from the sunset side, so path cloud is moving toward the camera. Full tables
+are in `aloft.md`.
+
+- On its own the along-sun component barely tracks the outcome (Spearman −0.03 to −0.12; wind from
+  the sunset side is slightly worse). Overall speed: −0.14 to −0.20.
+- Added to the full weather feature set (leave-one-month-out, AUC for a top-25 % day):
+  - 1h, gbm: 0.723 → 0.774 with the along components alone (0.766 with everything aloft).
+  - 2h: 0.709–0.711 → 0.734–0.738.
+  - Ridge gains about +0.02 to +0.025 at both horizons.
+  This is a real but modest gain, and part of it is probably a weather-regime signal (direction tells
+  frontal from fair-weather flow) rather than literal cloud motion.
+- The explicit "cloud on its way in" products (far low cloud × toward-camera wind, and so on) add
+  nothing beyond the plain cloud features. Days with far-path low cloud ≥30 % at 2h do worst when the
+  850 hPa wind blows *away* toward the sun side (easterly flow: median 17th pct, n=37) and no worse
+  when it blows toward the camera (31st pct, n=156). The "it will clear in time" intuition doesn't show.
+- Recommendation: if the live forecast grows past the 3-feature line, add along_700/along_500 at h1/h2.
+  They are cheap, since they come from the same Open-Meteo call.
+
 ## Caveats
 
 - `ai_view` (dark / no-signal) isn't in the export, so those captures weren't excluded. They can
@@ -297,6 +319,7 @@ sky brightness ramp is removed per row, so neither counts.
 - `horizons.py`: the per-shot forecast fit and backtest (writes `ai_judge/predict_coefs.json`).
 - `backtest.py`: the weather-only backtest.
 - `vision.py`, `vision_eval.py`, `vision_compare.py`: the Ollama vision-model test and its comparison with Open-Meteo.
+- `aloft.py`: upper-level wind along the sun line (`aloft.md`).
 - `reflection.py`: btv glass-lake detector vs wind (`analysis_export/reflection.parquet`).
 - Charts: `heatmap_sunset.png`, `heatmap_sunrise.png`, `heatmap_<camera>.png`, `effects.png`,
   `models.png`.
