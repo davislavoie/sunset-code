@@ -2,3 +2,4 @@ requests
 influxdb
 pillow
 tzdata
+h5py

@@ -1,8 +1,7 @@
 """Observed cloud from GOES-East (GOES-19) over the fan toward the sun, plus KBTV METAR cloud layers.
 
 GOES: NOAA's public bucket noaa-goes19, product ABI-L2-ACMC (CONUS clear-sky mask, 2 km, every 5 min).
-The netCDF files are HDF5; h5py reads them straight from S3 through HTTP range requests (RangeFile),
-so only the header and the chunks around Vermont are fetched instead of the whole 4 MB file.
+Reading (HTTP range requests, projection, zones) is ai_judge/goes.py, which the live forecast uses.
 For each sunset camera-day, the scan nearest 1 h before sunset (and nearest sunset) gives cloud
 fractions (BCM: 0 clear / 1 cloudy) over: overhead (within 10 km), near fan (sun bearing +/-30 deg,
 5-40 km), far fan (80-300 km), whole fan (5-300 km). Cached per camera-day in analysis_export/goes/.
@@ -11,130 +10,39 @@ METAR: Iowa Environmental Mesonet ASOS download for KBTV, the report nearest 1 h
 cloud layers (FEW/SCT/BKN/OVC + base ft) -> ceiling and a coverage score.
 
     python analysis/goes.py [limit]       # fetch (resumable) and evaluate -> goes.md
+    python analysis/goes.py --shots       # GOES at every pre-sunset capture, for the forecast fit (horizons.py)
 """
 
-import io
 import json
+from concurrent.futures import ProcessPoolExecutor
 import math
 import sys
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 
-import h5py
 import numpy as np
 import pandas as pd
 import requests
 
 import data
 
-BUCKET = "https://noaa-goes19.s3.amazonaws.com"
+sys.path.insert(0, str(data.ROOT))
+from ai_judge import goes as G  # noqa: E402
+
 CACHE = data.EXPORT / "goes"
 CACHE.mkdir(parents=True, exist_ok=True)
 CENTERS = {"btv_echo_cam": "btv_echo_cam", "wcax_tower_sunset": "btv_echo_cam", "bolton_summit_cam": "bolton_summit_cam"}
 session = requests.Session()
 
 
-class RangeFile(io.RawIOBase):
-    """Read-only file over HTTP range requests, with a small block cache (h5py takes file-like objects)."""
-
-    BLOCK = 256 * 1024
-
-    def __init__(self, url):
-        self.url, self.pos, self.blocks, self.fetched = url, 0, {}, 0
-        self.size = int(session.head(url, timeout=60).headers["Content-Length"])
-
-    def readable(self):
-        return True
-
-    def seekable(self):
-        return True
-
-    def tell(self):
-        return self.pos
-
-    def seek(self, offset, whence=0):
-        self.pos = {0: offset, 1: self.pos + offset, 2: self.size + offset}[whence]
-        return self.pos
-
-    def block(self, i):
-        if i not in self.blocks:
-            lo = i * self.BLOCK
-            hi = min(self.size, lo + self.BLOCK) - 1
-            self.blocks[i] = session.get(self.url, headers={"Range": f"bytes={lo}-{hi}"}, timeout=60).content
-            self.fetched += len(self.blocks[i])
-        return self.blocks[i]
-
-    def readinto(self, b):
-        n = min(len(b), self.size - self.pos)
-        out, pos = bytearray(), self.pos
-        while len(out) < n:
-            blk = self.block(pos // self.BLOCK)
-            piece = blk[pos % self.BLOCK: pos % self.BLOCK + n - len(out)]
-            out += piece
-            pos += len(piece)
-        b[:n] = out
-        self.pos += n
-        return n
-
-
-def scan_url(when):
-    """Key of the CONUS scan starting nearest to `when` (UTC datetime)."""
-    keys = []
-    for hour in (when - timedelta(hours=1), when, when + timedelta(hours=1)):
-        prefix = f"ABI-L2-ACMC/{hour:%Y}/{hour:%j}/{hour:%H}/"
-        xml = session.get(f"{BUCKET}/?list-type=2&prefix={prefix}", timeout=60).text
-        keys += [k.split("</Key>")[0] for k in xml.split("<Key>")[1:]]
-    if not keys:
-        return None
-    start = lambda k: datetime.strptime(k.split("_s")[1][:13], "%Y%j%H%M%S").replace(tzinfo=timezone.utc)
-    return f"{BUCKET}/{min(keys, key=lambda k: abs(start(k) - when))}"
-
-
-def latlon_grid(x, y, proj):
-    """GOES fixed-grid scan angles (radians) -> lat/lon degrees (GOES-R PUG vol. 4, 7.1.2.8)."""
-    H = proj["perspective_point_height"][0] + proj["semi_major_axis"][0]
-    a, b = proj["semi_major_axis"][0], proj["semi_minor_axis"][0]
-    lon0 = math.radians(proj["longitude_of_projection_origin"][0])
-    x, y = np.meshgrid(x, y)
-    ca = np.sin(x) ** 2 + np.cos(x) ** 2 * (np.cos(y) ** 2 + a ** 2 / b ** 2 * np.sin(y) ** 2)
-    cb = -2 * H * np.cos(x) * np.cos(y)
-    cc = H ** 2 - a ** 2
-    with np.errstate(invalid="ignore"):
-        rs = (-cb - np.sqrt(cb ** 2 - 4 * ca * cc)) / (2 * ca)
-    sx, sy, sz = rs * np.cos(x) * np.cos(y), -rs * np.sin(x), rs * np.cos(x) * np.sin(y)
-    lat = np.degrees(np.arctan(a ** 2 / b ** 2 * sz / np.sqrt((H - sx) ** 2 + sy ** 2)))
-    lon = np.degrees(lon0 - np.arctan(sy / (H - sx)))
-    return lat, lon
-
-
 def zones(url, lat0, lon0, az):
-    """Cloud fractions over the camera's zones from one scan (reads only the window around it)."""
-    f = RangeFile(url)
-    with h5py.File(f, "r") as h:
-        sx, ox = h["x"].attrs["scale_factor"][0], h["x"].attrs["add_offset"][0]
-        sy, oy = h["y"].attrs["scale_factor"][0], h["y"].attrs["add_offset"][0]
-        x, y = h["x"][:] * sx + ox, h["y"][:] * sy + oy
-        proj = dict(h["goes_imager_projection"].attrs)
-        # Coarse locate: lat/lon on a sparse grid, then a window of +/-200 px (400 km at 2 km) around the camera.
-        lat, lon = latlon_grid(x[::20], y[::20], proj)
-        d = (lat - lat0) ** 2 + ((lon - lon0) * math.cos(math.radians(lat0))) ** 2
-        iy, ix = np.unravel_index(np.nanargmin(d), d.shape)
-        iy, ix = iy * 20, ix * 20
-        ys, xs = slice(max(0, iy - 200), iy + 200), slice(max(0, ix - 200), ix + 200)
-        bcm = h["BCM"][ys, xs].astype(float)
-        bcm[bcm > 1] = np.nan
-        lat, lon = latlon_grid(x[xs], y[ys], proj)
-    # Distance (km) and bearing from the camera (equirectangular is fine at these distances).
-    dy = (lat - lat0) * 111.2
-    dx = (lon - lon0) * 111.2 * math.cos(math.radians(lat0))
-    dist = np.hypot(dx, dy)
-    bearing = np.degrees(np.arctan2(dx, dy)) % 360
-    off = np.abs((bearing - az + 180) % 360 - 180)
-    fan = off <= 30
-    masks = {"over": dist <= 10, "near": fan & (dist >= 5) & (dist <= 40), "far": fan & (dist >= 80) & (dist <= 300),
-             "fan": fan & (dist >= 5) & (dist <= 300), "path": (off <= 10) & (dist >= 40) & (dist <= 300)}
-    out = {k: float(np.nanmean(bcm[m])) if np.isfinite(bcm[m]).any() else np.nan for k, m in masks.items()}
-    out["kb"] = f.fetched / 1024
+    """Cloud fractions over the camera's zones from one scan (ai_judge.goes, plus a narrow path)."""
+    bcm, lat, lon = G.cloud_window(url, lat0, lon0, session)
+    out = {k.replace("goes_", ""): v for k, v in G.zones(bcm, lat, lon, lat0, lon0, az).items()}
+    dy, dx = (lat - lat0) * 111.2, (lon - lon0) * 111.2 * math.cos(math.radians(lat0))
+    dist, off = np.hypot(dx, dy), np.abs((np.degrees(np.arctan2(dx, dy)) - az + 180) % 360 - 180)
+    m = (off <= 10) & (dist >= 40) & (dist <= 300)
+    out["path"] = float(np.nanmean(bcm[m])) if np.isfinite(bcm[m]).any() else np.nan
     return out
 
 
@@ -151,7 +59,7 @@ def fetch(d, limit=None):
             started = time.monotonic()
             for tag, back in (("g1h", 1), ("g0", 0)):
                 try:
-                    url = scan_url(when - timedelta(hours=back))
+                    url = G.scan_url(when - timedelta(hours=back) + G.LATENCY, session)
                     if url:
                         row.update({f"{k}_{tag}": v for k, v in zones(url, lat0, lon0, az).items()})
                 except Exception as e:
@@ -161,6 +69,39 @@ def fetch(d, limit=None):
             print(i, cam, day, row.get("fan_g1h"), row.get("kb_g1h"), row["sec"], "s", flush=True)
         rows.append(json.loads(path.read_text()))
     return pd.DataFrame(rows)
+
+
+HORIZONS = ("01_2h_pre", "02_1h_pre", "03_45m_pre", "04_30m_pre", "05_15m_pre", "06_5m_pre")
+
+
+def read_shot(args):
+    camera, time_, day, t = args
+    lat0, lon0, _ = data.LOCATION[CENTERS[camera]]
+    _, az = data.sun_time_and_bearing(day, camera)
+    try:
+        return {"camera": camera, "time": time_, **(G.observe(t, lat0, lon0, az, requests) or {})}
+    except Exception as e:
+        print(f"  {camera} {time_}: {e}", flush=True)
+
+
+def shots():
+    """GOES fields for every pre-sunset capture of the sunset cameras, as the live forecast reads them
+    (latest scan landed by the capture time). Cached in analysis_export/goes/shots.jsonl."""
+    path = CACHE / "shots.jsonl"
+    done = {(r["camera"], r["time"]) for r in map(json.loads, path.read_text().splitlines())} if path.exists() else set()
+    cap = data.captures()
+    cap = cap[cap.camera.isin(CENTERS) & cap.label.isin(HORIZONS)]
+    todo = [r for r in cap.itertuples() if (r.camera, r.time) not in done]
+    print(f"{len(todo)} captures to read", flush=True)
+    # h5py holds a global lock even while waiting on the network, so use processes, 16 at a time.
+    with path.open("a") as f, ProcessPoolExecutor(16) as pool:
+        for i, row in enumerate(pool.map(read_shot, [(r.camera, r.time, r.day, r.t.to_pydatetime()) for r in todo], chunksize=4), 1):
+            if row:
+                f.write(json.dumps(row) + chr(10))
+                f.flush()
+            if i % 100 == 0:
+                print(i, flush=True)
+    return pd.DataFrame(map(json.loads, path.read_text().splitlines()))
 
 
 COVER = {"CLR": 0, "SKC": 0, "NSC": 0, "FEW": .19, "SCT": .44, "BKN": .75, "OVC": 1, "VV": 1}
@@ -236,6 +177,9 @@ def evaluate(g, t):
 
 
 if __name__ == "__main__":
+    if "--shots" in sys.argv:
+        shots()
+        raise SystemExit
     t = pd.read_parquet(data.EXPORT / "analysis_table.parquet")
     t = t[t.camera.isin(CENTERS)].dropna(subset=["y_pct"])
     g = fetch(t, int(sys.argv[1]) if len(sys.argv) > 1 else None)

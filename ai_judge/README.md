@@ -18,6 +18,12 @@ capture is a day's best shot; ai_judge adds what the score can't know:
   it at capture time (`helpers.influxdb_push` → `weather_fetch`); ai_judge backfills
   history (`judge weather --camera all`) and fills any capture that missed it. Shown on
   the Calendar Day tab.
+- **Sunset forecast** on every pre shot (`predicted_pct/score/call`, and `predicted_with`: which
+  input set was used). Inputs: the stored weather, the **ICON** model's path cloud
+  (`path{13,40,80}_icon_cloud_cover_*`, fetched next to best_match), **GOES-East** observed cloud
+  toward the sun (`goes_over/near/far/fan`, from NOAA's public satellite bucket, ~0.7 MB and ~1 s per
+  shot), and the HSV scores so far. A shot missing ICON or GOES falls back to the plain weather line.
+  `watch` fills recent shots; `judge goes --camera all --since YYYY-MM-DD` backfills history.
 - **View fingerprints** (`view_fp`), used by "all shots like this".
 - **Glass lake** (btv_echo_cam only): `mirror_score` (how well the frame's lower part mirrors
   the sky above some horizon row) and `glass_lake` (score >= 0.35, about 4 % of days). Such

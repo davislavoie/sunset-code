@@ -404,6 +404,32 @@ cover, ceiling, lowest base and visibility. 513 sunset camera-days; tables are i
 - Recommendation: add GOES fan/near/far cloud fractions (1h-pre, and refresh at 30m/15m) to the live
   forecast. With ICON path cloud it is the next thing to wire in.
 
+## ICON + GOES wired into the live forecast (follow-up)
+
+`ai_judge/predict.py` now carries several coefficient sets per horizon (in `predict_coefs.json`,
+fitted by `horizons.py`). Each shot uses the best set it has every input for:
+- **icon+goes**: weather, cur_pct, max_pct, ICON clear-path, GOES fan cloud;
+- **base**: the old three-feature line, used when ICON or GOES is missing.
+
+The forecast records which set it used in `predicted_with`, and redoes a shot when better inputs
+arrive later. For the refit, GOES was read at every historical pre-sunset capture, exactly as live
+(the latest scan landed by the capture time: `goes.py --shots`). ICON came from `models.py`'s cache
+(grid bearing ≤10° off). Leave-one-month-out, same 477–482 shots per horizon (`horizons.md`):
+
+| horizon | AUC top-25 % before → after | Spearman before → after | MAE pct pts before → after |
+|:--|:--|:--|:--|
+| 2h | 0.681 → **0.750** | 0.51 → 0.60 | 20.3 → 18.7 |
+| 1h | 0.683 → **0.751** | 0.55 → 0.63 | 19.1 → 17.9 |
+| 45m | 0.702 → **0.764** | 0.57 → 0.64 | 18.8 → 17.7 |
+| 30m | 0.725 → **0.764** | 0.63 → 0.67 | 17.8 → 17.1 |
+| 15m | 0.794 → 0.803 | 0.75 → 0.76 | 14.0 → 14.0 |
+| 5m | 0.899 → 0.897 | 0.87 → 0.87 | 9.9 → 10.0 |
+
+- Almost all of the gain is GOES: GOES alone scores 0.749–0.764 at 2h–30m, and ICON adds about
+  +0.001 on top. ICON alone, without GOES, adds +0.005 to +0.02.
+- By 15m and 5m the HSV scores already seen dominate, and neither source adds anything.
+- Poor calls on top-25 % days drop at every horizon up to 15m (for example 7.4 % → 4.1 % at 1h).
+
 ## Caveats
 
 - `ai_view` (dark / no-signal) isn't in the export, so those captures weren't excluded. They can

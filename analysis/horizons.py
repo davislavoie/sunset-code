@@ -25,14 +25,44 @@ sys.path.insert(0, str(data.ROOT))
 from ai_judge import predict  # noqa: E402
 
 HORIZONS = ["01_2h_pre", "02_1h_pre", "03_45m_pre", "04_30m_pre", "05_15m_pre", "06_5m_pre"]
-FEATS = ["weather", "cur_pct", "max_pct"]
+BASE = ["weather", "cur_pct", "max_pct"]
+# Candidate feature sets; the best (by mean AUC over horizons) goes first in predict_coefs.json,
+# with BASE kept as the fallback for shots missing ICON or GOES.
+SETS = {"base": BASE,
+        "icon": BASE + ["icon_weather"],
+        "goes": BASE + ["goes_fan"],
+        "icon+goes": BASE + ["icon_weather", "goes_fan"],
+        "icon+goes zones": BASE + ["icon_weather", "goes_over", "goes_near", "goes_far"]}
+FEATS = BASE
 # For the 15m and 5m shots the window target includes shots already seen, so also check against
 # only the shots still to come.
 AFTER = {"05_15m_pre": data.WINDOW[1:], "06_5m_pre": data.WINDOW[2:]}
 
 
+def icon_fields(cap):
+    """ICON path cloud at 13/40/80 km for each capture, from analysis/models.py's cache (grid bearing
+    nearest the sun, at most 10 deg off the exact bearing the live fetch uses)."""
+    import models
+
+    out = {f"path{km}_icon_cloud_cover_{l}": [] for km in predict.PATH_KM for l in ("low", "mid")}
+    grids = {c: models.fetch(c, "icon_seamless", None, None) for c in set(models.CENTERS.values())}
+    for cam, day, t, label in zip(cap.camera, cap.day, cap.t, cap.label):
+        g = grids.get(models.CENTERS.get(cam)) if label in HORIZONS else None
+        b = min(models.BEARINGS, key=lambda x: abs(x - data.sun_time_and_bearing(day, cam)[1])) if g else None
+        for km in predict.PATH_KM:
+            h = g[(b, km)] if g else None
+            r = h.iloc[h.index.get_indexer([t.floor("min")], method="nearest")[0]] if g else {}
+            for l in ("low", "mid"):
+                out[f"path{km}_icon_cloud_cover_{l}"].append(r.get(f"cloud_cover_{l}", np.nan) if g else np.nan)
+    return cap.assign(**out)
+
+
 def build():
     cap = data.captures()
+    cap = cap[cap.camera.isin(data.SUNSET_CAMS)].reset_index(drop=True)
+    cap = icon_fields(cap)
+    shots = pd.read_json(data.EXPORT / "goes" / "shots.jsonl", lines=True)
+    cap = cap.merge(shots.drop_duplicates(["camera", "time"]), on=["camera", "time"], how="left")
     d = data.days(cap)
     best = {(cam, day): y for cam, day, y in d[["camera", "day", "y"]].itertuples(index=False)}
     ok = cap[~cap.excluded]
@@ -50,10 +80,9 @@ def build():
             r = g.loc[h]
             shot = 0 if r.excluded else r.score  # as live: shots that can't be the best count as 0
             seen.append(shot)
-            w = predict.weather_raw({k: (None if v != v else v) for k, v in r.items()})
-            rows.append({"camera": cam, "day": day, "horizon": h, "weather": w,
-                         "cur_pct": predict.percentile(history, shot),
-                         "max_pct": predict.percentile(history, max(seen))})
+            point = {k: (None if v != v else v) for k, v in r.items()}
+            x = predict.features(point, predict.percentile(history, shot), predict.percentile(history, max(seen)))
+            rows.append({"camera": cam, "day": day, "horizon": h, **x})
     t = pd.DataFrame(rows).merge(d[["camera", "day", "y", "month"]], on=["camera", "day"])
     t["pct"] = t.groupby(["camera", "horizon"]).y.rank(pct=True)
     for h, labels in AFTER.items():
@@ -64,20 +93,20 @@ def build():
     return t.dropna(subset=["weather"])
 
 
-def fit(df, target="pct"):
-    X = np.c_[np.ones(len(df)), df[FEATS].values]
+def fit(df, target="pct", feats=FEATS):
+    X = np.c_[np.ones(len(df)), df[feats].values]
     return np.linalg.lstsq(X, df[target].values, rcond=None)[0]
 
 
-def apply(coef, df):
-    return np.clip(np.c_[np.ones(len(df)), df[FEATS].values] @ coef, 0, 1)
+def apply(coef, df, feats=FEATS):
+    return np.clip(np.c_[np.ones(len(df)), df[feats].values] @ coef, 0, 1)
 
 
-def lomo(df):
+def lomo(df, feats=FEATS):
     pred = pd.Series(np.nan, index=df.index)
     for m in df.month.unique():
         tr, te = df.month != m, df.month == m
-        pred[te] = apply(fit(df[tr]), df[te])
+        pred[te] = apply(fit(df[tr], feats=feats), df[te], feats)
     return pred
 
 
@@ -95,26 +124,46 @@ def metrics(g, target="pct"):
 def main():
     t = build()
     t = t[t.camera.isin(data.SUNSET_CAMS)].reset_index(drop=True)
-    coefs, rows, per_cam = {}, [], []
-    for h in HORIZONS:
-        g = t[t.horizon == h].copy()
-        g["p"] = lomo(g)
-        g["call"] = [predict.call(p) for p in g.p]
-        rows.append({"horizon": h, **metrics(g)})
-        if h in AFTER:
-            rows.append({"horizon": h + " (vs shots still to come)", **metrics(g.assign(pct=g.rest_pct), "pct")})
-        for cam, gg in g.groupby("camera"):
-            per_cam.append({"horizon": h, "camera": cam, **metrics(gg)})
-        coefs[h] = [round(float(c), 4) for c in fit(g)]
-    (data.ROOT / "ai_judge" / "predict_coefs.json").write_text(json.dumps(
-        {"features": ["intercept"] + FEATS, "coefs": coefs}, indent=1) + "\n")
-    res = pd.DataFrame(rows)
-    text = ("# Forecast at each pre shot (sunset cameras, leave-one-month-out)\n\n"
+    # Compare feature sets on the shots that have every input (ICON + GOES), same rows for all.
+    full = t.dropna(subset=sorted({f for fs in SETS.values() for f in fs})).reset_index(drop=True)
+    compare = []
+    for name, feats in SETS.items():
+        for h in HORIZONS:
+            g = full[full.horizon == h].copy()
+            g["p"] = lomo(g, feats)
+            g["call"] = [predict.call(p) for p in g.p]
+            compare.append({"features": name, "horizon": h, **metrics(g)})
+    compare = pd.DataFrame(compare)
+    best = compare.groupby("features", sort=False)["AUC top-25%"].mean().idxmax()
+    models, rows, per_cam = [], [], []
+    for name in dict.fromkeys([best, "base"]):
+        feats, src = SETS[name], (full if name != "base" else t)
+        coefs = {}
+        for h in HORIZONS:
+            g = src[src.horizon == h].copy()
+            coefs[h] = [round(float(c), 4) for c in fit(g, feats=feats)]
+            if name == best:
+                g["p"] = lomo(g, feats)
+                g["call"] = [predict.call(p) for p in g.p]
+                rows.append({"horizon": h, **metrics(g)})
+                if h in AFTER:
+                    rows.append({"horizon": h + " (vs shots still to come)", **metrics(g.assign(pct=g.rest_pct), "pct")})
+                for cam, gg in g.groupby("camera"):
+                    per_cam.append({"horizon": h, "camera": cam, **metrics(gg)})
+        models.append({"name": name, "features": feats, "coefs": coefs})
+    (data.ROOT / "ai_judge" / "predict_coefs.json").write_text(json.dumps({"models": models}, indent=1) + "\n")
+    side = compare.pivot_table(index="horizon", columns="features", values="AUC top-25%", sort=False)[list(SETS)]
+    text = (f"# Forecast at each pre shot (sunset cameras, leave-one-month-out)\n\n"
             "Target: the day's best score from 15m pre to 30m post, as a percentile within the camera.\n\n"
-            + res.round(3).to_markdown(index=False)
+            f"## Feature sets compared (AUC top-25 %, {full.groupby('horizon').size().min()}-"
+            f"{full.groupby('horizon').size().max()} shots per horizon that have ICON and GOES)\n\n"
+            + side.round(3).to_markdown()
+            + "\n\n## Before (base) vs after (" + best + "), same shots\n\n"
+            + compare[compare.features.isin(["base", best])].round(3).to_markdown(index=False)
+            + f"\n\n## Chosen set ({best}): all metrics\n\n" + pd.DataFrame(rows).round(3).to_markdown(index=False)
             + "\n\n## Per camera\n\n" + pd.DataFrame(per_cam).round(3).to_markdown(index=False)
-            + "\n\n## Coefficients (intercept, weather, cur_pct, max_pct)\n\n"
-            + "\n".join(f"- {h}: {c}" for h, c in coefs.items()))
+            + "\n\n## Coefficients (intercept, then the features in order)\n\n"
+            + "\n".join(f"- {m['name']} {m['features']}: " + "; ".join(f"{h} {c}" for h, c in m["coefs"].items()) for m in models))
     (data.ROOT / "analysis" / "horizons.md").write_text(text, encoding="utf-8")
     print(text)
 

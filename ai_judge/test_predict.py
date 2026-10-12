@@ -30,8 +30,30 @@ class PieceTests(unittest.TestCase):
         self.assertEqual([predict.call(p) for p in (0.1, 0.5, 0.7, 0.9)], ["poor", "maybe", "good", "banger"])
 
     def test_every_horizon_has_coefficients_and_more_clear_sky_is_never_worse(self):
+        clear = {"weather": 0.8, "icon_weather": 0.8, "cur_pct": .5, "max_pct": .5,
+                 "goes_over": 0, "goes_near": 0, "goes_far": 0, "goes_fan": 0}
+        grey = dict(clear, weather=-0.5, icon_weather=-0.5, goes_over=1, goes_near=1, goes_far=1, goes_fan=1)
+        for m in predict.MODELS:
+            self.assertEqual(set(m["coefs"]), set(predict.HORIZONS), m["name"])
         for h in predict.HORIZONS:
-            self.assertGreaterEqual(predict.forecast(h, 0.8, 0.5, 0.5), predict.forecast(h, -0.5, 0.5, 0.5), h)
+            for drop in ([], [k for k in clear if k.startswith(("goes", "icon"))]):  # best set, then the fallback
+                c, g = ({k: v for k, v in x.items() if k not in drop} for x in (clear, grey))
+                self.assertGreaterEqual(predict.forecast(h, c)[0], predict.forecast(h, g)[0], (h, drop))
+
+    def test_uses_the_best_set_it_has_inputs_for(self):
+        x = {"weather": 0.5, "cur_pct": .5, "max_pct": .5}
+        self.assertEqual(predict.forecast("02_1h_pre", x)[1], "base")
+        full = dict(x, icon_weather=0.5, goes_over=0.2, goes_near=0.2, goes_far=0.2, goes_fan=0.2)
+        self.assertEqual(predict.forecast("02_1h_pre", full)[1], predict.MODELS[0]["name"])
+        self.assertEqual(predict.forecast("02_1h_pre", {"cur_pct": .5, "max_pct": .5}), (None, None))
+
+    def test_features_read_icon_and_goes_fields(self):
+        p = capture("2026-09-01", "02_1h_pre", rh=40, goes_fan=0.3,
+                    **{f"path{km}_icon_cloud_cover_{l}": 90 for km in predict.PATH_KM for l in ("low", "mid")})
+        x = predict.features(p, 0.1, 0.2)
+        self.assertAlmostEqual(x["weather"], 0.8)
+        self.assertAlmostEqual(x["icon_weather"], -0.2)
+        self.assertEqual((x["goes_fan"], x["goes_near"], x["cur_pct"]), (0.3, None, 0.1))
 
     def test_old_labels_with_a_date_suffix_still_match(self):
         self.assertEqual(predict.label_of({"label": "02_1h_pre_05-16-2025.jpg"}), "02_1h_pre")
@@ -56,7 +78,8 @@ class FillTests(unittest.TestCase):
         self.assertEqual(n, 2)
         by_label = {w["tags"]["label"]: w["fields"] for w in written}
         self.assertEqual(set(by_label), {"01_2h_pre", "06_5m_pre"})
-        self.assertEqual(set(by_label["06_5m_pre"]), {"predicted_pct", "predicted_score", "predicted_call"})
+        self.assertEqual(set(by_label["06_5m_pre"]), {"predicted_pct", "predicted_score", "predicted_call", "predicted_with"})
+        self.assertEqual(by_label["06_5m_pre"]["predicted_with"], "base")
         # The 5m shot beat every past day, so it should be the more hopeful forecast.
         self.assertGreater(by_label["06_5m_pre"]["predicted_pct"], by_label["01_2h_pre"]["predicted_pct"])
         # Scores come from past daily bests (0..11): today's own 60 is not history.
@@ -67,6 +90,14 @@ class FillTests(unittest.TestCase):
         self.assertEqual(n, 0)
         n, _ = self.run_fill(self.history() + [capture("2026-09-01", "01_2h_pre", predicted_pct=40.0)])
         self.assertEqual(n, 0)
+        n, _ = self.run_fill(self.history() + [capture("2026-09-01", "01_2h_pre", predicted_pct=40.0, predicted_with="base")])
+        self.assertEqual(n, 0)
+
+    def test_redoes_a_forecast_when_better_inputs_arrive(self):
+        late = capture("2026-09-01", "02_1h_pre", predicted_pct=40.0, predicted_with="base", goes_over=0.1, goes_near=0.1,
+                       goes_far=0.1, goes_fan=0.1, **{f"path{km}_icon_cloud_cover_{l}": 0 for km in predict.PATH_KM for l in ("low", "mid")})
+        n, written = self.run_fill(self.history() + [late])
+        self.assertEqual(n, int(predict.MODELS[0]["name"] != "base"))
 
 
 if __name__ == "__main__":

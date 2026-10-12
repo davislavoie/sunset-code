@@ -58,18 +58,48 @@ def weather_for(point, hours):
 
 def fill(client, camera, since=None, before=None, refill=False):
     """Add weather overhead and toward the sunset to captures missing either."""
-    return fill_overhead(client, camera, since, before, refill) + fill_path(client, camera, since, before, refill)
+    return (fill_overhead(client, camera, since, before, refill) + fill_path(client, camera, since, before, refill)
+            + fill_path(client, camera, since, before, refill, icon=True))
 
 
-def fill_path(client, camera, since=None, before=None, refill=False):
+# ICON (DWD) predicts the sunset better from the path cloud than best_match, which is HRRR over
+# Vermont (analysis/models.md): stored alongside as path{km}_icon_cloud_cover_{low,mid,high}.
+ICON = "icon_seamless"
+
+
+def icon_path_hourly(latitude, longitude, bearing, start_date, end_date):
+    """Like the pipeline's path_hourly (same points), from the ICON model."""
+    from sunset_code.helpers.open_metro_weater_api import PATH_LAYERS, path_points
+
+    points = path_points(latitude, longitude, bearing)
+    resp = requests.get(URL, timeout=120, params={
+        "latitude": ",".join(f"{lat:.4f}" for _, lat, _ in points),
+        "longitude": ",".join(f"{lon:.4f}" for _, _, lon in points),
+        "hourly": ",".join(PATH_LAYERS), "models": ICON, "start_date": start_date, "end_date": end_date,
+        "timezone": "GMT", "timeformat": "unixtime",
+    })
+    resp.raise_for_status()
+    found = resp.json()
+    hours = {}
+    for (km, _, _), location in zip(points, found if isinstance(found, list) else [found]):
+        h = location["hourly"]
+        for i, t in enumerate(h["time"]):
+            for layer in PATH_LAYERS:
+                if h[layer][i] is not None:
+                    hours.setdefault(t, {})[f"path{km}_icon_{layer}"] = float(h[layer][i])
+    return hours
+
+
+def fill_path(client, camera, since=None, before=None, refill=False, icon=False):
     """Clouds along the sunset (sunrise) direction, with the pipeline's own functions so history
-    matches what captures get live. One request per run of days sharing a sun bearing, covering
-    just those days: Open-Meteo counts a long date range as many calls. If it rate-limits us,
-    what's fetched so far is saved and a re-run picks up the rest."""
+    matches what captures get live (icon=True: the same points from the ICON model). One request
+    per run of days sharing a sun bearing, covering just those days: Open-Meteo counts a long date
+    range as many calls. If it rate-limits us, what's fetched so far is saved and a re-run picks up the rest."""
     from sunset_code.helpers.open_metro_weater_api import path_hourly, sun_bearing
 
+    fetch, key = (icon_path_hourly, "path80_icon_cloud_cover_low") if icon else (path_hourly, "path80_cloud_cover_low")
     todo = [p for p in store.captures(client, camera, since=since, before=before)
-            if refill or p.get("path80_cloud_cover_low") is None]
+            if refill or p.get(key) is None]
     if not todo:
         return 0
     config = camera_config(camera)
@@ -84,7 +114,7 @@ def fill_path(client, camera, since=None, before=None, refill=False):
     done = 0
     for bearing, days in runs:
         try:
-            hours = path_hourly(lat, lon, bearing, str(days[0] - timedelta(days=1)), str(days[-1] + timedelta(days=1)))
+            hours = fetch(lat, lon, bearing, str(days[0] - timedelta(days=1)), str(days[-1] + timedelta(days=1)))
         except requests.HTTPError as e:
             if e.response is not None and e.response.status_code == 429:
                 log.warning("%s: Open-Meteo rate limit reached after %d captures; re-run later to fill the rest",
@@ -96,7 +126,8 @@ def fill_path(client, camera, since=None, before=None, refill=False):
         if writes:
             client.write_points(writes, batch_size=1000)
             done += len(writes)
-    log.info("%s: clouds toward the %s added to %d of %d captures (%d requests)", camera, mode, done, len(todo), len(runs))
+    log.info("%s: %sclouds toward the %s added to %d of %d captures (%d requests)", camera, "ICON " if icon else "",
+             mode, done, len(todo), len(runs))
     return done
 
 
