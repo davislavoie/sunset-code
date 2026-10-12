@@ -2,9 +2,11 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { step, withAuto } from "./myRank.js";
 
-test("arrows step the score half a point, within 0-100", () => {
-  assert.equal(step(61.23, -1), 61.73);
-  assert.equal(step(61.23, 1), 60.73);
+test("arrows step to the next half point, within 0-100", () => {
+  assert.equal(step(61.23, -1), 61.5);
+  assert.equal(step(61.23, 1), 61);
+  assert.equal(step(61.5, -1), 62);
+  assert.equal(step(61.5, 1), 61);
   assert.equal(step(99.8, -1), 100);
   assert.equal(step(0.2, 1), 0);
 });

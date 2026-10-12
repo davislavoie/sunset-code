@@ -3,8 +3,9 @@
 const round = (x) => Math.round(x * 100) / 100;
 export const byScore = (a, b) => b.score - a.score || (a.date < b.date ? 1 : -1);
 
-/** Arrow press: half a point up (dir -1) or down (dir 1), kept within 0-100. */
-export const step = (score, dir) => Math.min(100, Math.max(0, round(score - dir * 0.5)));
+/** Arrow press: to the next half point up (dir -1) or down (dir 1), kept within 0-100. */
+export const step = (score, dir) =>
+  Math.min(100, Math.max(0, (dir < 0 ? Math.floor(score * 2) + 1 : Math.ceil(score * 2) - 1) / 2));
 
 /** One row per day: your saved pick, else the auto ranking's best frame and score (auto: true). */
 export function withAuto(ranks, frames, rankedImages) {
