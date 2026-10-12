@@ -309,6 +309,41 @@ def set_thumb():
     return jsonify({"ok": True})
 
 
+@app.route("/api/my-ranks")
+def my_ranks():
+    """Davis's own sunset ranking for a camera: one chosen frame and a 0-100 score per day.
+    The source of truth for what counts as a good sunset (analysis trains against it)."""
+    camera = request.args.get("camera")
+    if not camera:
+        return jsonify({"error": "camera query param required"}), 400
+    rows = client.query("SELECT * FROM my_rank WHERE camera = $camera", bind_params={"camera": camera}).get_points()
+    return jsonify([{"date": r["date"], "ts": r["ts"], "label": r["label"], "url": r["url"], "score": r["score"]}
+                    for r in rows if r.get("score") is not None and r["score"] >= 0])
+
+
+@app.route("/api/admin/my-rank", methods=["POST"])
+def set_my_rank():
+    """Set (or with score -1, clear) the chosen frame and score for one camera-day.
+    One point per camera-day at that day's midnight UTC, so a new pick overwrites the old."""
+    body = request.json or {}
+    camera, date, ts, label, url, score = (body.get(k) for k in ("camera", "date", "ts", "label", "url", "score"))
+    if not all(isinstance(v, str) for v in (camera, date, ts, label, url)) or not isinstance(score, (int, float)) \
+            or not -1 <= score <= 100:
+        return jsonify({"error": "camera, date, ts, label, url and score (0-100, or -1 to clear) required"}), 400
+    try:
+        datetime.strptime(date, "%Y-%m-%d")
+        datetime.strptime(ts, "%Y-%m-%dT%H:%M:%SZ")
+    except ValueError:
+        return jsonify({"error": "date must be YYYY-MM-DD and ts like 2025-05-16T22:17:26Z"}), 400
+    client.write_points([{
+        "measurement": "my_rank",
+        "tags": {"camera": camera, "date": date},
+        "time": f"{date}T00:00:00Z",
+        "fields": {"ts": ts, "label": label, "url": url, "score": float(score)},
+    }])
+    return jsonify({"ok": True})
+
+
 @app.route("/api/admin/camera-configs")
 def camera_configs():
     """Return all camera configurations from config/*.env files."""

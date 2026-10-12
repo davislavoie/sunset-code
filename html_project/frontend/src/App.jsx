@@ -9,6 +9,7 @@ import Archive from "./pages/Archive.jsx";
 import Compare from "./pages/Compare.jsx";
 import Config from "./pages/Config.jsx";
 import HsvTuner, { INITIAL_TUNER, loadGalleryCanvas } from "./pages/HsvTuner.jsx";
+import MyRanking from "./pages/MyRanking.jsx";
 import Ranking from "./pages/Ranking.jsx";
 import RankingExplained from "./pages/RankingExplained.jsx";
 import { PageSkeleton } from "./Skeleton.jsx";
@@ -32,6 +33,7 @@ const PUBLIC_PAGES = [
 ];
 // Everything that writes lives under /admin so a reverse proxy can gate it.
 const ADMIN_PAGES = [
+  ["/admin/my-ranking", "My ranking"],
   ["/admin/config", "Config"],
   ["/admin/scoring", "Scoring"],
   ["/admin/archive", "Archive"],
@@ -220,6 +222,10 @@ export default function App() {
                   <CameraMap />
                 </Suspense>
               }
+            />
+            <Route
+              path="/admin/my-ranking"
+              element={withData((d) => <MyRanking data={d} camera={dataCamera} />, "rows")}
             />
             <Route path="/admin/config" element={<Config />} />
             <Route
