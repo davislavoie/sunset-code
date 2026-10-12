@@ -141,7 +141,7 @@ function RankCard({ r, place, frames, save, onMove }) {
             <input className="myrank-score" type="number" min="0" max="100" step="any" value={score}
               aria-label={`Score for ${r.date}`} onChange={(e) => setScore(e.target.value)}
               onBlur={commit} onKeyDown={(e) => e.key === "Enter" && e.target.blur()} />
-            <input type="range" min="0" max="100" step="any" value={score || 0} aria-label={`Score slider for ${r.date}`}
+            <input type="range" min="0" max="100" step="0.5" value={score || 0} aria-label={`Score slider for ${r.date}`}
               onChange={(e) => setScore(Number(e.target.value))} onPointerUp={commit} onKeyUp={commit} />
           </div>
         </div>

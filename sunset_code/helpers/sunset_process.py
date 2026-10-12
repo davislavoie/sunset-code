@@ -99,7 +99,9 @@ def rank_sunset(frame):
         pink_score * 9
     )
 
-    score = min(100.0, round(score, 2))  
+    # Soft cap instead of min(100, score): fitted to the My ranking scores (analysis/my_rank.md). Same order,
+    # closer to how good the days look, and big days no longer all tie at 100.
+    score = round(100 * (1 - np.exp(-score / 55.3)), 2)  
 
     ##IMAGE VISUALIZATION
     # Warm and pink pixel overlays

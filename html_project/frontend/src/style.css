@@ -2520,6 +2520,15 @@ main#content.is-stale { opacity: 0.5; pointer-events: none; }
 .scatter-tip div { display: flex; justify-content: space-between; gap: 12px; }
 .scatter-tip span { opacity: 0.75; }
 .scatter-tip-title { font-weight: 600; margin-bottom: 2px; }
+.hist-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; margin-bottom: 4px; color: var(--text-secondary); font-size: 0.9em; }
+.hist-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.hist-stat { margin-left: auto; }
+.hist-swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; }
+.hist-swatch.bar { background: var(--sun); opacity: 0.7; }
+.hist-swatch.line { height: 2px; border-radius: 1px; background: var(--ink); }
+.hist-bar { fill: var(--sun); fill-opacity: 0.7; }
+.hist-bar.active { fill-opacity: 1; }
+.hist-curve { fill: none; stroke: var(--ink); stroke-width: 2; pointer-events: none; }
 
 /* Ranked row: clouds under the score, weather + actions in the info column. */
 /* Ranked cloud graphic stretches to the row's height (rows get taller, text stays the same size). */

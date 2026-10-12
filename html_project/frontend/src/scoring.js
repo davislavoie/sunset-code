@@ -90,7 +90,8 @@ export function scoreImage({ data, width, height }, { multipliers, colorRanges, 
     // calculate_saturation_weighted_score: pixel_ratio * avg_saturation^power / divisor
     perColor[color] = ((coverage[color] * Math.pow(avgSaturation[color], power)) / divisor) * multipliers[color];
   }
-  const total = Math.min(100, COLORS.reduce((sum, color) => sum + perColor[color], 0));
+  // Soft cap, as sunset_process.py: 100 * (1 - e^(-raw / 55.3))
+  const total = 100 * (1 - Math.exp(-COLORS.reduce((sum, color) => sum + perColor[color], 0) / 55.3));
 
   return { perColor, coverage, avgSaturation, total, overlay };
 }

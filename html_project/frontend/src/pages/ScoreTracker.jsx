@@ -11,6 +11,7 @@ import { XAxis } from "@/components/charts/x-axis";
 import { YAxis } from "@/components/charts/y-axis";
 import { GRID_STYLE, INSTANT_TOOLTIP, monthTicks } from "../chartTheme.js";
 import Img, { SIZES } from "../Img.jsx";
+import ScoreHistogram from "./ScoreHistogram.jsx";
 import ScoreScatter from "./ScoreScatter.jsx";
 
 const SCORE_TICKS = [0, 20, 40, 60, 80, 100];
@@ -62,7 +63,7 @@ export default function ScoreTracker({ data }) {
       {header}
 
       <div className="tabs">
-        {[["chart", "Over time"], ["compare", "Compare"], ["data", "Data"]].map(([key, name]) => (
+        {[["chart", "Over time"], ["dist", "Distribution"], ["compare", "Compare"], ["data", "Data"]].map(([key, name]) => (
           <button key={key} className={`tab-btn${tab === key ? " active" : ""}`} onClick={() => setTab(key)}>
             {name}
           </button>
@@ -70,7 +71,9 @@ export default function ScoreTracker({ data }) {
       </div>
 
       <div>
-        {tab === "compare" ? (
+        {tab === "dist" ? (
+          <ScoreHistogram rows={rows} />
+        ) : tab === "compare" ? (
           <>
             <ScoreScatter rows={rows} onSelect={setSelected} />
             {selected && <PointDetail row={selected} />}

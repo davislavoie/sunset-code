@@ -19,7 +19,7 @@ test("only the sky half counts", () => {
   const { perColor, total } = scoreImage(solid([255, 0, 0]), params);
   // pixel_ratio = 2/4, avg_sat = 255 -> 0.5 * 255^2 / 40 * 4
   assert.equal(perColor.red, (0.5 * 255 ** 2) / 40 * 4);
-  assert.equal(total, 100); // capped
+  assert.ok(total > 99.99 && total <= 100); // soft cap: a huge raw score approaches 100
   assert.equal(perColor.pink, 0);
 });
 
