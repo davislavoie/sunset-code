@@ -172,8 +172,8 @@ def fill(client, camera, recent="2d", since=None, before=None):
         return 0
     config = camera_config(camera)
     lat, lon, mode = float(config["LAT"]), float(config["LON"]), config.get("MODE", "sunset")
-    session, writes = requests.Session(), []
-    for p in todo:
+    session, writes, done = requests.Session(), [], 0
+    for i, p in enumerate(todo, 1):
         try:
             got = observe(store.parse_time(p), lat, lon, sun_bearing(store.local_date(p), lat, lon, mode), session)
         except Exception as e:  # S3 slow or down, odd file: try again next pass
@@ -182,7 +182,13 @@ def fill(client, camera, recent="2d", since=None, before=None):
         fields = {k: v for k, v in (got or {}).items() if v is not None}
         if fields:
             writes.append(store.field_point(p, fields))
-    if writes:
-        client.write_points(writes, batch_size=500)
-    log.info("%s: GOES cloud added to %d of %d pre shots", camera, len(writes), len(todo))
-    return len(writes)
+        # Save as we go: a backfill of history takes hours.
+        if len(writes) >= 50 or i == len(todo):
+            if writes:
+                client.write_points(writes)
+            done += len(writes)
+            writes = []
+            if len(todo) > 50:
+                log.info("%s: GOES %d of %d pre shots", camera, i, len(todo))
+    log.info("%s: GOES cloud added to %d of %d pre shots", camera, done, len(todo))
+    return done
