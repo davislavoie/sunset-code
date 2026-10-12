@@ -13,6 +13,7 @@ import ScoreOverlay from "../ScoreOverlay.jsx";
 import Tip from "../Tip.jsx";
 import { CloudProfile, WeatherStats } from "../Weather.jsx";
 import { useLightbox } from "../lightbox.jsx";
+import { GlassPill } from "../Thumbs.jsx";
 import Select from "../Select.jsx";
 
 const PAGE_SIZE = 20;
@@ -90,11 +91,13 @@ function RankingRow({ row, event, allData, onLoadToHsv }) {
           <div className="ranking-score">
             <div className="metric-label">Score</div>
             <div className="ranking-score-value">{row.Score.toFixed(1)}%</div>
+            {row.Glass && <div className="metric-label">{`${row["HSV Score"].toFixed(1)} + ${row.Glass.bonus} glass`}</div>}
           </div>
           <ForecastMetric date={row.Date} allData={allData} />
           <div className="ranking-when">
             <h2>{longDate(row.Date)}</h2>
             <span>{[row.Time, captureName(rawUrl, event)].filter(Boolean).join(" · ")}</span>
+            <GlassPill glass={row.Glass} hsv={row["HSV Score"]} />
           </div>
           <div className="ranking-actions">
             <button className="btn" aria-expanded={showDay} onClick={() => setShowDay(!showDay)}>

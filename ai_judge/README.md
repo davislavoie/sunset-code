@@ -19,6 +19,11 @@ capture is a day's best shot; ai_judge adds what the score can't know:
   history (`judge weather --camera all`) and fills any capture that missed it. Shown on
   the Calendar Day tab.
 - **View fingerprints** (`view_fp`), used by "all shots like this".
+- **Glass lake** (btv_echo_cam only): `mirror_score` (how well the frame's lower part mirrors
+  the sky above some horizon row) and `glass_lake` (score >= 0.35, about 4 % of days). Such
+  shots show a green "Glass lake +5" bubble and get +5 (+8 at >= 0.45) when picking the day's
+  best and in the displayed score; the HSV `score` itself is unchanged. `watch` fills it;
+  `judge reflect --camera all` does history by hand.
 - **Optional local AI** (Ollama, off unless `AI_MODEL` is set). It only rules out frames
   it calls dark or "no signal"; its 0-100 score is shown for information.
 

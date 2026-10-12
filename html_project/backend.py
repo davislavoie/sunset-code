@@ -66,8 +66,9 @@ def fetch_camera_data(camera_tag):
             "Label": point["label"],
             "Image": point["url"],
             # A capture that can't be a day's best shot (thumbs down, dark...) counts as 0.
-            "Score": 0 if exclusion(point) else hsv_score,
+            "Score": 0 if exclusion(point) else hsv_score + glass_bonus(point),
             "HSV Score": hsv_score,
+            "Glass": glass_fields(point),
             "AI": ai_fields(point),
             "ts": point["time"],
             "Thumb": point.get("thumb") or 0,
@@ -94,11 +95,14 @@ def fetch_camera_data(camera_tag):
                 if p["time"] == epoch_time and p.get("label", "").startswith("12_")
             ]
 
+            ranked_hsv = 0 if point["score"] is None else point["score"]
             ranked_images.append({
                 "Ranked Image": point["url"],
                 "Raw Image": matching_photo_url,
                 "HSV Image": hsv_photo[0]["url"] if hsv_photo else None,
-                "Score": 0 if point["score"] is None else point["score"],
+                "Score": ranked_hsv + (glass_bonus(matching_photo[0]) if matching_photo else 0),
+                "HSV Score": ranked_hsv,
+                "Glass": glass_fields(matching_photo[0]) if matching_photo else None,
                 "Date": date_str,
                 "Time": time_str,
                 "dt_local": dt_local.isoformat(),
@@ -126,6 +130,21 @@ def exclusion(point):
     if point.get("view_blocked"):
         return "same view as a thumbed-down shot"
     return AI_EXCLUSIONS.get(point.get("ai_view"))
+
+
+# Glass lake (ai_judge/reflect.py): mirror-calm lake shots get a small bump. Keep in sync with ai_judge/store.py.
+GLASS_BONUS = ((0.45, 8), (0.35, 5))  # (mirror_score at least, points)
+
+
+def glass_bonus(point):
+    mirror = point.get("mirror_score")
+    return next((pts for at, pts in GLASS_BONUS if mirror is not None and mirror >= at), 0)
+
+
+def glass_fields(point):
+    """{"mirror": score, "bonus": points} for a glass-lake shot, else None."""
+    bonus = glass_bonus(point)
+    return {"mirror": point["mirror_score"], "bonus": bonus} if bonus else None
 
 
 WEATHER_FIELDS = ["temperature_2m", "relative_humidity_2m", "dew_point_2m", "precipitation_probability",

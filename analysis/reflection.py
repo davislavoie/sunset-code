@@ -1,44 +1,33 @@
 """Glass-lake reflections on btv_echo_cam vs wind.
 
 btv_echo_cam cycles through PTZ presets, so there is no fixed sky / lake region. Instead every thumb is
-searched for the row that best acts as a mirror: the K rows above it, flipped, against the K rows below. A calm lake mirroring the sky scores high; ripples, docks,
-boats and trees score low. Wind (10 m, km/h) at sunset comes from Open-Meteo's historical-forecast API
+searched for the row that best acts as a mirror (ai_judge/reflect.py, which shows the result as a badge).
+A calm lake mirroring the sky scores high; ripples, docks, boats and trees score low. Wind (10 m, km/h) at sunset comes from Open-Meteo's historical-forecast API
 at the camera and 10 km out over the lake toward the sun, cached in analysis_export/openmeteo/.
 
     python analysis/reflection.py
 """
 
 import json
+import sys
 
 import numpy as np
 import pandas as pd
 import requests
-from PIL import Image
 
 import data
 
+sys.path.insert(0, str(data.ROOT))
+from ai_judge import reflect  # noqa: E402
+
 CAM = "btv_echo_cam"
 THUMBS = data.EXPORT / "thumbs" / CAM
-K = 12  # rows compared on each side of the mirror line (thumbs are 320x180)
 LABELS = ["05_15m_pre", "07_sunset"]
 
 
 def mirror_score(path):
-    """(best correlation, mirror row as a fraction of height) for one thumb.
-
-    Compares vertical colour gradients: a reflection flips them, while posts, masts and trees (no vertical
-    gradient) and the plain sky-to-ground brightness ramp (removed per row) don't count as mirroring."""
-    g = np.asarray(Image.open(path).convert("RGB"), dtype=float)
-    dy = np.diff(g - g.mean(axis=1, keepdims=True), axis=0)
-    best = (-1.0, np.nan)
-    for h in range(int(.3 * len(dy)), int(.8 * len(dy))):
-        a, b = -dy[h - K:h][::-1].ravel(), dy[h + 1:h + 1 + K].ravel()
-        if a.std() < 1 or b.std() < 1:  # flat fog / dark frames
-            continue
-        r = np.corrcoef(a, b)[0, 1]
-        if r > best[0]:
-            best = (r, h / len(dy))
-    return best
+    """(best correlation, mirror row as a fraction of height) for one thumb: ai_judge.reflect's detector."""
+    return reflect.mirror_score(open(path, "rb").read())
 
 
 def wind(days):
@@ -80,7 +69,6 @@ def main():
 
 
 if __name__ == "__main__":
-    import sys
     if len(sys.argv) > 1:  # python reflection.py <thumb> : score one image
         print(mirror_score(sys.argv[1]))
     else:

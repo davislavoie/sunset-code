@@ -24,6 +24,17 @@ export function FlagPill({ reason, className = "" }) {
   );
 }
 
+/** "Glass lake +5" on btv shots where the lake mirrors the sky (ai_judge/reflect.py); the bump is in Score, HSV unchanged. */
+export function GlassPill({ glass, hsv, className = "" }) {
+  if (!glass) return null;
+  const base = hsv != null ? ` on the ${hsv.toFixed(1)} HSV score` : "";
+  return (
+    <Tip label={`Mirror-calm lake (reflection ${glass.mirror.toFixed(2)}): +${glass.bonus}${base}`}>
+      <span className={`bubble success glass-pill ${className}`}>Glass lake +{glass.bonus}</span>
+    </Tip>
+  );
+}
+
 export default function Thumbs({ camera, img, onChange }) {
   const [state, setState] = useState({ thumb: img.Thumb ?? 0, badView: !!img.BadView });
   const [error, setError] = useState(null);

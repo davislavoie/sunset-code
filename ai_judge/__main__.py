@@ -1,5 +1,5 @@
 """Sidecar to the capture pipeline: reads captures from InfluxDB and adds fields to
-them (weather, a simple sunset forecast, view fingerprints, thumbs rules, optional local AI verdicts), and
+them (weather, a simple sunset forecast, view fingerprints, glass-lake badge, thumbs rules, optional local AI verdicts), and
 re-picks a day's best shot when your thumbs say so. It never changes the
 pipeline's own fields or code.
 
@@ -7,6 +7,7 @@ pipeline's own fields or code.
   python -m ai_judge weather  --camera all [--since ...] [--before ...] [--refill]
   python -m ai_judge predict  --camera all [--since ...] [--before ...] [--refill]   # simple sunset forecast on 2h/1h-pre captures
   python -m ai_judge views    --camera all   # fingerprint captures for "all shots like this"
+  python -m ai_judge reflect  --camera all   # "Glass lake" badge: mirror score on btv_echo_cam captures
   python -m ai_judge cleanup  --camera all [--delete]   # list (or remove) entries whose photo you deleted
   python -m ai_judge backfill --camera btv_echo_cam [--since 2025-07-01] [--before 2025-08-01] [--best-only] [--limit N] [--rejudge]
   python -m ai_judge rerank   --camera btv_echo_cam [--since ...] [--before ...] [--rescore] [--hsv-only] [--fill-missing] [--dry-run]
@@ -30,7 +31,7 @@ from pathlib import Path
 
 from influxdb import InfluxDBClient
 
-from . import predict, store, views, weather
+from . import predict, reflect, store, views, weather
 from .judge import ensure_model, judge_image
 from .rerank import gate_days, rerank
 
@@ -74,7 +75,7 @@ def watch(_args):
         for camera in store.cameras(client):
             # Each step on its own, so e.g. Open-Meteo being down doesn't stop thumbs from applying.
             steps = [lambda: weather.fill(client, camera), lambda: predict.fill(client, camera),
-                     lambda: views.fill_fingerprints(client, camera)]
+                     lambda: views.fill_fingerprints(client, camera), lambda: reflect.fill(client, camera)]
             if AI_MODEL:
                 steps.append(lambda: [judge_and_save(client, p, AI_MODEL) for p in store.captures(client, camera, recent="2d")
                                       if store.needs_judging(p, AI_MODEL)])
@@ -155,6 +156,12 @@ def views_cmd(args):
     for camera in camera_list(client, args.camera):
         views.fill_fingerprints(client, camera)
         views.apply_bad_views(client, camera)
+
+
+def reflect_cmd(args):
+    client = influx()
+    for camera in camera_list(client, args.camera):
+        reflect.fill(client, camera)
 
 
 def bakeoff(args):
@@ -261,12 +268,14 @@ def main():
     f.add_argument("--refill", action="store_true", help="recompute even for captures that have a forecast")
     v = sub.add_parser("views", help="fingerprint captures and apply 'all shots like this' thumbs downs")
     v.add_argument("--camera", required=True, help="camera tag, or 'all'")
+    m = sub.add_parser("reflect", help="add the glass-lake mirror score to btv_echo_cam captures that lack one")
+    m.add_argument("--camera", required=True, help="camera tag, or 'all' (only btv_echo_cam is scored)")
     x = sub.add_parser("cleanup", help="list (or --delete) entries whose photo file is gone")
     x.add_argument("--camera", required=True, help="camera tag, or 'all'")
     x.add_argument("--delete", action="store_true", help="actually remove them (default: just list)")
     args = parser.parse_args()
     commands = {"backfill": backfill, "rerank": rerank_cmd, "bakeoff": bakeoff, "weather": weather_cmd, "predict": predict_cmd,
-                "views": views_cmd, "cleanup": cleanup_cmd}
+                "views": views_cmd, "reflect": reflect_cmd, "cleanup": cleanup_cmd}
     commands.get(args.command, watch)(args)
 
 

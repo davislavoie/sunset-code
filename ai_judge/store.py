@@ -95,6 +95,16 @@ def exclusion(point):
     return AI_EXCLUSIONS.get(point.get("ai_view"))
 
 
+# Glass lake (ai_judge/reflect.py): a mirror-calm lake earns a small bump when picking the day's best
+# shot and in the displayed score; the HSV score itself is untouched. Same rule as html_project/backend.py.
+GLASS_BONUS = ((0.45, 8), (0.35, 5))  # (mirror_score at least, points)
+
+
+def glass_bonus(point):
+    mirror = point.get("mirror_score")
+    return next((pts for at, pts in GLASS_BONUS if mirror is not None and mirror >= at), 0)
+
+
 def needs_judging(point, model, rejudge=False):
     return rejudge or point.get("ai_model") != model
 

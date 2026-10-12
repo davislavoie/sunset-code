@@ -12,7 +12,7 @@ import { ForecastCard } from "../Forecast.jsx";
 import Img, { SIZES, sizeForLabel } from "../Img.jsx";
 import Reveal from "../Reveal.jsx";
 import SunsetHero, { AiVerdict } from "../SunsetHero.jsx";
-import Thumbs, { exclusionFor, FlagPill } from "../Thumbs.jsx";
+import Thumbs, { exclusionFor, FlagPill, GlassPill } from "../Thumbs.jsx";
 import Tip from "../Tip.jsx";
 import { Zoomable } from "../lightbox.jsx";
 
@@ -227,6 +227,7 @@ export function CaptureCard({ img, camera, event = "sunset", selected = false, o
           {img.Weather?.temperature_2m != null && <> &middot; {Math.round(img.Weather.temperature_2m)}°F</>}
         </span>
         <FlagPill reason={excluded} />
+        <GlassPill glass={img.Glass} hsv={img["HSV Score"]} />
         <AiVerdict ai={img.AI} compact />
         {!generated && <Thumbs camera={camera} img={img} onChange={(s) => setThumb(s.thumb)} />}
       </div>

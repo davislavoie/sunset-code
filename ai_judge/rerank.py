@@ -3,9 +3,9 @@
 For each day: optionally re-score every capture with the current HSV code,
 skip captures that can't win (store.exclusion: thumbs down, same view as a
 thumbed-down shot, dark / no signal), pick a thumbs-up capture if there is one,
-else the highest HSV score, and regenerate that day's ranked image + histogram
-with the pipeline's own functions (rank_sunset, generate_ranked_image,
-influxdb_push), unchanged. If no capture that day can win, the day's ranking is
+else the highest HSV score plus the glass-lake bump (store.glass_bonus), and
+regenerate that day's ranked image + histogram with the pipeline's own functions
+(rank_sunset, generate_ranked_image, influxdb_push), unchanged. If no capture that day can win, the day's ranking is
 removed so it doesn't count at all.
 
 Unlike tests/re_rank_sunsets.py it never deletes captures (so thumbs, weather and
@@ -40,7 +40,7 @@ def pick(captures, use_rules=True):
     """The day's best shot, or None if no capture can win."""
     candidates = [p for p in captures if not use_rules or not store.exclusion(p)]
     liked = [p for p in candidates if (p.get("thumb") or 0) > 0]
-    return max(liked or candidates, key=lambda p: p.get("score") or 0, default=None)
+    return max(liked or candidates, key=lambda p: (p.get("score") or 0) + store.glass_bonus(p), default=None)
 
 
 def rerank_day(client, camera, day_points, pipeline, rescore=False, use_rules=True, dry_run=False, fill_missing=False):
