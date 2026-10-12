@@ -182,13 +182,12 @@ def fill(client, camera, recent="2d", since=None, before=None):
         fields = {k: v for k, v in (got or {}).items() if v is not None}
         if fields:
             writes.append(store.field_point(p, fields))
-        # Save as we go: a backfill of history takes hours.
-        if len(writes) >= 50 or i == len(todo):
-            if writes:
-                client.write_points(writes)
-            done += len(writes)
-            writes = []
-            if len(todo) > 50:
-                log.info("%s: GOES %d of %d pre shots", camera, i, len(todo))
+        if len(writes) >= 50:  # save as we go: a backfill of history takes hours
+            client.write_points(writes)
+            done, writes = done + len(writes), []
+            log.info("%s: GOES %d of %d pre shots", camera, i, len(todo))
+    if writes:
+        client.write_points(writes)
+        done += len(writes)
     log.info("%s: GOES cloud added to %d of %d pre shots", camera, done, len(todo))
     return done
