@@ -9,7 +9,7 @@ import { captureName } from "../DayDetail.jsx";
 import Img, { SIZES } from "../Img.jsx";
 import Reveal from "../Reveal.jsx";
 import Tip from "../Tip.jsx";
-import { byScore, move, withAuto } from "../myRank.js";
+import { byScore, step, withAuto } from "../myRank.js";
 
 const PAGE_SIZE = 20;
 // The card an arrow just moved and where it was on screen, so the page scrolls to keep it under
@@ -76,7 +76,7 @@ export default function MyRanking({ data, camera }) {
       <h1>My ranking</h1>
       <p className="muted">
         Every day starts with the auto ranking's best frame and score. Fix the ones that are wrong: change the score,
-        move a day up or down, or choose another frame. Only days you've touched are saved as yours.{" "}
+        nudge it with the arrows (half a point a press), or choose another frame. Only days you've touched are saved as yours.{" "}
         {ranks.length} of {all.length} days reviewed.
       </p>
       <div className="ranking-controls">
@@ -92,9 +92,9 @@ export default function MyRanking({ data, camera }) {
       <div className="myrank-list">
         {rows.slice(0, visible).map((r, i) => (
           <RankCard key={r.date} r={r} place={i + 1} frames={frames[r.date] ?? []} save={save}
-            last={i === rows.length - 1} onMove={(dir, el) => {
+            onMove={(dir, el) => {
               anchor = { date: r.date, top: el.getBoundingClientRect().top };
-              move(rows, i, dir).forEach(save);
+              save({ ...r, score: step(r.score, dir) });
             }} />
         ))}
       </div>
@@ -108,7 +108,7 @@ export default function MyRanking({ data, camera }) {
   );
 }
 
-function RankCard({ r, place, last, frames, save, onMove }) {
+function RankCard({ r, place, frames, save, onMove }) {
   const [score, setScore] = useState(r.score);
   const [choosing, setChoosing] = useState(false);
   const card = useRef(null);
@@ -117,7 +117,7 @@ function RankCard({ r, place, last, frames, save, onMove }) {
     if (anchor?.date !== r.date) return;
     window.scrollBy({ top: card.current.getBoundingClientRect().top - anchor.top, behavior: "instant" });
     anchor = null;
-  }, [place]);
+  }, [place, r.score]);
 
   const commit = () => {
     const s = Math.min(100, Math.max(0, Number(score)));
@@ -146,17 +146,17 @@ function RankCard({ r, place, last, frames, save, onMove }) {
           </div>
         </div>
         <div className="myrank-actions">
-          <Tip label="Move up">
-            <button className="icon-btn" disabled={place === 1} onClick={() => onMove(-1, card.current)}><ArrowUp size={18} /></button>
+          <Tip label="Score +0.5">
+            <button className="icon-btn" disabled={r.score >= 100} onClick={() => onMove(-1, card.current)}><ArrowUp size={18} /></button>
           </Tip>
-          <Tip label="Move down">
-            <button className="icon-btn" disabled={last} onClick={() => onMove(1, card.current)}><ArrowDown size={18} /></button>
+          <Tip label="Score −0.5">
+            <button className="icon-btn" disabled={r.score <= 0} onClick={() => onMove(1, card.current)}><ArrowDown size={18} /></button>
           </Tip>
-          {!r.auto && (
-            <Tip label="Reset to the auto pick">
-              <button className="icon-btn" onClick={() => save({ ...r, score: -1 })}><RotateCcw size={16} /></button>
-            </Tip>
-          )}
+          <Tip label={r.auto ? "Already the auto pick" : "Back to the auto frame and score"}>
+            <button className="btn" disabled={r.auto} onClick={() => save({ ...r, score: -1 })}>
+              <RotateCcw size={16} /> Reset
+            </button>
+          </Tip>
           <button className="btn" aria-expanded={choosing} onClick={() => setChoosing(!choosing)}>
             Frames <ChevronDown size={16} className={`chevron${choosing ? " open" : ""}`} />
           </button>

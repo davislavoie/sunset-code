@@ -1,30 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { byScore, move, withAuto } from "./myRank.js";
+import { step, withAuto } from "./myRank.js";
 
-const day = (score, n) => ({ date: `2026-08-${String(n).padStart(2, "0")}`, score });
-const apply = (list, i, dir) => {
-  const updates = Object.fromEntries(move(list, i, dir).map((r) => [r.date, r]));
-  return list.map((r) => updates[r.date] ?? r).sort(byScore);
-};
-
-test("smashing an arrow moves a day one place per press, through ties and the 0/100 ends", () => {
-  for (const scores of [[90, 80, 70, 60], [100, 100, 80, 80, 80, 0, 0, 0], [50, 50, 50], [100, 99.99, 0.01, 0]]) {
-    for (const dir of [1, -1]) {
-      let list = scores.map(day).sort(byScore);
-      const start = dir > 0 ? 0 : list.length - 1;
-      const date = list[start].date;
-      for (let k = 1; k < list.length; k++) {
-        list = apply(list, list.findIndex((r) => r.date === date), dir);
-        const at = list.findIndex((r) => r.date === date);
-        // One place per press; inside a run of identical scores it may skip ahead, never stall.
-        assert.ok(scores.length === new Set(scores).size ? at === start + dir * k : (at - start) * dir >= k, `${scores} dir ${dir} press ${k}`);
-        assert.ok(list.every((r) => r.score >= 0 && r.score <= 100));
-      }
-      if ((list.findIndex((r) => r.date === date) - start) * dir < list.length - 1) continue;
-      assert.deepEqual(move(list, list.findIndex((r) => r.date === date), dir), []); // already at the end
-    }
-  }
+test("arrows step the score half a point, within 0-100", () => {
+  assert.equal(step(61.23, -1), 61.73);
+  assert.equal(step(61.23, 1), 60.73);
+  assert.equal(step(99.8, -1), 100);
+  assert.equal(step(0.2, 1), 0);
 });
 
 test("days without your pick fall back to the auto best frame", () => {
