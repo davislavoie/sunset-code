@@ -354,6 +354,27 @@ camera-days). Tables are in `models.md`.
 - Other free sources worth a look: GOES-East observed cloud (item 6, below), KBTV METAR ceilings, and
   more Open-Meteo models (UKMO, ARPEGE, ensemble spread).
 
+## Sharper horizon-gap prompt, 40 photos (follow-up)
+
+`vision_gap.py` asks qwen3-vl:4b a structured prompt on the 1h-pre thumb: horizon found, cloud cover,
+cloud base height, gap yes/no/unclear and its thickness, clouds overhead, underside lit, quality. It
+ran on a stratified 40 of the 160 days (15 top-25 %, 15 bottom-25 %, 10 middle), so the first prompt
+and the image method compare on the same photos. Tables are in `vision_gap.md`.
+
+- qwen3-vl "thinks" even with `think: false`. On this longer prompt it rambled past its context and
+  returned nothing. Pre-filling an empty think block fixes it, and it is fast: 16 s per photo, against
+  about 54 s for the first prompt (which spent most of that thinking). Accuracy is no worse.
+- Spearman with the outcome on these 40 (inflated by the stratified extremes):
+  - predicted_quality: 0.62 new vs 0.53 old.
+  - cloud_cover: −0.57 new vs −0.47 old.
+  - gap_thickness: 0.65 (the best single answer).
+- As a yes/no, "gap" says yes on 35 of 40, so it barely discriminates: the 5 "no" days were all bad
+  (median 11th pct). The old horizon_clear splits better as a binary (75th vs 16th pct). The image
+  method (`horizon_gap.py`) flagged none of the 40.
+- Reading: gap_thickness and the quality score from the no-think structured prompt look at least as
+  good as the old prompt at a third of the cost. That is worth confirming on all 160 days (about
+  45 min at 16 s per photo) before trusting it.
+
 ## Caveats
 
 - `ai_view` (dark / no-signal) isn't in the export, so those captures weren't excluded. They can
@@ -372,6 +393,7 @@ camera-days). Tables are in `models.md`.
 - `backtest.py`: the weather-only backtest.
 - `vision.py`, `vision_eval.py`, `vision_compare.py`: the Ollama vision-model test and its comparison with Open-Meteo.
 - `horizon_gap.py`: image-based horizon light gap (`horizon_gap.md`, `horizon_gap_examples.jpg`).
+- `vision_gap.py`: sharper horizon-gap prompt on 40 photos (`vision_gap.md`).
 - `models.py`: cloud models compared (`models.md`).
 - `aloft.py`: upper-level wind along the sun line (`aloft.md`).
 - `reflection.py`: btv glass-lake detector vs wind (`analysis_export/reflection.parquet`).

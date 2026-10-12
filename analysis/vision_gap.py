@@ -3,7 +3,7 @@ of the days the first prompt (vision.py) already judged, so the two prompts and 
 on the same photos. Uses the local 320 px 1h-pre thumbs (the image server is offline). Answers are
 appended to analysis_export/vision_gap_<model>.jsonl (resumable).
 
-    python analysis/vision_gap.py qwen3-vl:4b          # run (about 1 min per photo on CPU)
+    python analysis/vision_gap.py qwen3-vl:4b          # run (about 10 s per photo on CPU)
     python analysis/vision_gap.py qwen3-vl:4b --eval   # compare -> vision_gap.md
 """
 
@@ -19,22 +19,15 @@ import data
 from vision import OLLAMA
 
 PROMPT = """This webcam photo was taken 1 hour before sunset, looking roughly toward where the sun will set.
-Work through it step by step, then answer in JSON.
-1. Find the horizon toward the sun: the far shore, ridge or skyline where land or water meets the sky.
-2. Describe the cloud deck above it: how much of the sky it covers, and how high its base sits in the
-   frame (low = touching the horizon, high = well above it).
-3. Look at the strip of sky between the cloud base and the horizon. Is there a band of clear or bright
-   sky there that the setting sun could shine through?
-4. If so, how thick is that band, as a share of the sky's height in the frame?
-5. Will the setting sun be able to light the undersides of the clouds from below?
-Fields:
-horizon_found (true/false),
+Find the horizon toward the sun (the far shore, ridge or skyline), then look at the cloud deck above it and
+at the strip of sky between the cloud base and the horizon. Answer in JSON:
+horizon_found (true if you can see where land or water meets the sky),
 cloud_cover (0-100, percent of the visible sky covered by cloud),
-cloud_base (one of: none, touching_horizon, low, mid, high),
-gap (one of: yes, no, unclear: a clear or bright band between the cloud base and the horizon),
-gap_thickness (0-100, percent of the sky height; 0 if no gap),
+cloud_base (where the bottom of the main cloud deck sits in the frame: none, touching_horizon, low, mid, high),
+gap (yes / no / unclear: is there a band of clear or bright sky between the cloud base and the horizon that the setting sun could shine through),
+gap_thickness (0-100, that band's height as a percent of the sky's height in the frame; 0 if no gap),
 clouds_overhead (true if there is cloud higher up that could catch the light),
-underside_lit (one of: likely, possible, unlikely),
+underside_lit (likely / possible / unlikely: will the setting sun light the undersides of the clouds from below),
 predicted_quality (0-100, 0 = grey/no colour, 100 = spectacular),
 reason (one short sentence)."""
 SCHEMA = {
@@ -64,8 +57,11 @@ def sample():
 
 
 def ask(model, path):
-    body = {"model": model, "stream": False, "think": False, "format": SCHEMA, "options": {"temperature": 0},
-            "messages": [{"role": "user", "content": PROMPT, "images": [base64.b64encode(path.read_bytes()).decode()]}]}
+    body = {"model": model, "stream": False, "think": False, "format": SCHEMA, "options": {"temperature": 0, "num_predict": 400},
+            # qwen3-vl thinks even with think=False (and with this prompt it rambles past the context);
+            # an empty think block as the start of the answer skips that: ~8 s per photo instead of minutes.
+            "messages": [{"role": "user", "content": PROMPT, "images": [base64.b64encode(path.read_bytes()).decode()]},
+                         {"role": "assistant", "content": "<think>\n\n</think>\n\n"}]}
     resp = requests.post(f"{OLLAMA}/api/chat", json=body, timeout=900)
     resp.raise_for_status()
     return json.loads(resp.json()["message"]["content"])
