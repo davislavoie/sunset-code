@@ -1,4 +1,5 @@
-"""Backtest ai_judge/predict.py's simple forecast on all history, against the day's actual best
+"""Backtest the weather-only simple forecast (ai_judge/predict.py's weather_raw, before the HSV
+scores of the pre shots were added; horizons.py backtests that full forecast) on all history, against the day's actual best
 HSV score in the sunset window (15 min before to 30 min after). Writes backtest.md.
 
     python analysis/backtest.py
@@ -14,9 +15,18 @@ from sklearn.metrics import roc_auc_score
 import data
 
 sys.path.insert(0, str(data.ROOT))
-from ai_judge.predict import simple_score  # noqa: E402
+from ai_judge.predict import weather_raw  # noqa: E402
 
 CLASSES = ["poor", "maybe", "good"]
+
+
+def simple_score(point):
+    """Weather alone -> (0-100, class): good if raw > 0.6, poor if raw <= 0."""
+    raw = weather_raw(point)
+    if raw is None:
+        return None
+    score = round((raw + 0.5) / 1.5 * 100, 1)
+    return score, "good" if score >= 73 else "poor" if score < 34 else "maybe"
 
 
 def table():

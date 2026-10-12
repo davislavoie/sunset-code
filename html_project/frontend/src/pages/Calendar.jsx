@@ -8,6 +8,7 @@ import { useSearchParams } from "react-router";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { dayPath, useDocumentTitle } from "../api.js";
 import DayDetail, { captureName } from "../DayDetail.jsx";
+import { ForecastCard } from "../Forecast.jsx";
 import Img, { SIZES, sizeForLabel } from "../Img.jsx";
 import Reveal from "../Reveal.jsx";
 import SunsetHero, { AiVerdict } from "../SunsetHero.jsx";
@@ -180,6 +181,7 @@ function DayView({ date, goTo, allData, camera, best }) {
           <div ref={heroRef} className="detail-scroll-target">
             <SunsetHero shots={dayImages} index={shown} onSelect={setSelected} best={best} camera={camera} date={date} />
           </div>
+          <ForecastCard date={date} dayImages={dayImages} allData={allData} event={event} />
           <div className="detail day-captures">
             <div className="detail-title">
               <h3>All captures</h3>

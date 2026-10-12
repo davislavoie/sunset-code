@@ -5,6 +5,7 @@ import { Link } from "react-router";
 import { ArrowRight, ChevronDown, Maximize2, X } from "lucide-react";
 import { dayPath } from "../api.js";
 import DayDetail, { captureName } from "../DayDetail.jsx";
+import { ForecastMetric } from "../Forecast.jsx";
 import HsvHistogram from "../HsvHistogram.jsx";
 import Img, { SIZES } from "../Img.jsx";
 import Reveal from "../Reveal.jsx";
@@ -90,6 +91,7 @@ function RankingRow({ row, event, allData, onLoadToHsv }) {
             <div className="metric-label">Score</div>
             <div className="ranking-score-value">{row.Score.toFixed(1)}%</div>
           </div>
+          <ForecastMetric date={row.Date} allData={allData} />
           <div className="ranking-when">
             <h2>{longDate(row.Date)}</h2>
             <span>{[row.Time, captureName(rawUrl, event)].filter(Boolean).join(" · ")}</span>

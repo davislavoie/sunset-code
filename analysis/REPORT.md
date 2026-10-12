@@ -94,10 +94,145 @@ at ρ −0.6 to −0.7 (strongest: low cloud 13 km out, 1 h before), and the cor
   share and HSV score of the latest pre-shot are much better predictors than any weather. A live
   "sunset odds" that starts from the weather formula and switches to the latest photo's warm share
   would be the real gain.
-- **Note on the target.** The HSV score rewards colour, and the data says clear skies give the most
-  colour by this measure: 31.5% of days had their best score at the 2h or 1h-pre shot, not around
-  sunset. If the dramatic sunsets you like are the ones lit up on mid/high cloud, the score may be
-  undervaluing them. It's worth checking a few top-rated "cloudy canvas" days by eye.
+- **Note on the target.** The HSV score rewards colour, and by this measure clear skies give the most
+  colour. If the dramatic sunsets you like are the ones lit up on mid/high cloud, the score may be
+  undervaluing them, so check a few top-rated "cloudy canvas" days by eye. (An earlier version of
+  this report said 31.5% of days had their best score at 2h/1h pre. That was wrong; see "Early best
+  scores" below.)
+
+## Early best scores (follow-up)
+
+**Correction to the first version:** the 31.5% figure counted every shot before 15 min pre (2h, 1h,
+45m and 30m). Only **12% of days (68)** have their overall best HSV score at the 2h or 1h shot.
+Breakdown of which shot holds each camera-day's best score:
+2h 43, 1h 25, 45m 44, 30m 84, 15m 103, 5m 58, sunset/sunrise 38, +5m 49, +15m 52, +30m 72.
+
+- **The timestamps are right.** I checked 600 captures against astral sunset times:
+  - 2h-pre shots are 109–119 min before sunset.
+  - 1h-pre shots are 49–58 min before.
+  - The sunset shot is 2–11 min after.
+
+  There's no DST or label mix-up.
+- **They're almost all dull days.** When the best shot is at 2h/1h, that best is a median score of
+  **2.8**: the whole day is grey and the max is noise. On days scoring 30+, only **1 of 216** had
+  its best at 2h/1h.
+- **The few higher early scores come from colour that isn't sunset sky.** `rank_sunset` scores the
+  top half of the frame (`horizon_y = height // 2`, with `find_horizon` commented out). Looking at
+  the photos:
+  - btv_echo_cam 2026-09-18 2h (27.7) and 2026-02-24 1h (21.7): low golden-hour sun lighting trees,
+    brick and brown foliage in the top half.
+  - wcax_tower_sunset 2026-10-05 2h (30.1) and 2026-10-07 2h (28.0): orange/pink lens-flare blobs
+    plus sunlit cloud edges.
+  - btv 2025-06-19 1h (22.8): bright warm cloud edges in mid-afternoon light.
+- **Fix used in this analysis:** a day's score is the best shot from 15 min before to 30 min after
+  sunset. All the numbers above were re-run with it. Pooled correlations and models moved by at
+  most ±0.02 (e.g. ridge on all grid points ρ 0.598 → 0.597, AUC 0.743 → 0.754), so the conclusions
+  stand.
+- **Suggested pipeline fix (not done):** have the day's best shot (rerank / `11_ranked`) consider
+  only the 15m-pre to 30m-post shots. A better long-term fix is a per-camera sky line in
+  `sunset_process.py` (re-enable `find_horizon`, or a fixed `SKY_BOTTOM` per camera in
+  `config/<camera>.env`) so trees and buildings aren't scored as sky.
+
+## Forecast at every pre shot, wired in (follow-up)
+
+**What's wired in:** `ai_judge/predict.py` writes a forecast onto each pre shot: 2h, 1h, 45m, 30m,
+15m and 5m before sunset. There is no 10-minute capture; adding one would mean changing
+sunset_code's intervals, which I didn't touch. The forecast fields:
+- `predicted_pct`: 0–100, where the day's best sunset-window score should rank among this
+  camera's earlier days.
+- `predicted_score`: that rank turned back into an HSV score using the camera's past daily bests,
+  so it can sit next to the actual score.
+- `predicted_call`: poor (< 35), maybe, good (≥ 60) or banger (≥ 80).
+
+Inputs are only what is known at that shot:
+
+    weather = clear-path share - 0.5 * RH/100   (clear = path13/40/80 points with low < 20%, mid < 30%)
+    cur_pct = this shot's HSV score, as a percentile of the camera's earlier daily bests
+    max_pct = best shot so far today, same scale  (flagged shots count as 0, as on the dashboard)
+    predicted_pct = a + b*weather + c*cur_pct + d*max_pct     (one line per horizon)
+
+The coefficients are in `ai_judge/predict_coefs.json`, fitted by `horizons.py`, so the NUC needs
+plain Python only. As sunset nears, the weight moves from the weather to what the camera is
+already seeing: at 2h, weather 0.27 and shot 0.15; at 5m, weather 0.04 and shots 0.88.
+
+How it runs:
+- As a step in `python -m ai_judge watch`, after the weather fill.
+- On demand: `python -m ai_judge predict --camera all [--since/--before] [--refill]`.
+- It only uses earlier days as history, so a backfill is honest.
+- **It has not been backfilled or run against the NUC's InfluxDB.**
+
+**Backtest per horizon** (`horizons.py` → `horizons.md`). Leave-one-month-out, sunset cameras,
+about 485 days. The target is the day's best score from 15m pre to 30m post, as a percentile within
+the camera:
+
+| shot | Spearman | AUC top-25% | typical miss (pct pts) | banger precision / recall (top-10%) | top-25% days called poor |
+|---|---|---|---|---|---|
+| 2h | 0.51 | 0.68 | 20 | — (almost never called) | 6.5% |
+| 1h | 0.55 | 0.68 | 19 | — | 7.3% |
+| 45m | 0.57 | 0.70 | 19 | — | 4.9% |
+| 30m | 0.63 | 0.73 | 18 | 16% / 9% | 3.3% |
+| 15m | 0.75 | 0.80 | 14 | 29% / 28% | 4.9% |
+| 5m | **0.87** | **0.90** | **10** | **41% / 56%** | 3.3% |
+
+The 15m and 5m shots fall inside the target window. Scored only against the shots still to come
+(5m pre onward, and sunset onward), they still get ρ 0.69 / AUC 0.75 at 15m and ρ 0.82 /
+AUC 0.89 at 5m. In plain terms:
+- **The weather sets the odds two hours out.**
+- **The camera itself is the real signal from about 30 minutes out.**
+- **"Banger" calls only make sense at the 15m and 5m shots.** At 5m, a banger call is right 4 times
+  as often as chance (41% against a 10% base rate).
+
+**Dashboard** (html_project):
+- **Day view:** a new **Forecast** card under the hero. One row per pre shot shows the shot's score,
+  the predicted best (score and "top N%"), the call, and the accuracy. Accuracy is *Hit* (same call
+  as what happened), *Close* (one call off) or *Miss*, plus how many percentile points it was off.
+  The card header shows the day's actual best, and its footer the hit rate over all days for each
+  shot.
+- **Ranked images:** each day gets a **1 hr forecast** metric (predicted score, call, accuracy)
+  next to its score.
+- **Data:** the backend sends the forecast as a `Forecast` field. `src/forecast.js` works out the
+  actual rank and the accuracy, with tests in `forecast.test.js`.
+- **Preview:** I checked it locally against a read-only copy of the NUC's data, with the forecast
+  computed in memory. On btv the call is a hit or close on 85% of days at 2h, rising to 96% at 5m. These rates are in-sample: the coefficients were fitted on these same days.
+
+### Weather-only first version, kept for reference
+
+`backtest.py` → `backtest.md`. This was the first version: weather alone, 2h/1h only.
+**Backtest** (`backtest.py`, full table in `backtest.md`): every day in history, the forecast vs
+the actual best score from 15m pre to 30m post. These are the **1h-pre** numbers; 2h-pre is a bit
+weaker (pooled ρ 0.50, AUC 0.70).
+
+| | bolton | btv | wcax_sunset | wcax_sunrise | sunset pooled |
+|---|---|---|---|---|---|
+| days | 132 | 336 | 47 | 46 | 515 |
+| Spearman | 0.55 | 0.53 | 0.65 | 0.32 | 0.54 |
+| AUC (top-25% day) | 0.75 | 0.70 | 0.81 | 0.62 | 0.72 |
+| top-25% days called "good" | 71% | 59% | 69% | 18% | 63% |
+| top-25% days called "poor" | 3% | 18% | 0% | 27% | 12% |
+| "poor" calls that were bottom-third | 74% | 63% | 75% | 52% | 67% |
+| "good" calls that were top-third | 55% | 54% | 60% | 33% | 55% |
+
+Confusion matrix (sunset cameras, 1h-pre; columns are the actual tercile within the camera):
+
+| predicted | bottom | middle | top |
+|---|---|---|---|
+| poor | **130** | 44 | 21 |
+| maybe | 21 | 57 | 40 |
+| good | 20 | 71 | **111** |
+
+Median actual best score by predicted class:
+
+| predicted | bolton | btv | wcax_sunset |
+|---|---|---|---|
+| poor | 0.2 | 3.4 | 18 |
+| maybe | 8 | 21 | 66 |
+| good | 21 | 32 | 75 |
+
+In plain terms:
+- **"Poor" is reliable.** It almost never misses a great day.
+- **"Good" means "worth a look".** It's right about half the time: clear skies give the chance of
+  colour, not a guarantee.
+- **Sunrise:** the forecast is weak there.
 
 ## Caveats
 
@@ -106,8 +241,6 @@ at ρ −0.6 to −0.7 (strongest: low cloud 13 km out, 1 h before), and the cor
 - wcax_tower_sunset reuses btv_echo_cam's blanket (3 km apart). The blanket's bearing is the grid
   bearing nearest the sun (within 5°). The forecasts come from the historical-forecast archive,
   which is what a live prediction would have seen.
-- No local vision model (Ollama) is running on this PC, so the LLM image test was skipped. The
-  hand-made image features already reach AUC 0.84.
 
 ## Files
 
@@ -115,6 +248,9 @@ at ρ −0.6 to −0.7 (strongest: low cloud 13 km out, 1 h before), and the cor
 - `blanket.py`: the Open-Meteo fan fetch (cached, resumable).
 - `images.py`: thumbnail features.
 - `analyze.py`: everything above, written to `results.md`.
+- `horizons.py`: the per-shot forecast fit and backtest (writes `ai_judge/predict_coefs.json`).
+- `backtest.py`: the weather-only backtest.
+- `vision.py`, `vision_eval.py`: the Ollama vision-model test.
 - Charts: `heatmap_sunset.png`, `heatmap_sunrise.png`, `heatmap_<camera>.png`, `effects.png`,
   `models.png`.
 - Tables: `corr_stored.csv`, `effect_sizes.csv`.

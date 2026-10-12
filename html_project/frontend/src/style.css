@@ -2577,3 +2577,13 @@ main#content.is-stale { opacity: 0.5; pointer-events: none; }
 .week-day-thumb-wrap .flag-pill.on-photo { bottom: 4px; left: 4px; font-size: 0.6em; }
 .year-mini-cell.flagged img { opacity: 0.45; filter: grayscale(0.6); }
 @media (max-width: 900px) { .calendar-cell .flag-pill.on-photo { font-size: 0.6em; bottom: 4px; left: 4px; } }
+
+/* Sunset forecast (Day view table, Ranked images metric) */
+.forecast-card .forecast-table { margin-top: 12px; }
+.forecast-table td { vertical-align: middle; font-variant-numeric: tabular-nums; }
+.forecast-card .muted, .forecast-summary .muted { color: var(--text-muted); }
+.forecast-acc { display: inline-flex; align-items: center; gap: 8px; }
+.forecast-summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; margin-top: 12px; font-size: 0.9em; font-variant-numeric: tabular-nums; }
+.forecast-metric { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.forecast-metric .ranking-score-value { font-size: 1.4em; }
+@media (max-width: 700px) { .forecast-table th:nth-child(2), .forecast-table td:nth-child(2) { display: none; } }

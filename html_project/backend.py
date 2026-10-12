@@ -74,6 +74,7 @@ def fetch_camera_data(camera_tag):
             "BadView": bool(point.get("bad_view")),
             "Excluded": exclusion(point),
             "Weather": weather_fields(point),
+            "Forecast": forecast_fields(point),
         }
 
         all_data.append(data_item)
@@ -137,6 +138,13 @@ def weather_fields(point):
     """Open-Meteo weather saved with the capture (°F, %, mm, m), or None if it has none yet."""
     weather = {k: point[k] for k in WEATHER_FIELDS if point.get(k) is not None}
     return weather or None
+
+
+def forecast_fields(point):
+    """Sunset forecast ai_judge/predict.py writes on each pre shot, or None."""
+    if point.get("predicted_pct") is None:
+        return None
+    return {"pct": point["predicted_pct"], "score": point.get("predicted_score"), "call": point.get("predicted_call")}
 
 
 def ai_fields(point):
