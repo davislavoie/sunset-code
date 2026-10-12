@@ -91,7 +91,12 @@ function RankingRow({ row, event, allData, onLoadToHsv }) {
           <div className="ranking-score">
             <div className="metric-label">Score</div>
             <div className="ranking-score-value">{row.Score.toFixed(1)}%</div>
-            {row.Glass && <div className="metric-label">{`${row["HSV Score"].toFixed(1)} + ${row.Glass.bonus} glass`}</div>}
+            {!!(row.Glass || row.Zoom) && (
+              <div className="metric-label">
+                {[row["HSV Score"].toFixed(1), row.Glass && `+ ${row.Glass.bonus} glass`, row.Zoom && `− ${-row.Zoom} zoomed in`]
+                  .filter(Boolean).join(" ")}
+              </div>
+            )}
           </div>
           <ForecastMetric date={row.Date} allData={allData} />
           <div className="ranking-when">

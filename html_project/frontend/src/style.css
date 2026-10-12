@@ -2591,13 +2591,33 @@ main#content.is-stale { opacity: 0.5; pointer-events: none; }
 @media (max-width: 700px) { .forecast-table th:nth-child(2), .forecast-table td:nth-child(2) { display: none; } }
 
 /* My ranking */
-.myrank-place { font-size: 1.4em; font-weight: 700; color: var(--text-muted); font-variant-numeric: tabular-nums; min-width: 1.6em; }
-.myrank-score { width: 3.4em; padding: 0; border: none; border-bottom: 1px dashed var(--border); background: none; font-family: inherit; }
-.myrank-score:focus { outline: none; border-bottom-color: var(--ink); }
+/* Arrows scroll the moved card back under the pointer themselves, so the browser mustn't also adjust. */
+.myrank-list { overflow-anchor: none; }
+.myrank-card { display: flex; align-items: center; gap: 14px; padding: 10px 14px; margin-bottom: 8px; }
 .myrank-card.is-auto { opacity: 0.85; }
-.myrank-body { display: flex; flex-direction: column; gap: 10px; max-width: 640px; }
-.myrank-body img { display: block; width: 100%; height: auto; border-radius: 6px; }
-.myrank-frames { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; margin: -4px 0 16px; }
-.myrank-frame { display: flex; flex-direction: column; gap: 4px; padding: 4px; border: 2px solid transparent; border-radius: 8px; background: none; color: var(--text); cursor: pointer; font-size: 0.85em; text-align: left; }
-.myrank-frame img { width: 100%; height: auto; border-radius: 6px; }
-.myrank-frame.active { border-color: var(--ink); background: var(--selected); }
+.myrank-place { font-size: 1.3em; font-weight: 700; color: var(--text-muted); font-variant-numeric: tabular-nums; min-width: 1.8em; text-align: right; }
+.myrank-thumb { padding: 0; border: none; background: none; cursor: pointer; flex: none; }
+.myrank-thumb img { display: block; width: 200px; height: auto; border-radius: 6px; }
+.myrank-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.myrank-main h2 { margin: 0; font-size: 1.05em; display: flex; align-items: center; gap: 8px; }
+.myrank-score-row { display: flex; align-items: center; gap: 12px; max-width: 420px; }
+.myrank-score { width: 3.6em; font-size: 1.5em; font-weight: 700; font-variant-numeric: tabular-nums; padding: 0; border: none; border-bottom: 1px dashed var(--border); background: none; color: var(--text); font-family: inherit; }
+.myrank-score:focus { outline: none; border-bottom-color: var(--ink); }
+.myrank-score-row input[type="range"] { flex: 1; }
+.myrank-actions { display: flex; align-items: center; gap: 6px; flex: none; }
+.myrank-actions .btn { display: inline-flex; align-items: center; gap: 6px; }
+.myrank-picker { margin: -4px 0 16px; padding: 12px; border-radius: 8px; background: var(--card); box-shadow: var(--shadow-card); outline: none; }
+.myrank-picker-view { display: flex; align-items: center; gap: 8px; }
+.myrank-picker-view img { flex: 1; min-width: 0; width: 100%; max-height: 60vh; object-fit: contain; border-radius: 6px; }
+.myrank-picker-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 10px 0; }
+.myrank-picker-bar .muted { margin-right: auto; font-size: 0.85em; }
+.myrank-strip { display: flex; gap: 6px; overflow-x: auto; }
+.myrank-frame { flex: none; padding: 2px; border: 2px solid transparent; border-radius: 6px; background: none; cursor: pointer; }
+.myrank-frame img { display: block; width: 110px; height: auto; border-radius: 4px; }
+.myrank-frame.saved { border-style: dashed; border-color: var(--border); }
+.myrank-frame.active { border: 2px solid var(--ink); }
+@media (max-width: 700px) {
+  .myrank-card { flex-wrap: wrap; }
+  .myrank-thumb img { width: 120px; }
+  .myrank-actions { width: 100%; justify-content: flex-end; }
+}

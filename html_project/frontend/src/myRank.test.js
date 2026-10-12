@@ -1,15 +1,30 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { byScore, nudge, withAuto } from "./myRank.js";
+import { byScore, move, withAuto } from "./myRank.js";
 
-const list = [90, 80, 70, 60].map((score, i) => ({ date: `2026-08-0${i + 1}`, score }));
-const moved = (i, dir) => list.map((r, j) => (j === i ? { ...r, score: nudge(list, i, dir) } : r)).sort(byScore);
+const day = (score, n) => ({ date: `2026-08-${String(n).padStart(2, "0")}`, score });
+const apply = (list, i, dir) => {
+  const updates = Object.fromEntries(move(list, i, dir).map((r) => [r.date, r]));
+  return list.map((r) => updates[r.date] ?? r).sort(byScore);
+};
 
-test("arrows move a day exactly one place", () => {
-  assert.equal(moved(2, -1)[1].score, 85); // 70 slots between 90 and 80
-  assert.equal(moved(1, -1)[0].date, "2026-08-02"); // to the top: 91
-  assert.equal(moved(1, 1)[2].date, "2026-08-02"); // 80 -> 65, between 70 and 60
-  assert.equal(moved(2, 1)[3].date, "2026-08-03"); // to the bottom: 59
+test("smashing an arrow moves a day one place per press, through ties and the 0/100 ends", () => {
+  for (const scores of [[90, 80, 70, 60], [100, 100, 80, 80, 80, 0, 0, 0], [50, 50, 50], [100, 99.99, 0.01, 0]]) {
+    for (const dir of [1, -1]) {
+      let list = scores.map(day).sort(byScore);
+      const start = dir > 0 ? 0 : list.length - 1;
+      const date = list[start].date;
+      for (let k = 1; k < list.length; k++) {
+        list = apply(list, list.findIndex((r) => r.date === date), dir);
+        const at = list.findIndex((r) => r.date === date);
+        // One place per press; inside a run of identical scores it may skip ahead, never stall.
+        assert.ok(scores.length === new Set(scores).size ? at === start + dir * k : (at - start) * dir >= k, `${scores} dir ${dir} press ${k}`);
+        assert.ok(list.every((r) => r.score >= 0 && r.score <= 100));
+      }
+      if ((list.findIndex((r) => r.date === date) - start) * dir < list.length - 1) continue;
+      assert.deepEqual(move(list, list.findIndex((r) => r.date === date), dir), []); // already at the end
+    }
+  }
 });
 
 test("days without your pick fall back to the auto best frame", () => {

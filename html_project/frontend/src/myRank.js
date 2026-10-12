@@ -3,15 +3,22 @@
 const round = (x) => Math.round(x * 100) / 100;
 export const byScore = (a, b) => b.score - a.score || (a.date < b.date ? 1 : -1);
 
-/** Score that puts row i one place up (dir -1) or down (dir 1) in a list sorted high to low. */
-export function nudge(list, i, dir) {
-  const score = (j) => list[j]?.score;
-  if (dir < 0) {
-    if (i === 0) return list[0].score;
-    return round(i === 1 ? Math.min(100, score(0) + 1) : (score(i - 1) + score(i - 2)) / 2);
-  }
-  if (i === list.length - 1) return list[i].score;
-  return round(i === list.length - 2 ? Math.max(0, score(i + 1) - 1) : (score(i + 1) + score(i + 2)) / 2);
+/**
+ * Rows to save so row i moves one place up (dir -1) or down (dir 1) in a list sorted high to low.
+ * It takes a score between the day it passes and the next one; with no room there (a tie, or the
+ * 0/100 end) the day it passes moves the other way instead. Inside a dead tie it steps 0.01 out.
+ */
+export function move(list, i, dir, flip = true) {
+  const x = list[i], a = list[i + dir], b = list[i + 2 * dir];
+  if (!a) return [];
+  const edge = b ? b.score : dir < 0 ? 100 : 0;
+  const s = round((a.score + edge) / 2);
+  if (s !== a.score && (s !== edge || !b)) return [{ ...x, score: s }];
+  const other = flip && move(list, i + dir, -dir, false);
+  if (other?.length === 1) return other;
+  const past = round(a.score - dir * 0.01);
+  if (past >= 0 && past <= 100) return [{ ...x, score: past }];
+  return [{ ...x, score: a.score }, { ...a, score: round(a.score + dir * 0.01) }];
 }
 
 /** One row per day: your saved pick, else the auto ranking's best frame and score (auto: true). */

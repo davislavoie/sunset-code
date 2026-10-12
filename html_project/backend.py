@@ -60,15 +60,17 @@ def fetch_camera_data(camera_tag):
         time_str = dt_local.strftime("%I:%M %p")
 
         hsv_score = 0 if point["score"] is None else point["score"]
+        zoom = ZOOMED_DAYS.get(camera_tag, {}).get(date_str, 0)
         data_item = {
             "Date": date_str,
             "Time": time_str,
             "Label": point["label"],
             "Image": point["url"],
             # A capture that can't be a day's best shot (thumbs down, dark...) counts as 0.
-            "Score": 0 if exclusion(point) else hsv_score + glass_bonus(point),
+            "Score": 0 if exclusion(point) else shown_score(hsv_score, point, zoom),
             "HSV Score": hsv_score,
             "Glass": glass_fields(point),
+            "Zoom": zoom,
             "AI": ai_fields(point),
             "ts": point["time"],
             "Thumb": point.get("thumb") or 0,
@@ -100,9 +102,10 @@ def fetch_camera_data(camera_tag):
                 "Ranked Image": point["url"],
                 "Raw Image": matching_photo_url,
                 "HSV Image": hsv_photo[0]["url"] if hsv_photo else None,
-                "Score": ranked_hsv + (glass_bonus(matching_photo[0]) if matching_photo else 0),
+                "Score": shown_score(ranked_hsv, matching_photo[0] if matching_photo else {}, zoom),
                 "HSV Score": ranked_hsv,
                 "Glass": glass_fields(matching_photo[0]) if matching_photo else None,
+                "Zoom": zoom,
                 "Date": date_str,
                 "Time": time_str,
                 "dt_local": dt_local.isoformat(),
@@ -139,6 +142,16 @@ GLASS_BONUS = ((0.45, 8), (0.35, 5))  # (mirror_score at least, points)
 def glass_bonus(point):
     mirror = point.get("mirror_score")
     return next((pts for at, pts in GLASS_BONUS if mirror is not None and mirror >= at), 0)
+
+
+# Days the camera was zoomed in on the sun: the sky filled the frame (~3-4x zoom, ~10x the area), so the
+# HSV score maxed out at 100 (102-192 uncapped, like the best wide-view days). Shown score gets this offset.
+ZOOMED_DAYS = {"btv_echo_cam": dict.fromkeys(["2026-01-30", "2026-01-31", "2026-02-01", "2026-02-26"], -40)}
+
+
+def shown_score(hsv, point, zoom=0):
+    """Displayed score: HSV plus the glass-lake bump and any zoom offset, kept within 0-100."""
+    return max(0, min(100, hsv + glass_bonus(point) + zoom))
 
 
 def glass_fields(point):
