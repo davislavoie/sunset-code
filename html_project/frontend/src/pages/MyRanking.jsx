@@ -1,27 +1,44 @@
-// My ranking: pick the frame that best shows each day's sunset and score it 0-100. The list
-// sorts itself by score; the arrows move a day one place by slotting its score between its new
-// neighbours. Stored in InfluxDB (my_rank) as the source of truth for what a good sunset is.
+// My ranking: every day as a card, like Ranked images. Days you haven't touched show the auto
+// ranking's best frame and score ("auto"); editing the score, moving a day or choosing another
+// frame saves it as yours. Stored in InfluxDB (my_rank) as the source of truth for a good sunset.
 
-import { useEffect, useState } from "react";
-import { ArrowDown, ArrowUp, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowDown, ArrowUp, ChevronDown, RotateCcw } from "lucide-react";
 import { getJson } from "../api.js";
 import { captureName } from "../DayDetail.jsx";
 import Img, { SIZES } from "../Img.jsx";
+import Reveal from "../Reveal.jsx";
 import Tip from "../Tip.jsx";
-import { byScore, nudge } from "../myRank.js";
+import { byScore, nudge, withAuto } from "../myRank.js";
+
+const PAGE_SIZE = 20;
+const FILTERS = { all: "All days", mine: "Mine", auto: "Not reviewed" };
 
 export default function MyRanking({ data, camera }) {
   const [ranks, setRanks] = useState(null);
   const [error, setError] = useState(null);
-  const [day, setDay] = useState(null);
-  const [pick, setPick] = useState(null);
-  const [score, setScore] = useState(50);
+  const [filter, setFilter] = useState("all");
+  const [visible, setVisible] = useState(PAGE_SIZE);
+  const sentinel = useRef(null);
 
   useEffect(() => {
     setRanks(null);
-    setDay(null);
     getJson(`/api/my-ranks?camera=${encodeURIComponent(camera)}`).then(setRanks, (e) => setError(e.message));
   }, [camera]);
+
+  useEffect(() => {
+    const el = sentinel.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => entry.isIntersecting && setVisible((v) => v + PAGE_SIZE),
+      { rootMargin: "800px" },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [!!ranks]);
+
+  if (error) return <div className="status-error">Couldn't load your ranking: {error}</div>;
+  if (!ranks) return <div className="empty">Loading…</div>;
 
   // Sunset frames per day (no ranked/histogram plots), in shooting order.
   const frames = {};
@@ -30,18 +47,11 @@ export default function MyRanking({ data, camera }) {
     (frames[img.Date] ??= []).push(img);
   }
   for (const list of Object.values(frames)) list.sort((a, b) => (a.ts < b.ts ? -1 : 1));
-  const dates = Object.keys(frames).sort().reverse();
 
-  if (error) return <div className="status-error">Couldn't load your ranking: {error}</div>;
-  if (!ranks) return <div className="empty">Loading…</div>;
+  const all = withAuto(ranks, frames, data.ranked_images);
+  const rows = all.filter((r) => filter === "all" || (filter === "auto") === !!r.auto).sort(byScore);
 
-  const ranked = [...ranks].sort(byScore);
-  const rankedDates = new Set(ranks.map((r) => r.date));
-  const unranked = dates.filter((d) => !rankedDates.has(d));
-  const current = day ?? unranked[0];
-  const existing = ranks.find((r) => r.date === current);
-
-  async function save(row) {
+  async function save({ auto, ...row }) {
     const previous = ranks;
     setRanks((rs) => [...rs.filter((r) => r.date !== row.date), ...(row.score >= 0 ? [row] : [])]);
     setError(null);
@@ -58,120 +68,103 @@ export default function MyRanking({ data, camera }) {
     }
   }
 
-  function open(date) {
-    const r = ranks.find((x) => x.date === date);
-    setDay(date);
-    setPick(r ? frames[date]?.find((f) => f.ts === r.ts) ?? null : null);
-    setScore(r ? r.score : 50);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }
-
-  function savePick() {
-    save({ date: current, ts: pick.ts, label: pick.Label, url: pick.Image, score: Number(score) });
-    setDay(null);
-    setPick(null);
-    setScore(50);
-  }
-
-  const skipTo = (step) => {
-    const i = dates.indexOf(current);
-    const next = dates[i + step];
-    if (next) open(next);
-  };
-
   return (
     <>
       <h1>My ranking</h1>
       <p className="muted">
-        Pick the frame that best shows each day's sunset and give it a score. Your ranking is the source of truth
-        the forecast is trained against. {ranks.length} of {dates.length} days ranked.
+        Every day starts with the auto ranking's best frame and score. Fix the ones that are wrong: change the score,
+        move a day up or down, or choose another frame. Only days you've touched are saved as yours.{" "}
+        {ranks.length} of {all.length} days reviewed.
       </p>
-
-      {current && (
-        <section className="myrank-pick">
-          <div className="myrank-pick-head">
-            <button className="btn-small" onClick={() => skipTo(1)} disabled={dates.indexOf(current) === dates.length - 1}>
-              ← Older
-            </button>
-            <h2>
-              {current} {existing && <span className="bubble">ranked {existing.score}</span>}
-            </h2>
-            <button className="btn-small" onClick={() => skipTo(-1)} disabled={dates.indexOf(current) === 0}>
-              Newer →
-            </button>
-          </div>
-          <div className="myrank-frames">
-            {(frames[current] ?? []).map((f) => (
-              <button key={f.ts} className={`myrank-frame${pick?.ts === f.ts ? " active" : ""}`} onClick={() => setPick(f)}>
-                <Img src={f.Image} loading="lazy" alt={captureName(f.Label)} {...SIZES.photo} />
-                <span>
-                  {captureName(f.Label)} · {f.Time}
-                </span>
-              </button>
-            ))}
-          </div>
-          <div className="myrank-save">
-            <label>
-              Score{" "}
-              <input type="number" min="0" max="100" value={score} onChange={(e) => setScore(e.target.value)} />
-            </label>
-            <input type="range" min="0" max="100" value={score} onChange={(e) => setScore(e.target.value)} />
-            <button className="btn btn-primary" disabled={!pick || score === ""} onClick={savePick}>
-              {existing ? "Update" : "Save"}
-            </button>
-            {unranked.length > 0 && current !== unranked[0] && (
-              <button className="btn-small" onClick={() => open(unranked[0])}>
-                Next unranked day
-              </button>
-            )}
-          </div>
-        </section>
-      )}
-
-      <h2>Your ranking</h2>
-      {!ranked.length && <div className="empty">Nothing ranked yet.</div>}
-      <ol className="myrank-list">
-        {ranked.map((r, i) => (
-          <li key={r.date}>
-            <span className="myrank-place">{i + 1}</span>
-            <button className="myrank-thumb" onClick={() => open(r.date)} aria-label={`Change the frame for ${r.date}`}>
-              <Img src={r.url} loading="lazy" alt="" {...SIZES.photo} />
-            </button>
-            <div className="myrank-info">
-              <strong>{r.date}</strong>
-              <span className="muted">{captureName(r.label)}</span>
-            </div>
-            <input
-              type="number"
-              min="0"
-              max="100"
-              step="any"
-              defaultValue={r.score}
-              key={r.score}
-              aria-label={`Score for ${r.date}`}
-              onBlur={(e) => e.target.value !== "" && Number(e.target.value) !== r.score &&
-                save({ ...r, score: Math.min(100, Math.max(0, Number(e.target.value))) })}
-              onKeyDown={(e) => e.key === "Enter" && e.target.blur()}
-            />
-            <Tip label="Move up">
-              <button className="icon-btn" disabled={i === 0} onClick={() => save({ ...r, score: nudge(ranked, i, -1) })}>
-                <ArrowUp size={16} />
-              </button>
-            </Tip>
-            <Tip label="Move down">
-              <button className="icon-btn" disabled={i === ranked.length - 1}
-                onClick={() => save({ ...r, score: nudge(ranked, i, 1) })}>
-                <ArrowDown size={16} />
-              </button>
-            </Tip>
-            <Tip label="Remove from the ranking">
-              <button className="icon-btn" onClick={() => save({ ...r, score: -1 })}>
-                <X size={16} />
-              </button>
-            </Tip>
-          </li>
+      <div className="ranking-controls">
+        {Object.entries(FILTERS).map(([k, label]) => (
+          <button key={k} className={`rank-chip${filter === k ? " active" : ""}`} aria-pressed={filter === k}
+            onClick={() => { setFilter(k); setVisible(PAGE_SIZE); }}>
+            {label}
+          </button>
         ))}
-      </ol>
+      </div>
+      <hr />
+      {!rows.length && <div className="empty">No days here.</div>}
+      {rows.slice(0, visible).map((r, i) => (
+        <RankCard key={r.date} r={r} place={i + 1} frames={frames[r.date] ?? []} save={save}
+          up={i > 0 && (() => save({ ...r, score: nudge(rows, i, -1) }))}
+          down={i < rows.length - 1 && (() => save({ ...r, score: nudge(rows, i, 1) }))} />
+      ))}
+      <div ref={sentinel} />
+      {visible < rows.length && (
+        <button className="btn show-more-btn" onClick={() => setVisible((v) => v + PAGE_SIZE)}>
+          Show more ({rows.length - visible} left)
+        </button>
+      )}
     </>
   );
 }
+
+function RankCard({ r, place, frames, save, up, down }) {
+  const [score, setScore] = useState(r.score);
+  const [choosing, setChoosing] = useState(false);
+  useEffect(() => setScore(r.score), [r.score]);
+
+  const commit = () => {
+    const s = Math.min(100, Math.max(0, Number(score)));
+    if (score !== "" && s !== r.score) save({ ...r, score: s });
+    else setScore(r.score);
+  };
+
+  return (
+    <>
+      <div className={`ranking-card myrank-card${r.auto ? " is-auto" : ""}`}>
+        <div className="ranking-title">
+          <div className="myrank-place">{place}</div>
+          <div className="ranking-score">
+            <div className="metric-label">Score</div>
+            <input className="ranking-score-value myrank-score" type="number" min="0" max="100" step="any"
+              value={score} aria-label={`Score for ${r.date}`} onChange={(e) => setScore(e.target.value)}
+              onBlur={commit} onKeyDown={(e) => e.key === "Enter" && e.target.blur()} />
+          </div>
+          <div className="ranking-when">
+            <h2>{longDate(r.date)}</h2>
+            <span>{captureName(r.label)}</span>
+            {r.auto && <span className="bubble">auto</span>}
+          </div>
+          <div className="ranking-actions">
+            <Tip label="Move up">
+              <button className="icon-btn" disabled={!up} onClick={up || undefined}><ArrowUp size={16} /></button>
+            </Tip>
+            <Tip label="Move down">
+              <button className="icon-btn" disabled={!down} onClick={down || undefined}><ArrowDown size={16} /></button>
+            </Tip>
+            {!r.auto && (
+              <Tip label="Reset to the auto pick">
+                <button className="icon-btn" onClick={() => save({ ...r, score: -1 })}><RotateCcw size={16} /></button>
+              </Tip>
+            )}
+            <button className="btn" aria-expanded={choosing} onClick={() => setChoosing(!choosing)}>
+              Choose frame <ChevronDown size={16} className={`chevron${choosing ? " open" : ""}`} />
+            </button>
+          </div>
+        </div>
+        <div className="myrank-body">
+          <Img src={r.url} loading="lazy" alt="" {...SIZES.photo} />
+          <input type="range" min="0" max="100" step="any" value={score || 0} aria-label={`Score slider for ${r.date}`}
+            onChange={(e) => setScore(Number(e.target.value))} onPointerUp={commit} onKeyUp={commit} />
+        </div>
+      </div>
+      <Reveal show={choosing}>
+        <div className="myrank-frames">
+          {frames.map((f) => (
+            <button key={f.ts} className={`myrank-frame${f.ts === r.ts ? " active" : ""}`}
+              onClick={() => { save({ ...r, ts: f.ts, label: f.Label, url: f.Image }); setChoosing(false); }}>
+              <Img src={f.Image} loading="lazy" alt={captureName(f.Label)} {...SIZES.photo} />
+              <span>{captureName(f.Label)} · {f.Time}</span>
+            </button>
+          ))}
+        </div>
+      </Reveal>
+    </>
+  );
+}
+
+const longDate = (iso) =>
+  new Date(`${iso}T12:00`).toLocaleDateString(undefined, { weekday: "short", month: "long", day: "numeric", year: "numeric" });
