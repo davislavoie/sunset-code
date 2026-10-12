@@ -2597,7 +2597,7 @@ main#content.is-stale { opacity: 0.5; pointer-events: none; }
 .myrank-card.is-auto { opacity: 0.85; }
 .myrank-place { font-size: 1.3em; font-weight: 700; color: var(--text-muted); font-variant-numeric: tabular-nums; min-width: 1.8em; text-align: right; }
 .myrank-thumb { padding: 0; border: none; background: none; cursor: pointer; flex: none; }
-.myrank-thumb img { display: block; width: 200px; height: auto; border-radius: 6px; }
+.myrank-thumb img { display: block; width: 400px; height: auto; border-radius: 6px; }
 .myrank-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
 .myrank-main h2 { margin: 0; font-size: 1.05em; display: flex; align-items: center; gap: 8px; }
 .myrank-score-row { display: flex; align-items: center; gap: 12px; max-width: 420px; }
@@ -2613,11 +2613,11 @@ main#content.is-stale { opacity: 0.5; pointer-events: none; }
 .myrank-picker-bar .muted { margin-right: auto; font-size: 0.85em; }
 .myrank-strip { display: flex; gap: 6px; overflow-x: auto; }
 .myrank-frame { flex: none; padding: 2px; border: 2px solid transparent; border-radius: 6px; background: none; cursor: pointer; }
-.myrank-frame img { display: block; width: 110px; height: auto; border-radius: 4px; }
+.myrank-frame img { display: block; width: 220px; height: auto; border-radius: 4px; }
 .myrank-frame.saved { border-style: dashed; border-color: var(--border); }
 .myrank-frame.active { border: 2px solid var(--ink); }
 @media (max-width: 700px) {
   .myrank-card { flex-wrap: wrap; }
-  .myrank-thumb img { width: 120px; }
+  .myrank-thumb, .myrank-thumb img { width: 100%; }
   .myrank-actions { width: 100%; justify-content: flex-end; }
 }
