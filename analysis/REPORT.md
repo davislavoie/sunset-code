@@ -387,6 +387,22 @@ and the image method compare on the same photos. Tables are in `vision_gap.md`.
     per camera per evening, so it would fit in `watch`. The gain is modest (+0.02 AUC) and measured on
     only 143 days; worth wiring only as an optional input that the forecast skips when the AI is off.
 
+## GOES vs ICON, and METAR toward the sunset (`metar.md`)
+
+2,912 pre shots on 487 sunset camera-days. METAR from KBTV, KPBG, KSLK, KOGS, KMSS, KART (latest
+report at each shot, IEM ASOS archive).
+
+- GOES and ICON agree moderately: GOES fan vs ICON total cloud along the path rho 0.75, vs ICON mid
+  0.66, vs low only 0.40. GOES tracks the outcome better at every horizon: alone, AUC for a top-25 %
+  day is 0.76 (goes_fan) vs 0.70-0.72 for ICON total/mid and 0.61 for ICON high.
+- METAR: the mean cover of the five western airports is the best single surface signal (AUC 0.71-0.74,
+  close to ICON), KBTV alone 0.67-0.71. METAR tracks ICON low cloud (rho 0.72) and is blind to high
+  cloud (rho 0.05 with ICON high): ASOS reports nothing above 12,000 ft.
+- On top of the live icon+goes line it adds nothing: mean leave-one-month-out AUC 0.787 -> 0.788
+  (west mean), 0.785-0.787 for the other METAR sets; ICON high adds nothing either. Without GOES,
+  METAR + ICON gets 0.763. GOES already sees what the airports see, and more.
+- Not worth wiring into the live forecast. It would only matter as a fallback when GOES is down.
+
 ## Caveats
 
 - `ai_view` (dark / no-signal) isn't in the export, so those captures weren't excluded. They can
@@ -406,6 +422,7 @@ and the image method compare on the same photos. Tables are in `vision_gap.md`.
 - `vision.py`, `vision_eval.py`, `vision_compare.py`: the Ollama vision-model test and its comparison with Open-Meteo.
 - `horizon_gap.py`: image-based horizon light gap (`horizon_gap.md`, `horizon_gap_examples.jpg`).
 - `goes.py`: GOES-East observed cloud and KBTV METAR (`goes.md`; cache in `analysis_export/goes/`).
+- `metar.py`: GOES vs ICON low/mid/high and METAR from six airports, per pre shot (`metar.md`).
 - `vision_gap.py`: sharper horizon-gap prompt on 40 photos (`vision_gap.md`).
 - `models.py`: cloud models compared (`models.md`).
 - `aloft.py`: upper-level wind along the sun line (`aloft.md`).
