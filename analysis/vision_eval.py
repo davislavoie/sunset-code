@@ -16,6 +16,7 @@ from analyze import ENGINEERED, MET, STORED_PATH, cv, rho, scores
 def main(model):
     rows = [json.loads(l) for l in (data.EXPORT / f"vision_{model.replace(':', '_')}.jsonl").read_text().splitlines()]
     v = pd.DataFrame(rows)
+    v = v.drop_duplicates(["camera", "day"], keep="last")
     v["day"] = pd.to_datetime(v.day).dt.date
     v["v_quality"] = v.predicted_quality
     v["v_cover"] = v.cloud_cover
@@ -24,7 +25,7 @@ def main(model):
         v[f"v_type_{t}"] = (v.cloud_type == t).astype(int)
     vcols = [c for c in v if c.startswith("v_")]
     t = pd.read_parquet(data.EXPORT / "analysis_table.parquet")
-    d = t.merge(v[["camera", "day", "sec"] + vcols], on=["camera", "day"]).dropna(subset=["y_pct_late"]).reset_index(drop=True)
+    d = t.merge(v[["camera", "day", "sec", "cloud_type"] + vcols], on=["camera", "day"]).dropna(subset=["y_pct_late"]).reset_index(drop=True)
     for cam in data.SUNSET_CAMS:
         d[f"is_{cam}"] = (d.camera == cam).astype(int)
     cams = [f"is_{c}" for c in data.SUNSET_CAMS]
@@ -40,6 +41,11 @@ def main(model):
            d.assign(q=pd.cut(d.v_quality, [-1, 30, 50, 70, 101])).groupby("q").agg(
                days=("y_pct_late", "size"), median_pct=("y_pct_late", "median"),
                top25=("y_pct_late", lambda x: (x >= .75).mean())).round(2).to_markdown(),
+           "\n## Outcome by the model's horizon_clear and cloud_type answers\n",
+           *[d.groupby(col).agg(days=("y_pct_late", "size"), median_pct=("y_pct_late", "median"),
+                                top25=("y_pct_late", lambda x: (x >= .75).mean()),
+                                top10=("y_pct_late", lambda x: (x >= .9).mean())).round(2).to_markdown() + "\n"
+             for col in ("v_horizon_clear", "cloud_type")],
            "\n## Leave-one-month-out on these days\n"]
     res = []
     for name, feats in [("weather (d)", wx), ("vision answer only", vcols + cams), ("simple 1h image features", simple_img + cams),
