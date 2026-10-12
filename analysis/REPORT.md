@@ -234,6 +234,52 @@ In plain terms:
   colour, not a guarantee.
 - **Sunrise:** the forecast is weak there.
 
+## Vision model on 160 days (follow-up)
+
+`vision.py` ran qwen3-vl:4b (Ollama, CPU, about 54 s per photo) on the 1h-pre photo of 160 sunset
+camera-days (btv 107, bolton 36, wcax 17). Full tables are in `vision_results.md` and `vision_compare.md`.
+
+- Alone it forecasts about as well as the weather model. The AI's predicted_quality has Spearman 0.54
+  with the late best score (percentile) and its cloud_cover −0.56. Leave-one-month-out: vision only
+  R² 0.30 / AUC 0.72, against weather only 0.33 / 0.72.
+- On top of weather plus the cheap HSV image features it adds almost nothing (gbm AUC 0.736 → 0.745).
+  It isn't worth a minute of CPU per shot live.
+- It is over-optimistic: 98 of 160 days get >70. Days it rates ≤50 are bad (median 21st–23rd pct,
+  about 10 % top-25).
+- horizon_clear=yes: median 59th pct, 35 % top-25 (n=124). =no: 19th pct, 8 % (n=36).
+  cloud_type clear has the best median (77th pct). mid_broken has the best top-10 share (18 %).
+- Cloud cover agrees well with Open-Meteo (Spearman 0.74 with total cloud, 0.80 with the blanket
+  average). The AI's figure tracks the outcome a little better (−0.56 vs −0.47). In the dozen biggest
+  disagreements, Open-Meteo says 0–10 % and the AI says 70–85 %. The photos show plainly cloudy skies
+  every time, so the forecast model missed the cloud and the AI was right.
+- AI horizon_clear vs Open-Meteo far-path low cloud (<20 % at 60–300 km toward the sun) agree on 71 %
+  of days. The AI calls the horizon clear much more often (124 vs 92). When both say clear: median
+  67th pct, 41 % top-25 (n=85). When both say blocked: 21st pct, 3 % top-25 (n=29).
+- Light-gap combos. (a) AI horizon clear plus mid_broken/high_thin: n=85, median 57th pct, top-25 33 %,
+  top-10 15 %. (b) Open-Meteo far low <20 % plus mid/high overhead ≥40 %: n=12, 59th pct, 42 %, 42 %.
+  (b) is rare and catches only 9 of the 85 (a) days, but those 9 have a 44 % top-10 share. Plain clear
+  sky (AI) still has the best median.
+
+## Glass-lake reflections (btv_echo_cam)
+
+`reflection.py` scores each btv thumb (15m-pre and sunset) for mirror symmetry. It searches for the
+row whose flipped vertical colour gradients above best match those below. The camera cycles PTZ
+presets, so the mirror row is found per image. Posts and masts carry no vertical gradient, and the
+sky brightness ramp is removed per row, so neither counts.
+
+- Jan 8 2026 is the strongest by a distance: 0.58, against a next best of 0.45 and a median of 0.19.
+  About 14 of the top 20 frames are genuine calm-lake reflections; the rest are rough water, a building
+  and a rainbow. Reflections (≥0.35) are rare: 12 of 335 days, 3.6 %.
+- Open-Meteo 10 m wind at sunset (at the camera and 10 km out over the lake) barely predicts it
+  (Spearman −0.07). The reflection rate is 10 % at ≤5 km/h and 2–5 % at 5–30 km/h. A calm forecast is
+  needed, but nowhere near enough: the grid wind over a small lake is coarse, and the preset decides
+  how much water is in frame. On Jan 8 the wind was 2–5 km/h, gusts under 8, at sunset.
+- Reflection days score a little better (median 61st pct, 42 % top-25, n=12, vs 47th / 21 % for ≤0.20),
+  but this is partly circular: a colourful sky gives more to mirror, and the HSV score already counts
+  the reflected colour.
+- Proposal: no wind term in the forecast. If anything, add an image-based "glass lake" badge or a small
+  bonus on btv's judged shot: +5 at ≥0.35, +8 at ≥0.45.
+
 ## Caveats
 
 - `ai_view` (dark / no-signal) isn't in the export, so those captures weren't excluded. They can
@@ -250,7 +296,8 @@ In plain terms:
 - `analyze.py`: everything above, written to `results.md`.
 - `horizons.py`: the per-shot forecast fit and backtest (writes `ai_judge/predict_coefs.json`).
 - `backtest.py`: the weather-only backtest.
-- `vision.py`, `vision_eval.py`: the Ollama vision-model test.
+- `vision.py`, `vision_eval.py`, `vision_compare.py`: the Ollama vision-model test and its comparison with Open-Meteo.
+- `reflection.py`: btv glass-lake detector vs wind (`analysis_export/reflection.parquet`).
 - Charts: `heatmap_sunset.png`, `heatmap_sunrise.png`, `heatmap_<camera>.png`, `effects.png`,
   `models.png`.
 - Tables: `corr_stored.csv`, `effect_sizes.csv`.
