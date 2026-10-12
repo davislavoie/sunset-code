@@ -375,6 +375,35 @@ and the image method compare on the same photos. Tables are in `vision_gap.md`.
   good as the old prompt at a third of the cost. That is worth confirming on all 160 days (about
   45 min at 16 s per photo) before trusting it.
 
+## Observed cloud: GOES-East satellite and KBTV METAR (follow-up)
+
+`goes.py` reads GOES-19's ABI-L2-ACMC clear-sky mask (CONUS, 2 km, every 5 min) from NOAA's public
+S3 bucket. h5py reads the netCDF straight over HTTP range requests, so each scan costs about 0.7 MB
+(of 4 MB) and under 1 s. The projection maths is checked against the GOES-R PUG worked example. For
+the scans nearest 1 h before sunset and nearest sunset, it computes cloud fractions over:
+- overhead (≤10 km);
+- the near fan (sun ±30°, 5–40 km);
+- the far fan (80–300 km);
+- the whole fan;
+- a narrow path (±10°, 40–300 km).
+
+KBTV METARs come from the Iowa Environmental Mesonet: the report nearest 1 h before sunset, giving
+cover, ceiling, lowest base and visibility. 513 sunset camera-days; tables are in `goes.md`.
+
+- Agreement: GOES overhead vs the AI's photo cover 0.75; GOES fan vs Open-Meteo's blanket 0.76; GOES
+  overhead vs Open-Meteo total at the camera only 0.63; METAR vs GOES overhead 0.71.
+- GOES caught **8 of the 9** days Open-Meteo called clear while the photos were plainly cloudy
+  (overhead 0.55–1.0). METAR caught 6.
+- vs outcome: GOES fan cloud has Spearman −0.55 (−0.56 at sunset), against Open-Meteo total −0.42 to
+  −0.47. METAR cover −0.49, ceiling +0.45.
+- Leave-one-month-out at 1h, AUC for a top-25 % day: weather 0.715 → **0.773** with GOES (ridge;
+  gbm 0.729 → 0.766). GOES alone (5 numbers) reaches 0.758. METAR adds +0.01 on its own and nothing on
+  top of GOES. **This is the largest gain of anything tried.**
+- Live cost: one scan every 5 min, files land about 4 min after the scan starts. About 0.7 MB and 1 s
+  per camera per forecast. No API key, free, anonymous.
+- Recommendation: add GOES fan/near/far cloud fractions (1h-pre, and refresh at 30m/15m) to the live
+  forecast. With ICON path cloud it is the next thing to wire in.
+
 ## Caveats
 
 - `ai_view` (dark / no-signal) isn't in the export, so those captures weren't excluded. They can
@@ -393,6 +422,7 @@ and the image method compare on the same photos. Tables are in `vision_gap.md`.
 - `backtest.py`: the weather-only backtest.
 - `vision.py`, `vision_eval.py`, `vision_compare.py`: the Ollama vision-model test and its comparison with Open-Meteo.
 - `horizon_gap.py`: image-based horizon light gap (`horizon_gap.md`, `horizon_gap_examples.jpg`).
+- `goes.py`: GOES-East observed cloud and KBTV METAR (`goes.md`; cache in `analysis_export/goes/`).
 - `vision_gap.py`: sharper horizon-gap prompt on 40 photos (`vision_gap.md`).
 - `models.py`: cloud models compared (`models.md`).
 - `aloft.py`: upper-level wind along the sun line (`aloft.md`).
