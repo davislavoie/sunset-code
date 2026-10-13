@@ -18,12 +18,13 @@ class Metar(unittest.TestCase):
         f = metar.parse(row("2026-02-01 22:54", skyc1="FEW", skyl1="20000.00"))
         self.assertEqual(f["obs_visibility_mi"], 10.0)
         self.assertEqual(f["obs_sky"], "FEW 20000")
-        self.assertEqual(f["obs_cover"], .19)
+        self.assertEqual(f["obs_cloud"], .19)
+        self.assertIsInstance(metar.parse(row("x"))["obs_cloud"], float)
         self.assertNotIn("obs_ceiling_ft", f)  # FEW isn't a ceiling
         self.assertNotIn("obs_gust_mph", f)    # missing: left out, InfluxDB can't store null
         self.assertAlmostEqual(f["obs_wind_mph"], 11.5)
         f = metar.parse(row("x", skyc1="SCT", skyl1="900", skyc2="OVC", skyl2="2500", wxcodes="-RA BR", vsby="2.50"))
-        self.assertEqual((f["obs_ceiling_ft"], f["obs_cover"], f["obs_wx"]), (2500, 1, "-RA BR"))
+        self.assertEqual((f["obs_ceiling_ft"], f["obs_cloud"], f["obs_wx"]), (2500, 1, "-RA BR"))
 
     def test_latest_report_at_or_before_and_fresh(self):
         t0 = datetime(2026, 2, 1, 21, 54, tzinfo=timezone.utc)

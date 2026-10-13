@@ -50,7 +50,8 @@ def parse(row):
         "obs_rh": num(row.get("relh")),
         "obs_wind_mph": None if num(row.get("sknt")) is None else round(num(row["sknt"]) * KT_TO_MPH, 1),
         "obs_gust_mph": None if num(row.get("gust")) is None else round(num(row["gust"]) * KT_TO_MPH, 1),
-        "obs_cover": max([COVER.get(c, 0) for c, _ in layers], default=0),
+        # float(): a CLR 0 written as an integer once fixes the field's type (obs_cover went that way)
+        "obs_cloud": float(max([COVER.get(c, 0) for c, _ in layers], default=0)),
         "obs_ceiling_ft": ceiling,
         "obs_sky": " ".join(f"{c}{'' if b is None else f' {b:.0f}'}" for c, b in layers) or "CLR",
         "obs_wx": "" if row.get("wxcodes") in (None, "M") else row["wxcodes"],  # e.g. -RA, BR, HZ, FU (smoke)
@@ -80,7 +81,8 @@ def latest(rows, when, keys=None):
 
 
 def fill(client, camera):
-    todo = [p for p in store.captures(client, camera) if p.get("obs_station") is None]
+    todo = [p for p in store.captures(client, camera)
+            if p.get("obs_station") is None or (p["obs_station"] and p.get("obs_cloud") is None)]
     if not todo:
         return 0
     times = {id(p): datetime.fromtimestamp(store.epoch_seconds(p), timezone.utc) for p in todo}
