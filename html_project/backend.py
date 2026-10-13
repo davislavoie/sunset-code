@@ -156,8 +156,13 @@ def exclusion(point):
 GLASS_BONUS = ((0.45, 8), (0.35, 5))  # (mirror_score at least, points)
 
 
+GLASS_MIN_HSV = 10  # a calm lake mirroring a grey sky isn't a sunset; flat grey sky + lake also fools the detector
+
+
 def glass_bonus(point):
     mirror = point.get("mirror_score")
+    if (point.get("score") or 0) < GLASS_MIN_HSV or (point.get("precipitation") or 0) > 0:  # raining: not glass
+        return 0
     return next((pts for at, pts in GLASS_BONUS if mirror is not None and mirror >= at), 0)
 
 

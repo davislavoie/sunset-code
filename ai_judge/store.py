@@ -98,7 +98,7 @@ def exclusion(point):
 
 # Glass lake (ai_judge/reflect.py): a mirror-calm lake earns a small bump in the displayed score and when
 # the dashboard picks the day's best shot (html_project/backend.py applies it); the HSV score is untouched.
-# Here only for reflect.py's badge threshold. Same numbers as backend.py.
+# Here only for reflect.py's badge threshold. Same numbers as backend.py (which also skips grey (HSV < 10) and rainy shots).
 GLASS_BONUS = ((0.45, 8), (0.35, 5))  # (mirror_score at least, points)
 
 

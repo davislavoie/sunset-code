@@ -18,8 +18,14 @@ class BestShot(unittest.TestCase):
         self.assertIsNone(backend.best_shot([shot("b", 90.0, thumb=-1)]))
 
     def test_glass_bonus_steps_and_wins_within_the_bump_but_not_beyond(self):
-        self.assertEqual([backend.glass_bonus({"mirror_score": m}) for m in (None, -1.0, 0.34, 0.35, 0.44, 0.45, 0.9)],
+        self.assertEqual([backend.glass_bonus({"score": 50, "mirror_score": m}) for m in (None, -1.0, 0.34, 0.35, 0.44, 0.45, 0.9)],
                          [0, 0, 0, 5, 5, 8, 8])
+
+    def test_no_glass_bonus_on_grey_or_rainy_shots(self):
+        self.assertEqual(backend.glass_bonus({"score": 0.0, "mirror_score": 0.5}), 0)  # 2025-05-31: grey, 0 HSV
+        self.assertEqual(backend.glass_bonus({"score": 50, "mirror_score": 0.5, "precipitation": 7.6}), 0)
+        self.assertEqual(backend.glass_bonus({"score": 10, "mirror_score": 0.5, "precipitation": 0.0}), 8)
+        self.assertEqual(backend.best_shot([shot("a", 0.0), shot("g", 0.0, mirror_score=0.4)])["time"], "a")
         glass = shot("g", 58.0, mirror_score=0.4)
         self.assertIs(backend.best_shot([shot("a", 62.0), glass]), glass)
         self.assertEqual(backend.best_shot([shot("a", 64.0), glass])["time"], "a")
