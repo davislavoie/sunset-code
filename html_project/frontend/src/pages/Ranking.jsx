@@ -17,6 +17,13 @@ import { GlassPill } from "../Thumbs.jsx";
 import Select from "../Select.jsx";
 
 const PAGE_SIZE = 20;
+// Sort options: the row's own fields, then the weather at the best shot (Open-Meteo, stored with each capture).
+const SORTS = {
+  Score: (r) => r.Score, Date: (r) => r.Date, Time: (r) => r.dt_local?.slice(11),
+  Temperature: (r) => r.Weather?.temperature_2m, Humidity: (r) => r.Weather?.relative_humidity_2m,
+  Visibility: (r) => r.Weather?.visibility, "Cloud cover": (r) => r.Weather?.cloud_cover_total,
+  Precipitation: (r) => r.Weather?.precipitation,
+};
 
 export default function Ranking({ data, camera, onLoadToHsv }) {
   const [sortBy, setSortBy] = useState("Score");
@@ -44,7 +51,8 @@ export default function Ranking({ data, camera, onLoadToHsv }) {
   // ranking, so they're left out unless shown with the toggle.
   const hiddenCount = data.ranked_images.filter(ruledOut).length;
   const rows = data.ranked_images.filter((r) => showHidden || !ruledOut(r)).sort((a, b) => {
-    const av = a[sortBy], bv = b[sortBy];
+    const av = SORTS[sortBy](a), bv = SORTS[sortBy](b);
+    if (av == null || bv == null) return (av == null) - (bv == null); // no weather: last either way
     const cmp = av < bv ? -1 : av > bv ? 1 : 0;
     return ascending ? cmp : -cmp;
   });
@@ -53,7 +61,7 @@ export default function Ranking({ data, camera, onLoadToHsv }) {
     <>
       <h1>Ranked images</h1>
       <div className="ranking-controls">
-        <Select label="Sort by:" options={["Score", "Date", "Time"]} value={sortBy} onChange={setSortBy} />
+        <Select label="Sort by:" options={Object.keys(SORTS)} value={sortBy} onChange={setSortBy} />
         <Select label="Order:" options={["Highest to Lowest", "Lowest to Highest"]} value={order} onChange={setOrder} />
         {hiddenCount > 0 && (
           <button
