@@ -1,13 +1,13 @@
-"""Checks for re-ranking, the thumbs/view rules and weather with a fake InfluxDB and a fake pipeline
-(no OpenCV, model or database needed). Run: python -m unittest ai_judge.test_rerank
+"""Checks for rescoring, the view rules and weather with a fake InfluxDB and a fake scorer
+(no OpenCV, model or database needed). Run: python -m unittest ai_judge.test_rescore
 """
 
 import os
 import tempfile
 import unittest
-from datetime import date, datetime, timezone
+from datetime import date
 
-from ai_judge import rerank, store, views, weather
+from ai_judge import rescore, store, views, weather
 
 BASE = "http://100.107.153.41:8080"
 
@@ -33,20 +33,8 @@ class FakeClient:
         self.writes.extend(points)
 
 
-class FakePipeline:
-    def __init__(self):
-        self.calls = []
-
-    def rank_sunset(self, path):
-        self.calls.append(("rank_sunset", path))
-        return (55.5, "img", os.path.basename(path).rsplit(".", 1)[0], "h", "s", "v", None, None, None)
-
-    def generate_ranked_image(self, img, score, name, h, s, v, photo_dir):
-        self.calls.append(("generate", photo_dir))
-        return os.path.join(photo_dir, f"12_histogram_{name[3:]}.png"), os.path.join(photo_dir, f"11_ranked_{name[3:]}.png")
-
-    def influxdb_push(self, path, epoch, label, camera, score):
-        self.calls.append(("push", label, epoch))
+def fake_rank_sunset(path):
+    return (55.5, {"red_points": 1.0}, {"hue": [1.0]})
 
 
 def capture(label, time, score, **fields):
@@ -61,7 +49,7 @@ RANKED_WALL = [capture("11_ranked_5m_pre_05-16-2025.png", WALL["time"], 90.0),
                capture("12_histogram_5m_pre_05-16-2025.png", WALL["time"], 90.0)]
 
 
-class RerankTests(unittest.TestCase):
+class RescoreTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         os.environ.update(IMAGE_BASE_URL=BASE, PICTURES_DIR=self.tmp.name)
@@ -78,79 +66,39 @@ class RerankTests(unittest.TestCase):
     def test_url_maps_back_to_the_photo_on_disk(self):
         self.assertEqual(store.local_path(SKY_A), os.path.join(self.photo_dir, SKY_A["label"]))
 
-    def test_wall_best_shot_is_replaced_by_the_best_sky_capture(self):
-        open(os.path.join(self.photo_dir, "11_ranked_old.png"), "w").close()
-        pipeline = FakePipeline()
-        msg = rerank.rerank_day(FakeClient(), "cam", [WALL, SKY_A, SKY_B, *RANKED_WALL], pipeline)
-        self.assertTrue(msg.startswith("picked 08_5m_post"), msg)
-        self.assertEqual(pipeline.calls[0], ("rank_sunset", store.local_path(SKY_B)))
-        # histogram pushed before the ranked image, at the sky capture's time
-        pushes = [c for c in pipeline.calls if c[0] == "push"]
-        self.assertEqual([c[1][:3] for c in pushes], ["12_", "11_"])
-        self.assertEqual({c[2] for c in pushes}, {store.epoch_seconds(SKY_B)})
-        self.assertFalse(os.path.exists(os.path.join(self.photo_dir, "11_ranked_old.png")))
+    def test_rescore_rewrites_score_breakdown_and_histogram_in_place(self):
+        client = FakeClient([WALL, SKY_A, *RANKED_WALL])
+        rescore.rescore(client, "cam", rank_sunset=fake_rank_sunset)
+        self.assertEqual([q for q, _ in client.queries if not q.startswith("SELECT")], [])  # nothing deleted
+        main = [w for w in client.writes if w["measurement"] == store.MEASUREMENT]
+        hist = [w for w in client.writes if w["measurement"] == store.HIST_MEASUREMENT]
+        # captures only (not the old 11_/12_), same tags and time, so InfluxDB merges the fields
+        self.assertEqual([(w["tags"]["label"], w["time"]) for w in main], [(WALL["label"], WALL["time"]), (SKY_A["label"], SKY_A["time"])])
+        self.assertEqual(main[0]["fields"], {"score": 55.5, "red_points": 1.0})
+        self.assertEqual(hist[0]["fields"], {"hist": '{"hue":[1.0]}'})
 
-    def test_hsv_only_picks_by_hsv_score_alone(self):
-        msg = rerank.rerank_day(FakeClient(), "cam", [WALL, SKY_A, SKY_B, *RANKED_WALL], FakePipeline(), use_rules=False)
-        self.assertTrue(msg.startswith("unchanged: 06_5m_pre"), msg)
+    def test_rescore_dry_run_writes_nothing_and_skips_missing_photos(self):
+        client = FakeClient([SKY_A, SKY_B])
+        rescore.rescore(client, "cam", dry_run=True, rank_sunset=fake_rank_sunset)
+        self.assertEqual(client.writes, [])
+        client = FakeClient([SKY_A, SKY_B])
+        rescore.rescore(client, "cam", rank_sunset=lambda path: None if path.endswith(SKY_B["label"]) else fake_rank_sunset(path))
+        self.assertEqual(len(client.writes), 2)  # SKY_A's score + histogram
 
-    def test_already_correct_day_is_left_alone(self):
-        ranked = [dict(r, time=SKY_B["time"]) for r in RANKED_WALL]
-        pipeline = FakePipeline()
-        msg = rerank.rerank_day(FakeClient(), "cam", [WALL, SKY_A, SKY_B, *ranked], pipeline)
-        self.assertTrue(msg.startswith("unchanged"), msg)
-        self.assertEqual(pipeline.calls, [])
+    def test_drop_ranked_lists_then_deletes_only_the_old_ranked_points_and_pngs(self):
+        png = store.local_path(RANKED_WALL[0])
+        open(png, "w").close()
+        client = FakeClient([WALL, SKY_A, *RANKED_WALL])
+        rescore.drop_ranked(client, "cam")
+        self.assertFalse([q for q, _ in client.queries if q.startswith("DELETE")])
+        self.assertTrue(os.path.exists(png))
+        rescore.drop_ranked(client, "cam", delete=True)
+        self.assertEqual([q for q, _ in client.queries if q.startswith("DELETE")],
+                         [f"DELETE FROM {store.MEASUREMENT} WHERE camera = $camera AND label =~ /^1[12]_/"])
+        self.assertFalse(os.path.exists(png))
 
-    def test_day_with_no_sky_is_not_ranked_at_all(self):
-        client = FakeClient()
-        msg = rerank.rerank_day(client, "cam", [WALL, *RANKED_WALL], FakePipeline())
-        self.assertIn("ranking removed", msg)
-        deletes = [b["label"] for q, b in client.queries if q.startswith("DELETE")]
-        self.assertEqual(sorted(deletes), sorted(r["label"] for r in RANKED_WALL))
-
-    def test_dry_run_changes_nothing(self):
-        client, pipeline = FakeClient(), FakePipeline()
-        msg = rerank.rerank_day(client, "cam", [WALL, SKY_A, SKY_B, *RANKED_WALL], pipeline, dry_run=True)
-        self.assertTrue(msg.startswith("would pick 08_5m_post"), msg)
-        self.assertEqual((pipeline.calls, client.queries, client.writes), ([], [], []))
-
-    def test_rescore_saves_new_hsv_scores_before_picking(self):
-        client = FakeClient()
-        rerank.rerank_day(client, "cam", [dict(SKY_A), dict(SKY_B), *RANKED_WALL], FakePipeline(), rescore=True)
-        self.assertEqual([w["fields"] for w in client.writes], [{"score": 55.5}, {"score": 55.5}])
-
-    def test_unranked_days_are_left_alone_unless_fill_missing(self):
-        pipeline = FakePipeline()
-        msg = rerank.rerank_day(FakeClient(), "cam", [SKY_A, SKY_B], pipeline)
-        self.assertTrue(msg.startswith("not ranked"), msg)
-        self.assertEqual(pipeline.calls, [])
-        msg = rerank.rerank_day(FakeClient(), "cam", [SKY_A, SKY_B], pipeline, fill_missing=True)
-        self.assertTrue(msg.startswith("picked 08_5m_post"), msg)
-
-    def test_rules_hsv_decides_unless_thumbs_or_dark(self):
-        pick = lambda *caps: rerank.pick(list(caps))["label"]
-        # The AI calling a frame "obstructed" or "no sunset" no longer matters; HSV decides.
-        self.assertEqual(pick(dict(SKY_B, ai_view="obstructed"), SKY_A), SKY_B["label"])
-        self.assertEqual(pick(dict(SKY_B, ai_view="dark"), SKY_A), SKY_A["label"])
-        self.assertEqual(pick(dict(SKY_B, view_blocked=True), SKY_A), SKY_A["label"])
-        # A thumbs up beats a higher score, and overrides a bad view.
-        self.assertEqual(pick(SKY_B, dict(SKY_A, thumb=1, view_blocked=True)), SKY_A["label"])
-        self.assertIsNone(rerank.pick([WALL]))
-
-    def test_gate_only_acts_on_ranked_days_whose_best_shot_changed(self):
-        made = []
-        factory = lambda: made.append(FakePipeline()) or made[-1]
-        right = [dict(r, time=SKY_B["time"]) for r in RANKED_WALL]
-        rerank.gate_days(FakeClient([WALL, SKY_A, SKY_B, *right]), "cam", factory)
-        rerank.gate_days(FakeClient([SKY_A, SKY_B]), "cam", factory)  # never ranked, no votes
-        now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-        rerank.gate_days(FakeClient([dict(WALL, time=now), dict(SKY_A, time=now)]), "cam", factory)  # today, still capturing
-        self.assertEqual(made, [])
-        rerank.gate_days(FakeClient([WALL, SKY_A, SKY_B, *RANKED_WALL]), "cam", factory)
-        self.assertEqual(len(made), 1)  # the pipeline's pick was thumbed down
-        # A day the rules un-ranked comes back once a vote is cleared; never-ranked days don't.
-        rerank.gate_days(FakeClient([dict(WALL, thumb=0)]), "cam", factory)
-        self.assertEqual(len(made), 2)
+    def test_best_shot_times_is_each_days_highest_score(self):
+        self.assertEqual(store.best_shot_times(FakeClient([WALL, SKY_A, SKY_B, *RANKED_WALL]), "cam"), {WALL["time"]})
 
     def test_cleanup_lists_entries_whose_photo_is_gone_and_refuses_when_most_are(self):
         for p in (SKY_A, SKY_B):

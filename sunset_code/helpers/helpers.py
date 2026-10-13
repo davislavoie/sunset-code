@@ -1,3 +1,4 @@
+import json
 from astral.sun import sun
 from astral import Observer
 from datetime import date, timedelta, datetime, timezone
@@ -43,9 +44,11 @@ def sunset_time(day=date.today(), lat=44.477101, lon=-73.221253, altitude=200, t
     return intervals
 
 
-def influxdb_push(photo_file, time_epoch, label, camera_tag, score=0.0):
+def influxdb_push(photo_file, time_epoch, label, camera_tag, score=0.0, fields=None, hist=None):
 
-    """ Push data to InfluxDB """
+    """ Push data to InfluxDB. fields: rank_sunset's score breakdown, stored on the same point. hist: its sky
+    histograms, stored in the sunset_hist measurement (same tags and time) so the dashboard's main query,
+    which reads every point of a camera, stays small. """
     
     #python3 -m http.server 8080
 
@@ -79,26 +82,6 @@ def influxdb_push(photo_file, time_epoch, label, camera_tag, score=0.0):
     relative_path = os.path.relpath(photo_file, start=pictures_dir)
     url = f"{image_base_url}/{relative_path}"
 
-    #For re rankings 
-    # Check if this is a ranked image (11_ or 12_ prefix)
-    if label.startswith(("12_")):
-        directory = os.path.dirname(relative_path)
-
-        # Calculate bounds in nanoseconds (InfluxDB uses nanosecond precision)
-        lower = int((time_epoch - 18000) * 1e9)  # 4 hours before, converted to nanoseconds
-        upper = int((time_epoch + 18000) * 1e9)  # 4 hours after, converted to nanoseconds
-
-        delete_query = (
-            f'DELETE FROM "sunset_images" '
-            f'WHERE "camera" = \'{camera_tag}\' '
-            f'AND "label" =~ /11_|12_/ '
-            f'AND time >= {lower} AND time <= {upper}'
-        )
-        print(f"[DEBUG] Executing delete query for time range {lower} to {upper}")
-        result = client.query(delete_query)
-        print(f"[DEBUG] Delete query result: {result}")
-        print(f"[INFO] Deleted old 11_/12_ entries from directory: {directory}")
-
     point = [
         {
             "measurement": "sunset_images",
@@ -111,10 +94,14 @@ def influxdb_push(photo_file, time_epoch, label, camera_tag, score=0.0):
             "fields": {
                 "url": url,
                 "score": float(score),
+                **(fields or {}),
                 **weather_fields,
             }
         }
     ]
+    if hist is not None:
+        point.append({"measurement": "sunset_hist", "tags": {"label": label, "camera": camera_tag},
+                      "time": timestamp_iso, "fields": {"hist": json.dumps(hist, separators=(",", ":"))}})
 
     try:
         print(f"[DEBUG] Writing to InfluxDB: label={label}, time={timestamp_iso}, camera={camera_tag}")

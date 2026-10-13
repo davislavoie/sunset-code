@@ -1,9 +1,9 @@
 """Sidecar to the capture pipeline: reads captures from InfluxDB and adds fields to
-them (weather, a simple sunset forecast, view fingerprints, glass-lake badge, thumbs rules, optional local AI verdicts), and
-re-picks a day's best shot when your thumbs say so. It never changes the
-pipeline's own fields or code.
+them (weather, a simple sunset forecast, view fingerprints, glass-lake badge, thumbs rules, optional local AI verdicts).
+The dashboard picks each day's best shot from the scores itself; `rescore` rewrites the scores in place
+after a change to sunset_process.py / hsv_score.json.
 
-  python -m ai_judge watch      # keep new captures filled in; re-pick days whose best shot changed
+  python -m ai_judge watch      # keep new captures filled in
   python -m ai_judge weather  --camera all [--since ...] [--before ...] [--refill]
   python -m ai_judge goes     --camera all [--since ...] [--before ...]   # GOES-East observed cloud on captures (history; watch does recent ones)
   python -m ai_judge predict  --camera all [--since ...] [--before ...] [--refill]   # sunset forecast on the pre shots
@@ -11,7 +11,8 @@ pipeline's own fields or code.
   python -m ai_judge reflect  --camera all   # "Glass lake" badge: mirror score on btv_echo_cam captures
   python -m ai_judge cleanup  --camera all [--delete]   # list (or remove) entries whose photo you deleted
   python -m ai_judge backfill --camera btv_echo_cam [--since 2025-07-01] [--before 2025-08-01] [--best-only] [--limit N] [--rejudge]
-  python -m ai_judge rerank   --camera btv_echo_cam [--since ...] [--before ...] [--rescore] [--hsv-only] [--fill-missing] [--dry-run]
+  python -m ai_judge rescore  --camera all [--since ...] [--before ...] [--dry-run]   # new HSV scores, in place
+  python -m ai_judge drop-ranked --camera all [--delete]   # list (or remove) the old 11_ranked / 12_histogram points + PNGs
   python -m ai_judge bakeoff  --camera btv_echo_cam --models qwen3-vl:4b,gemma3:4b [--sample 12] [--dates 2025-05-26,...]
 
 Dates are the cameras' local dates (TIMEZONE, default America/New_York): --since is
@@ -34,7 +35,7 @@ from influxdb import InfluxDBClient
 
 from . import goes, predict, reflect, store, views, weather
 from .judge import ensure_model, judge_image
-from .rerank import gate_days, rerank
+from .rescore import drop_ranked, rescore
 
 log = logging.getLogger("ai_judge")
 
@@ -80,8 +81,7 @@ def watch(_args):
             if AI_MODEL:
                 steps.append(lambda: [judge_and_save(client, p, AI_MODEL) for p in store.captures(client, camera, recent="2d")
                                       if store.needs_judging(p, AI_MODEL)])
-            # Then re-pick any ranked day whose best shot no longer fits the thumbs/view rules.
-            steps += [lambda: views.apply_bad_views(client, camera), lambda: gate_days(client, camera)]
+            steps.append(lambda: views.apply_bad_views(client, camera))
             for step in steps:
                 try:
                     step()
@@ -116,11 +116,16 @@ def backfill(args):
             judge_and_save(client, point, AI_MODEL)
 
 
-def rerank_cmd(args):
+def rescore_cmd(args):
     client = influx()
     for camera in camera_list(client, args.camera):
-        rerank(client, camera, since=args.since, before=args.before, rescore=args.rescore,
-               use_rules=not args.hsv_only, dry_run=args.dry_run, fill_missing=args.fill_missing)
+        rescore(client, camera, since=args.since, before=args.before, dry_run=args.dry_run)
+
+
+def drop_ranked_cmd(args):
+    client = influx()
+    for camera in camera_list(client, args.camera):
+        drop_ranked(client, camera, delete=args.delete)
 
 
 def weather_cmd(args):
@@ -252,13 +257,13 @@ def main():
     b.add_argument("--best-only", action="store_true", help="only each day's best shot (much faster)")
     b.add_argument("--limit", type=int)
     b.add_argument("--rejudge", action="store_true", help="judge again even if already judged by this model")
-    r = sub.add_parser("rerank", help="re-pick each day's best shot and regenerate its ranked image")
+    r = sub.add_parser("rescore", help="recompute every capture's HSV score (and breakdown) in place with the current sunset_process.py")
     r.add_argument("--camera", required=True, help="camera tag, or 'all'")
     add_date_range(r)
-    r.add_argument("--rescore", action="store_true", help="recompute every capture's HSV score with the current sunset_process.py first")
-    r.add_argument("--hsv-only", action="store_true", help="pick by HSV score alone, ignoring thumbs, bad views and dark/no-signal verdicts")
-    r.add_argument("--fill-missing", action="store_true", help="also rank days the pipeline never ranked (e.g. its ranked-image step failed)")
-    r.add_argument("--dry-run", action="store_true", help="show what would change without changing anything")
+    r.add_argument("--dry-run", action="store_true", help="score and report how much scores would move, without writing")
+    d = sub.add_parser("drop-ranked", help="list (or --delete) the old 11_ranked / 12_histogram points and their PNGs")
+    d.add_argument("--camera", required=True, help="camera tag, or 'all'")
+    d.add_argument("--delete", action="store_true", help="actually remove them (default: just list)")
     k = sub.add_parser("bakeoff", help="compare models on a sample (writes nothing)")
     k.add_argument("--camera", required=True)
     k.add_argument("--models", default="qwen3-vl:4b,gemma3:4b")
@@ -284,7 +289,7 @@ def main():
     x.add_argument("--camera", required=True, help="camera tag, or 'all'")
     x.add_argument("--delete", action="store_true", help="actually remove them (default: just list)")
     args = parser.parse_args()
-    commands = {"backfill": backfill, "rerank": rerank_cmd, "bakeoff": bakeoff, "weather": weather_cmd, "predict": predict_cmd,
+    commands = {"backfill": backfill, "rescore": rescore_cmd, "drop-ranked": drop_ranked_cmd, "bakeoff": bakeoff, "weather": weather_cmd, "predict": predict_cmd,
                 "views": views_cmd, "reflect": reflect_cmd, "goes": goes_cmd, "cleanup": cleanup_cmd}
     commands.get(args.command, watch)(args)
 

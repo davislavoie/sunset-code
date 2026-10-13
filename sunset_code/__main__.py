@@ -6,7 +6,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from sunset_code.helpers.helpers import sunset_time, influxdb_push
 from sunset_code.helpers.get_photo import get_photo
 from sunset_code.helpers.sunset_process import rank_sunset
-from sunset_code.helpers.generate_ranked_image import generate_ranked_image
+# generate_ranked_image is no longer called: see the note at the end of main().
 from datetime import datetime
 import os
 import time
@@ -14,8 +14,6 @@ import traceback
 
 def main(youtube_url, lat, lon, altitude, timezone_str, camera_tag, mode='sunset'):
     intervals = sunset_time(lat=lat, lon=lon, altitude=altitude, timezone_str=timezone_str, mode=mode)
-    max_score = -1
-    max_final_txt_img = None
 
     for photo_interval, epoch_time in sorted(intervals.items(), key=lambda x: x[1]):
         now = time.time()
@@ -31,48 +29,22 @@ def main(youtube_url, lat, lon, altitude, timezone_str, camera_tag, mode='sunset
         try:
             frame, photo_filename = get_photo(photo_interval, youtube_url, camera_tag)
 
-            score, final_txt_img, name, hist_h, hist_s, hist_v, combined_mask_full_image, texts, bg_colors = rank_sunset(photo_filename)
-            
-            influxdb_push(photo_filename, epoch_time, photo_interval, camera_tag, score)
+            score, fields, hist = rank_sunset(photo_filename)
+
+            influxdb_push(photo_filename, epoch_time, photo_interval, camera_tag, score, fields=fields, hist=hist)
 
             print(f"[{photo_interval}] Score: {score} | Pushed to InfluxDB")
 
-            if score > max_score:
-                max_score = score
-                max_final_txt_img = final_txt_img
-                max_name = name
-                max_hist_h = hist_h
-                max_hist_s = hist_s
-                max_hist_v = hist_v 
-                max_epoch_time = epoch_time
-                max_photo_file = photo_filename
-                max_photo_dir = os.path.dirname(photo_filename)
-                
         except Exception as e:
             print(f"[{photo_interval}] ERROR: {e}")
             #Error feedback - removed Frame print to avoid massive array output
             print(f"Photo Filename: {photo_filename}")
             traceback.print_exc()
 
-    # Only generate ranked image if we have valid data
-    if max_final_txt_img is not None:
-        try:
-            histogram_path, score_image_path = generate_ranked_image(max_final_txt_img, str(max_score), max_name, max_hist_h, max_hist_s, max_hist_v, max_photo_dir)
-
-            #Get file name from path s
-            histogram_name = os.path.basename(histogram_path)
-            score_image_name = os.path.basename(score_image_path)
-
-            # Push ranked image to influx db
-            influxdb_push(histogram_path, max_epoch_time, histogram_name, camera_tag, max_score)
-            influxdb_push(score_image_path, max_epoch_time, score_image_name, camera_tag, max_score)
-
-            print(f"[INFO] Generating ranked image for best sunset (score: {max_score})")
-
-        except Exception as e:
-            print(f"[ERROR] Failed to generate ranked image: {e}")
-    else:
-        print("[INFO] No images were processed successfully")
+    # Ranked image + histogram PNGs (11_ranked / 12_histogram) are turned off (2026-10-13). The dashboard
+    # works out each day's best shot from the captures' scores, draws the colour overlay in the browser and
+    # shows the breakdown + histograms stored with each capture above, so the PNGs and their InfluxDB points
+    # were extra work nobody saw. generate_ranked_image.py is kept for reference.
 
     print(f"[INFO] Script finished at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", flush=True)
 

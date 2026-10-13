@@ -6,7 +6,7 @@ flipped, against the K rows below. A reflection flips them; posts, masts and tre
 and the plain sky-to-ground brightness ramp (removed per row) don't count as mirroring. Tuned on 335 btv
 days (analysis/reflection.py): the mirror-calm Jan 8 2026 lake scored 0.58, median 0.19, and >= 0.35
 (about 4 % of days) were mostly genuine reflections. Badge plus a small bump when picking and
-showing the day's best (store.glass_bonus); the stored HSV score is never changed.
+showing the day's best (html_project/backend.py glass_bonus); the stored HSV score is never changed.
 """
 
 import io

@@ -7,8 +7,7 @@ from unittest import mock
 import numpy as np
 from PIL import Image
 
-from ai_judge import reflect, store
-from ai_judge.rerank import pick
+from ai_judge import reflect
 
 
 def jpeg(a):
@@ -57,19 +56,7 @@ class Fill(unittest.TestCase):
         self.assertGreaterEqual(written[0]["fields"]["mirror_score"], reflect.GLASS_LAKE)
 
 
-class Bump(unittest.TestCase):
-    def test_bonus_steps(self):
-        self.assertEqual([store.glass_bonus({"mirror_score": m}) for m in (None, -1.0, 0.34, 0.35, 0.44, 0.45, 0.9)],
-                         [0, 0, 0, 5, 5, 8, 8])
-
-    def test_glass_shot_wins_within_the_bump_but_not_beyond(self):
-        glass = {"time": "g", "score": 58.0, "mirror_score": 0.4}
-        self.assertIs(pick([{"time": "a", "score": 62.0}, glass]), glass)
-        self.assertEqual(pick([{"time": "a", "score": 64.0}, glass])["time"], "a")
-
-    def test_thumbs_up_still_beats_the_bump(self):
-        liked = {"time": "a", "score": 40.0, "thumb": 1}
-        self.assertIs(pick([liked, {"time": "g", "score": 58.0, "mirror_score": 0.6}]), liked)
+# The bump itself (and picking with it) is tested with the dashboard: html_project/test_backend.py
 
 
 if __name__ == "__main__":

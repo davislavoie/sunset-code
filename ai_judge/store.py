@@ -11,6 +11,7 @@ from zoneinfo import ZoneInfo
 import requests
 
 MEASUREMENT = "sunset_images"
+HIST_MEASUREMENT = "sunset_hist"  # each capture's sky histograms (same tags and time), kept out of the main measurement
 AI_FIELDS = ("ai_view", "ai_is_sunset", "ai_sky_percent", "ai_score", "ai_reason", "ai_model")
 
 # Days are grouped by the cameras' local date: an evening sunset in Vermont is after
@@ -19,12 +20,9 @@ LOCAL_TZ = ZoneInfo(os.environ.get("TIMEZONE", "America/New_York"))
 
 
 def is_raw_capture(point):
-    """Photos from the camera, as opposed to the generated 11_ranked / 12_histogram images."""
+    """Photos from the camera, as opposed to the 11_ranked / 12_histogram images the pipeline used to make
+    (`python -m ai_judge drop-ranked` removes those)."""
     return not point.get("label", "").startswith(("11_", "12_"))
-
-
-def is_ranked(point):
-    return point.get("label", "").startswith("11_")
 
 
 def parse_time(point):
@@ -73,10 +71,13 @@ def by_day(day_points):
 
 
 def best_shot_times(client, camera):
-    """Timestamps of each day's best shot (where the pipeline wrote its 11_ranked image)."""
-    query = f"SELECT url, label FROM {MEASUREMENT} WHERE camera = $camera"
-    found = client.query(query, bind_params={"camera": camera}).get_points()
-    return {p["time"] for p in found if is_ranked(p)}
+    """Timestamps of each day's highest-scoring capture (for judging only those)."""
+    best = {}
+    for p in captures(client, camera):
+        day = local_date(p)
+        if (p.get("score") or 0) > (best.get(day, {}).get("score") or -1):
+            best[day] = p
+    return {p["time"] for p in best.values()}
 
 
 AI_EXCLUSIONS = {"dark": "too dark", "no_signal": "no camera signal"}
@@ -95,14 +96,10 @@ def exclusion(point):
     return AI_EXCLUSIONS.get(point.get("ai_view"))
 
 
-# Glass lake (ai_judge/reflect.py): a mirror-calm lake earns a small bump when picking the day's best
-# shot and in the displayed score; the HSV score itself is untouched. Same rule as html_project/backend.py.
+# Glass lake (ai_judge/reflect.py): a mirror-calm lake earns a small bump in the displayed score and when
+# the dashboard picks the day's best shot (html_project/backend.py applies it); the HSV score is untouched.
+# Here only for reflect.py's badge threshold. Same numbers as backend.py.
 GLASS_BONUS = ((0.45, 8), (0.35, 5))  # (mirror_score at least, points)
-
-
-def glass_bonus(point):
-    mirror = point.get("mirror_score")
-    return next((pts for at, pts in GLASS_BONUS if mirror is not None and mirror >= at), 0)
 
 
 def needs_judging(point, model, rejudge=False):

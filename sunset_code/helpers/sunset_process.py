@@ -1,108 +1,64 @@
 # %%
+import json
+from pathlib import Path
+
 import cv2
 import numpy as np
-import os
+
+# Every number in the score (hue bands, weights, contrast, soft cap) lives in hsv_score.json, which the
+# dashboard reads too (overlay colours, Ranking explained), so a tweak is one edit in one place.
+CONFIG = json.loads((Path(__file__).parent / "hsv_score.json").read_text())
+
 
 def rank_sunset(frame):
+    """Score a photo 0-100 from the colours in its sky (top half).
+
+    Returns (score, fields, hist):
+      fields: the breakdown stored next to the score in InfluxDB, so the dashboard shows it without
+              recomputing: per colour points / coverage / saturation, and the cloud contrast pieces.
+      hist:   the sky's hue / saturation / value histograms as shares of the sky (stored separately).
+    No images are drawn here any more (the dashboard draws the overlay in the browser); draw_overlay()
+    below makes the old annotated image for debugging (tests/sunset_process_testing.py).
+    """
     img = cv2.imread(frame)
-    
+
     if img is None:
         print(f"Error: Could not load image '{frame}'")
         return None
-    name = os.path.basename(frame).split('.')[0]
 
     #horizon_img, horizon_y = find_horizon(img)
     horizon_y = img.shape[0] // 2
-    
-    height, width = img.shape[:2]
-
-    if horizon_y is not None:
-        sky_image = img[:horizon_y, :]
-        bot_image = img[horizon_y:, :]
-        half_height = horizon_y  # For spread calculations
-    else:
-        half_height = height // 2 + 30
-        sky_image = img[:half_height, :]
-        bot_image = img[half_height:, :]
+    sky_image = img[:horizon_y, :]
 
     hsv = cv2.cvtColor(sky_image, cv2.COLOR_BGR2HSV)
     h, s, v = hsv[:,:,0], hsv[:,:,1], hsv[:,:,2]
-    hist_h = cv2.calcHist([h], [0], None, [180], [0,180])
-    hist_s = cv2.calcHist([s], [0], None, [256], [0,256])
-    hist_v = cv2.calcHist([v], [0], None, [256], [0,256])
+    hist = {name: (cv2.calcHist([c], [0], None, [n], [0, n]).ravel() / c.size).round(5).tolist()
+            for name, c, n in (("hue", h, 180), ("saturation", s, 256), ("value", v, 256))}
 
-    total_half_pixels = h.size
     total_pixels = img.shape[0] * img.shape[1]
-    
+
     #RANKING METRICS
     # Ignore near-black pixels: their hue/saturation is noise, which made dark night frames
     # score as vivid red (e.g. a black frame scoring 100). 38 = 15% of full brightness.
-    bright = v >= 38
+    bright = v >= CONFIG["min_brightness"]
 
-    #RED HUE 
-    red_mask = (h < 8) & (s >= 20) & bright
-    red_score = calculate_saturation_weighted_score(red_mask, s, total_pixels, power=2.0)
-    # print(f"Red Score: {red_score}")
-     
-    #ORANGE HUE
-    orange_mask = (h >= 8) & (h < 25) & (s >= 20) & bright
-    orange_score = calculate_saturation_weighted_score(orange_mask, s, total_pixels, power=2.0)
-    # print(f"Orange Score: {orange_score}")
-
-    #PINK/PURPLE HUE
-    # v >= 128 (half brightness): dim mauve / grey-purple cloud at dusk isn't a pink sunset (analysis/hsv_tuning.md)
-    pink_mask = (h >= 140) & (h <= 179) & (s >= 20) & (v >= 128)
-    pink_score = calculate_saturation_weighted_score(pink_mask, s, total_pixels, power=2.0)
-    # print(f"Pink Score: {pink_score}")
-    
-    #YELLOW HUE
-    yellow_mask = (h >= 25) & (h <= 35) & (s >= 20) & bright
-    yellow_score = calculate_saturation_weighted_score(yellow_mask, s, total_pixels, power=2.0)
-    # print(f"Yellow Score: {yellow_score}")  
-    
-    #METRICS
-    # 1. Warm Color Ratio (orange/red/yellow)
-    warm_pixels = (h >= 0) & (h < 25) & (s >= 70)
-    warm_ratio = np.count_nonzero(warm_pixels) / total_pixels
-
-    #2. Warm color low saturation
-    warm_dull_pixels = (h >= 0) & (h < 25) & (s < 70) & (s >= 25)
-    warm_dull_ratio = np.count_nonzero(warm_dull_pixels) / total_pixels 
-
-    # 3. Pink/Purple Ratio (Hue 160-179)
-    pink_pixels = (h >= 135) & (h <= 179) & (s >= 60)  
-    pink_ratio = np.count_nonzero(pink_pixels) / total_pixels
-
-    # 4. Pink/Purple low saturation
-    pink_dull_pixels = (h >= 135) & (h <= 179) & (s < 60)  & (s >= 25)
-    pink_dull_ratio = np.count_nonzero(pink_dull_pixels) / total_pixels
-
-    # 5. Yellow glow
-    yellow_pixels = (h >= 25) & (h <= 35)
-    yellow_ratio = np.count_nonzero(yellow_pixels) / total_pixels
-
-    #5. Dark Blue Ratio (Hue 100-120) Cloud contrast
-    dark_blue_pixels = (h >= 100) & (h <= 120) & (s >= 60) & (v >= 125)
-    dark_blue_ratio = np.count_nonzero(dark_blue_pixels) / total_pixels
-
-    # Final Score Calculation
-    # score = (
-    #     250 * warm_ratio +
-    #     100 * warm_dull_ratio +
-    #     400 * pink_ratio +
-    #     300 * pink_dull_ratio +
-    #     150 * yellow_ratio 
-    # ) 
-    score = (
-        red_score * 4 +
-        orange_score * 3 +
-        yellow_score * 2 +
-        pink_score * 9
-    )
+    # One mask per hue band (red, orange, pink, yellow). Pink only counts at v >= 128 (half brightness):
+    # dim mauve / grey-purple cloud at dusk isn't a pink sunset (analysis/hsv_tuning.md).
+    fields = {}
+    score = 0.0
+    coloured = np.zeros_like(bright)
+    for color, band in CONFIG["bands"].items():
+        in_band = (h >= band["hue"][0]) & (h <= band["hue"][1]) & (s >= band["sat_min"])
+        coloured |= in_band & bright
+        mask = in_band & (v >= band["val_min"])
+        points = calculate_saturation_weighted_score(mask, s, total_pixels, power=CONFIG["power"]) * band["weight"]
+        score += points
+        fields[f"{color}_points"] = float(points)
+        fields[f"{color}_coverage"] = float(np.count_nonzero(mask) / total_pixels)
+        fields[f"{color}_saturation"] = float(s[mask].mean()) if mask.any() else 0.0
 
     # Cloud colour contrast (analysis/hsv_tuning.md): several hues at once (orange with pink) and lit cloud
     # standing out from the rest of the sky look better than one flat colour. Both fitted to My ranking.
-    coloured = red_mask | orange_mask | yellow_mask | ((h >= 140) & (s >= 20) & bright)
     hue_spread, lit_contrast = 0.0, 0.0
     if coloured.any():
         angle = h[coloured] * (np.pi / 90)  # OpenCV hue 0-179 around the circle, so red and pink are neighbours
@@ -110,49 +66,34 @@ def rank_sunset(frame):
         rest = ~coloured & bright
         if rest.any():
             lit_contrast = v[coloured].mean() - v[rest].mean()
-    score *= max(0, 0.36 + 2.5 * hue_spread) * max(0, 0.93 + 0.0086 * lit_contrast)
+    c = CONFIG["contrast"]
+    contrast = max(0, c["hue_base"] + c["hue_slope"] * hue_spread) * max(0, c["lit_base"] + c["lit_slope"] * lit_contrast)
+    score *= contrast
+    fields.update(hue_spread=float(hue_spread), lit_contrast=float(lit_contrast), contrast=float(contrast))
 
     # Soft cap instead of min(100, score): fitted to the My ranking scores (analysis/my_rank.md, refitted in
     # hsv_tuning.md). Same order, closer to how good the days look, and big days no longer all tie at 100.
-    score = round(100 * (1 - np.exp(-score / 66.9)), 2)
+    score = round(100 * (1 - np.exp(-score / CONFIG["soft_cap"])), 2)
 
-    ##IMAGE VISUALIZATION
-    # Warm and pink pixel overlays
-    warm_mask = opacity_overlay(sky_image, warm_pixels, color=(0, 0, 255), opacity=0.3)
-    warm_dull_mask = opacity_overlay(warm_mask, warm_dull_pixels, color=(0, 165, 255), opacity=0.3)
-    pink_dull_mask = opacity_overlay(warm_dull_mask, pink_dull_pixels, color=(150, 130, 220) , opacity=0.3)
-    yellow_mask = opacity_overlay(pink_dull_mask, yellow_pixels, color=(0, 255, 255), opacity=0.3)
-    dark_blue_mask = opacity_overlay(yellow_mask, dark_blue_pixels, color=(255, 0, 0), opacity=0.3)
-    combined_mask = opacity_overlay(dark_blue_mask, pink_pixels, color=(255, 0, 255), opacity=0.3)
-    combined_mask_full_image = np.vstack((combined_mask, bot_image))
+    return score, fields, hist
 
-    #Add image text
-    texts = [
-        f"Warm Color Ratio: {warm_ratio:.2%}",
-        f"Warm Dull Ratio: {warm_dull_ratio:.2%}",
-        f"Pink Color Ratio: {pink_ratio:.2%}",
-        f"Pink Dull Ratio: {pink_dull_ratio:.2%}",
-        f"Yellow Ratio: {yellow_ratio:.2%}",
-        f"Dark Blue Ratio: {dark_blue_ratio:.2%}",
 
-    ]
-
-    bg_colors = [
-        (0, 0, 255),  
-        (0, 100, 255),  
-        (255, 0, 255),   
-        (150, 130, 220),
-        (0, 255, 255),
-        (255, 0, 0),
-        (0, 0, 0), 
-        (0, 0, 0),  
-        (0, 0, 0)  
-    ]
-
-    final_txt_img = put_text_with_opacity_bg(combined_mask_full_image, texts, bg_colors)
-    
-    #Return Images and Data
-    return score, final_txt_img, name, hist_h, hist_s, hist_v, combined_mask_full_image, texts, bg_colors
+def draw_overlay(frame):
+    """Debug view only, not used by the pipeline: the photo with the counted sky pixels painted in
+    (red, orange, pink, yellow) and the coverage of each written on it."""
+    img = cv2.imread(frame)
+    sky_image = img[:img.shape[0] // 2]
+    bot_image = img[img.shape[0] // 2:]
+    hsv = cv2.cvtColor(sky_image, cv2.COLOR_BGR2HSV)
+    h, s, v = hsv[:,:,0], hsv[:,:,1], hsv[:,:,2]
+    paint = {"red": (0, 0, 255), "orange": (0, 140, 255), "pink": (255, 0, 255), "yellow": (0, 255, 255)}
+    out, texts, bg_colors = sky_image, [], []
+    for color, band in CONFIG["bands"].items():
+        mask = (h >= band["hue"][0]) & (h <= band["hue"][1]) & (s >= band["sat_min"]) & (v >= band["val_min"])
+        out = opacity_overlay(out, mask, color=paint[color], opacity=0.5)
+        texts.append(f"{color.title()}: {np.count_nonzero(mask) / img[:, :, 0].size:.2%}")
+        bg_colors.append(paint[color])
+    return put_text_with_opacity_bg(np.vstack((out, bot_image)), texts, bg_colors)
 
 #Helper functions
 def opacity_overlay(image, mask, color=(0, 0, 255), opacity=0.5):
@@ -232,7 +173,7 @@ def calculate_saturation_weighted_score(mask, s, total_pixels, power=2.0, bin_si
     pixel_ratio = np.count_nonzero(mask) / total_pixels
     
     # Apply non-linear weighting: higher saturation values are amplified exponentially
-    score = (pixel_ratio * (avg_saturation ** power))/40
+    score = (pixel_ratio * (avg_saturation ** power)) / CONFIG["divisor"]
     return score
 
 
