@@ -69,8 +69,8 @@ export default function ScoreBreakdown({ imageUrl }) {
       })}
       {result && (
         <div className="breakdown-total">
-          Score = Σ coverage × saturation² ÷ 40 × multiplier = <strong>{result.total.toFixed(1)}</strong>
-          {result.total >= 100 && " (capped at 100)"}
+          Score = Σ coverage × saturation² ÷ 40 × multiplier × cloud contrast {result.contrast.toFixed(2)}, soft-capped
+          = <strong>{result.total.toFixed(1)}</strong>
         </div>
       )}
     </div>

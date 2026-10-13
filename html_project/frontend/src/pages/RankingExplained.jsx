@@ -195,7 +195,12 @@ export default function RankingExplained({ rankedImages, admin = false }) {
         </code>
       </div>
 
-      <p>The final score is capped at <strong>100</strong>.</p>
+      <p>
+        That sum is multiplied by the <strong>cloud contrast</strong> factor, (0.36 + 2.5 × hue spread) × (0.93 + 0.0086
+        × lit contrast): hue spread is how many different hues the coloured pixels cover (orange and pink together scores
+        higher than one flat colour), lit contrast is how much brighter the coloured pixels are than the rest of the sky.
+        Then it is soft-capped: <strong>100 × (1 − e^(−score / 66.9))</strong>. Pink only counts at half brightness or more.
+      </p>
 
       <hr />
 
@@ -325,6 +330,7 @@ function TestImageCard({ entry, params, onRemove }) {
           ))}
         </div>
         <div className="total-score">
+          {result && <span className="color-score">Cloud contrast: ×{result.contrast.toFixed(2)}</span>}
           Score: <strong>{result ? result.total.toFixed(2) + "%" : "--"}</strong>
         </div>
       </div>

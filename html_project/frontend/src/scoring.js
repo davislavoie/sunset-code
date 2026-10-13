@@ -7,7 +7,8 @@ export const DEFAULT_COLOR_RANGES = {
   red: { hueMin: 0, hueMax: 8, satMin: 20 },
   orange: { hueMin: 8, hueMax: 25, satMin: 20 },
   yellow: { hueMin: 25, hueMax: 35, satMin: 20 },
-  pink: { hueMin: 140, hueMax: 179, satMin: 20 },
+  // valMin 128: dim mauve / grey-purple dusk cloud isn't pink sunset (analysis/hsv_tuning.md)
+  pink: { hueMin: 140, hueMax: 179, satMin: 20, valMin: 128 },
 };
 
 export const DEFAULT_FORMULA = { power: 2.0, divisor: 40 };
@@ -55,6 +56,8 @@ export function scoreImage({ data, width, height }, { multipliers, colorRanges, 
   const overlay = new Uint8ClampedArray(data);
   const counts = { red: 0, orange: 0, yellow: 0, pink: 0 };
   const satSums = { red: 0, orange: 0, yellow: 0, pink: 0 };
+  // Cloud colour contrast, as sunset_process.py: hue spread and brightness of coloured vs the rest of the sky
+  let cos = 0, sin = 0, colouredN = 0, colouredV = 0, restN = 0, restV = 0;
 
   for (let i = 0; i < skyHeight * width * 4; i += 4) {
     const [h, s, v] = rgbToHsv(data[i], data[i + 1], data[i + 2]);
@@ -64,11 +67,20 @@ export function scoreImage({ data, width, height }, { multipliers, colorRanges, 
     // boundary land in the same bucket; without this, scores drift up to ~1 point.
     const hue = Math.round(h * 180) % 180;
     const sat = Math.round(s * 255);
+    const val = Math.round(v * 255);
+
+    if (sat >= 20 && (hue < 36 || hue >= 140)) {
+      const angle = (hue * Math.PI) / 90;
+      cos += Math.cos(angle); sin += Math.sin(angle);
+      colouredN++; colouredV += val;
+    } else {
+      restN++; restV += val;
+    }
 
     const match = COLORS.find((color) => {
-      const { hueMin, hueMax, satMin } = colorRanges[color];
+      const { hueMin, hueMax, satMin, valMin = 0 } = colorRanges[color];
       const belowMax = EXCLUSIVE_MAX.has(color) ? hue < hueMax : hue <= hueMax;
-      return hue >= hueMin && belowMax && sat >= satMin;
+      return hue >= hueMin && belowMax && sat >= satMin && val >= valMin;
     });
     if (!match) continue;
 
@@ -90,8 +102,15 @@ export function scoreImage({ data, width, height }, { multipliers, colorRanges, 
     // calculate_saturation_weighted_score: pixel_ratio * avg_saturation^power / divisor
     perColor[color] = ((coverage[color] * Math.pow(avgSaturation[color], power)) / divisor) * multipliers[color];
   }
-  // Soft cap, as sunset_process.py: 100 * (1 - e^(-raw / 55.3))
-  const total = 100 * (1 - Math.exp(-COLORS.reduce((sum, color) => sum + perColor[color], 0) / 55.3));
+  let hueSpread = 0, litContrast = 0;
+  if (colouredN > 0) {
+    hueSpread = Math.sqrt(Math.max(0, -2 * Math.log(Math.max(Math.hypot(cos / colouredN, sin / colouredN), 1e-6))));
+    if (restN > 0) litContrast = colouredV / colouredN - restV / restN;
+  }
+  const contrast = Math.max(0, 0.36 + 2.5 * hueSpread) * Math.max(0, 0.93 + 0.0086 * litContrast);
+  // Soft cap, as sunset_process.py: 100 * (1 - e^(-raw / 66.9))
+  const raw = COLORS.reduce((sum, color) => sum + perColor[color], 0) * contrast;
+  const total = 100 * (1 - Math.exp(-raw / 66.9));
 
-  return { perColor, coverage, avgSaturation, total, overlay };
+  return { perColor, coverage, avgSaturation, hueSpread, litContrast, contrast, total, overlay };
 }

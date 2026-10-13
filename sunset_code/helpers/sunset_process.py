@@ -50,7 +50,8 @@ def rank_sunset(frame):
     # print(f"Orange Score: {orange_score}")
 
     #PINK/PURPLE HUE
-    pink_mask = (h >= 140) & (h <= 179) & (s >= 20) & bright
+    # v >= 128 (half brightness): dim mauve / grey-purple cloud at dusk isn't a pink sunset (analysis/hsv_tuning.md)
+    pink_mask = (h >= 140) & (h <= 179) & (s >= 20) & (v >= 128)
     pink_score = calculate_saturation_weighted_score(pink_mask, s, total_pixels, power=2.0)
     # print(f"Pink Score: {pink_score}")
     
@@ -99,9 +100,21 @@ def rank_sunset(frame):
         pink_score * 9
     )
 
-    # Soft cap instead of min(100, score): fitted to the My ranking scores (analysis/my_rank.md). Same order,
-    # closer to how good the days look, and big days no longer all tie at 100.
-    score = round(100 * (1 - np.exp(-score / 55.3)), 2)  
+    # Cloud colour contrast (analysis/hsv_tuning.md): several hues at once (orange with pink) and lit cloud
+    # standing out from the rest of the sky look better than one flat colour. Both fitted to My ranking.
+    coloured = red_mask | orange_mask | yellow_mask | ((h >= 140) & (s >= 20) & bright)
+    hue_spread, lit_contrast = 0.0, 0.0
+    if coloured.any():
+        angle = h[coloured] * (np.pi / 90)  # OpenCV hue 0-179 around the circle, so red and pink are neighbours
+        hue_spread = np.sqrt(max(0, -2 * np.log(max(np.hypot(np.cos(angle).mean(), np.sin(angle).mean()), 1e-6))))
+        rest = ~coloured & bright
+        if rest.any():
+            lit_contrast = v[coloured].mean() - v[rest].mean()
+    score *= max(0, 0.36 + 2.5 * hue_spread) * max(0, 0.93 + 0.0086 * lit_contrast)
+
+    # Soft cap instead of min(100, score): fitted to the My ranking scores (analysis/my_rank.md, refitted in
+    # hsv_tuning.md). Same order, closer to how good the days look, and big days no longer all tie at 100.
+    score = round(100 * (1 - np.exp(-score / 66.9)), 2)
 
     ##IMAGE VISUALIZATION
     # Warm and pink pixel overlays

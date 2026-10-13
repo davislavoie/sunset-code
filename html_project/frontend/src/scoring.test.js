@@ -55,3 +55,17 @@ test("near-black pixels are ignored, like sunset_process.py", () => {
   const { total } = scoreImage(solid([30, 2, 2]), params);
   assert.equal(total, 0);
 });
+
+test("dim mauve cloud isn't counted as pink", () => {
+  // rgb(100, 70, 100): pink-purple hue, saturated enough, but under half brightness.
+  assert.equal(scoreImage(solid([100, 70, 100]), params).perColor.pink, 0);
+});
+
+test("orange and pink together score higher than the same pixels in one colour", () => {
+  const mixed = solid([255, 120, 0]);
+  mixed.data.set([255, 0, 200, 255], 4); // second sky pixel pink
+  const one = scoreImage(solid([255, 120, 0]), params);
+  const two = scoreImage(mixed, params);
+  assert.equal(one.hueSpread, 0);
+  assert.ok(two.hueSpread > 0 && two.contrast > one.contrast);
+});
