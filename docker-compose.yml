@@ -66,7 +66,7 @@ services:
       IMAGE_BASE_URL: ${IMAGE_BASE_URL:-http://localhost:8080}
     volumes:
       - ./config:/app/config:ro
-      - ./sunset_code:/sunset_code   # scoring multipliers (read by the dashboard, saved by admin Scoring)
+      - ./sunset_code:/sunset_code   # hsv_score.json: the score's numbers, read by the dashboard
     ports:
       - "8502:8502"
 

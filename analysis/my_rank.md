@@ -39,7 +39,7 @@ copy in `scoring.js`). The constant is the least-squares fit to your scores.
 | btv daily bests: skew | 1.27 | 0.45 |
 | btv daily bests at 99+ (ties) | 15 | 0 |
 
-Stored scores keep the old scale until they are recomputed (`python -m ai_judge rerank --rescore`).
+Stored scores keep the old scale until they are recomputed (`python -m ai_judge rescore --camera all`).
 
 ## Haze / smoke (Open-Meteo air quality)
 

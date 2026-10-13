@@ -1,4 +1,4 @@
-# ai_judge: sidecar that fills in captures and re-picks best shots
+# ai_judge: sidecar that fills in captures and rescores them
 
 An optional sidecar to the capture pipeline. The **HSV color score decides** which
 capture is a day's best shot; ai_judge adds what the score can't know:
@@ -6,8 +6,8 @@ capture is a day's best shot; ai_judge adds what the score can't know:
 - **Thumbs up / down** (Calendar → Day tab, under each capture). 👎 = this shot never
   counts; tick **all shots like this** and every near-identical shot from that camera is
   ruled out too (e.g. Bolton's lift-tower close-up preset). 👍 = this is the day's pick.
-  Within ~10 minutes the judge re-picks affected days and regenerates their ranked image
-  and histogram with the pipeline's own functions. A day with nothing left isn't ranked.
+  The dashboard picks each day's best shot from the scores as it reads them, so a vote
+  shows straight away. A day with nothing left isn't ranked.
 - **Weather** for every capture (Open-Meteo, the hour nearest the capture, at the
   camera's LAT/LON): `temperature_2m`, `cloud_cover_low/mid/high/total`, `visibility`,
   ... plus low/mid/high cloud **toward the sunset** (sunrise, for a sunrise camera) at 8,
@@ -51,8 +51,8 @@ docker compose -f docker-compose.existing-infra.yml -f docker-compose.ai.yml log
 To also run the local AI, add `AI_MODEL=qwen3-vl:4b` to `.env` (first run downloads
 ~3.3 GB) and `up -d` again.
 
-It uses the same photos folder as the capture containers (`${HOME}/Pictures`); re-ranking
-writes new ranked images next to the photos.
+It uses the same photos folder as the capture containers (`${HOME}/Pictures`): `rescore`
+reads the photos, `drop-ranked --delete` removes the old ranked PNGs.
 
 For the commands below, an alias saves typing:
 
@@ -60,7 +60,7 @@ For the commands below, an alias saves typing:
 alias judge='docker compose -f docker-compose.existing-infra.yml -f docker-compose.ai.yml run --rm ai-judge python -m ai_judge'
 ```
 
-Every command takes `--camera <tag>` or `--camera all`, and `backfill`/`rerank` take
+Every command takes `--camera <tag>` or `--camera all`, and `backfill`/`rescore` take
 `--since YYYY-MM-DD` (inclusive) and `--before YYYY-MM-DD` (exclusive), in the cameras'
 local dates. Cameras: `bolton_summit_cam`, `btv_echo_cam`, `wcax_tower_sunrise`,
 `wcax_tower_sunset`.
@@ -105,38 +105,35 @@ judge backfill --camera all --since 2026-09-01 --before 2026-09-08            # 
 judge backfill --camera all                                                    # everything (~6,000 captures): days
 ```
 
-`--best-only` is enough to catch dark / no-signal best shots; `watch` then re-picks
-those days.
+`--best-only` judges each day's highest-scoring shot, enough to catch dark / no-signal best shots;
+the dashboard then skips those.
 
-### 3. Re-rank (non-interactive)
+### 3. Rescore after changing the score
 
-`rerank` re-picks each day's best shot from InfluxDB and regenerates its ranked image +
-histogram with the pipeline's functions, applying the thumbs / bad-view / dark rules, and
-removes the ranking of days where nothing can win. Always try `--dry-run` first.
+After a change to `sunset_code/helpers/sunset_process.py` or `hsv_score.json`, `rescore` recomputes
+every capture's HSV score, its breakdown and its histograms, and writes them onto the same points
+(InfluxDB merges fields), so thumbs, weather and AI fields are kept and nothing is deleted. No
+images are made: the dashboard picks each day's best shot from the scores. About 40 ms a photo.
 
 ```bash
-judge rerank --camera all --dry-run                                        # what would change
-judge rerank --camera all --since 2026-09-01 --before 2026-09-08
-judge rerank --camera all --rescore        # recompute every HSV score with the current sunset_process.py first
-judge rerank --camera all --hsv-only       # HSV score only, ignoring thumbs (the old behavior)
-judge rerank --camera all --fill-missing   # also rank days the pipeline never ranked
+judge rescore --camera all --dry-run                                  # how much scores would move
+judge rescore --camera all --since 2026-09-01 --before 2026-09-08
+judge rescore --camera all
 ```
 
-Before any AI judgments, a dry run over all history reports all 563 ranked days as
-"unchanged" (it agrees with every pick the pipeline made) and 37 days that were never
-ranked, which are skipped unless you pass `--fill-missing`.
+The pipeline used to save a ranked image and histogram PNG for each day's best shot (11_ranked /
+12_histogram points). The dashboard no longer uses them; list or remove them with:
 
-Unlike `tests/re_rank_sunsets.py`, it never deletes captures, so thumbs, weather and AI
-fields are kept. That script deletes every point for the camera before re-pushing them,
-which would wipe them all.
+```bash
+judge drop-ranked --camera all             # how many
+judge drop-ranked --camera all --delete    # remove the points and their PNGs
+```
 
 ## In the dashboard
 
 - **Calendar → Day tab:** 👍 / 👎 (and "all shots like this") under each capture; shots
   that don't count are dimmed, labeled with why, and score 0.
 - **Admin → Archive:** every shot that doesn't count, by day and reason, with 👍/👎 to undo.
-- **Ranked Images:** a day whose best shot doesn't count (before the judge re-picks it) is
-  hidden behind a "Show N ruled-out days" toggle.
 - **Score Tracker:** a Color score / AI score toggle when the AI is on.
 
 The thumbs buttons call `/api/admin/thumb`; if the dashboard goes public, keep
@@ -150,5 +147,5 @@ at a time, and unloads the model 10 minutes after the last photo. Turn it all of
 
 ## Tests
 
-`python -m unittest ai_judge.test_ai_judge ai_judge.test_rerank` (a fake Ollama server, a
-fake InfluxDB and a fake pipeline; no model or database needed).
+`python -m unittest ai_judge.test_ai_judge ai_judge.test_rescore` (a fake Ollama server, a
+fake InfluxDB and a fake scorer; no model or database needed).

@@ -1,5 +1,5 @@
 # Build context: the repo root (see docker-compose.ai.yml), so the judge can import
-# the capture pipeline's own functions (sunset_code) for re-ranking, unchanged.
+# the capture pipeline's own scorer (sunset_code) for rescoring, unchanged.
 FROM python:3.12-slim
 
 WORKDIR /app

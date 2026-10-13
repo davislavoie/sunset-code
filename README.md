@@ -7,16 +7,16 @@ Cameras (one `config/<tag>.env` each): `bolton_summit_cam`, `btv_echo_cam`, `wca
 ## How it works
 
 1. **Capture** (`sunset_code/`). `__main__.py` reads one camera's config from env vars, computes that day's sunset or sunrise (`MODE`) with `astral`, and sleeps until each interval (2h, 1h, 45m, 30m, 15m, 5m before, at the event, then 5m, 15m, 30m after). At each one `helpers/get_photo.py` grabs a frame with `yt_dlp` + OpenCV.
-2. **Score**. `helpers/sunset_process.py` (`rank_sunset`) finds the horizon, converts the sky to HSV and scores it 0 to 100 from saturation-weighted red, orange, yellow and pink coverage. It also renders an overlay of the color masks.
-3. **Store**. `helpers/helpers.py` (`influxdb_push`) writes each capture's URL, score and label to InfluxDB (database and measurement `sunset_images`, tagged by `camera`), along with Open-Meteo weather (`helpers/open_metro_weater_api.py`): overhead cloud, temperature, visibility, and low/mid/high cloud at 8, 25 and 50 miles toward the sun. If the weather call fails the capture is still saved and `ai_judge` fills it in later.
-4. **Rank**. After the last interval, `helpers/generate_ranked_image.py` renders the day's best capture as an annotated PNG plus an HSV histogram and pushes it.
-5. **Judge** (`ai_judge/`, optional sidecar). Backfills weather and view fingerprints, applies the dashboard's thumbs up/down (a 👎 can rule out every shot with the same camera view), optionally asks a local Ollama vision model to rule out dark or "no signal" frames, and re-picks a day's best shot when any of that changes. See [`ai_judge/README.md`](ai_judge/README.md).
+2. **Score**. `helpers/sunset_process.py` (`rank_sunset`) converts the sky (top half) to HSV and scores it 0 to 100 from saturation-weighted red, orange, yellow and pink coverage times a cloud-contrast factor, soft-capped. Every number is in `helpers/hsv_score.json` (the dashboard reads it too). It returns the score's breakdown and the sky's HSV histograms with it.
+3. **Store**. `helpers/helpers.py` (`influxdb_push`) writes each capture's URL, score, score breakdown and label to InfluxDB (histograms go in `sunset_hist`) (database and measurement `sunset_images`, tagged by `camera`), along with Open-Meteo weather (`helpers/open_metro_weater_api.py`): overhead cloud, temperature, visibility, and low/mid/high cloud at 8, 25 and 50 miles toward the sun. If the weather call fails the capture is still saved and `ai_judge` fills it in later.
+4. **Rank**. Nothing to do: the dashboard takes each day's highest-scoring capture as its best shot (thumbs and exclusions applied). The old ranked-image PNGs (`helpers/generate_ranked_image.py`) are turned off.
+5. **Judge** (`ai_judge/`, optional sidecar). Backfills weather and view fingerprints, applies the dashboard's thumbs up/down (a 👎 can rule out every shot with the same camera view), optionally asks a local Ollama vision model to rule out dark or "no signal" frames, and rescores stored captures after a score change (`python -m ai_judge rescore`). See [`ai_judge/README.md`](ai_judge/README.md).
 6. **Dashboard** (`html_project/`). Flask API (`backend.py`) plus a Vite + React app (`frontend/`).
 
 ## Dashboard pages
 
 - **Sunset calendar**: day, week, month and year views. The Day tab opens on the latest sunset with its best shot, score, color breakdown, weather, and thumbs up/down per capture. Shots that don't count stay visible at 0% with a reason pill (Wrong view, Flagged, Too dark, No signal).
-- **Ranked images**: best shot per day, sortable, next to its raw and HSV-mask versions.
+- **Ranked images**: best shot per day (highest score), sortable, with its color overlay and HSV histogram.
 - **Score tracker**: scores over time, plus a Compare tab that plots any logged value (weather, time of best shot, ...) against any other with a trend line and Pearson r.
 - **HSV tuner**: tune the scoring thresholds against reference images, gallery images or an upload.
 - **Ranking explained**: interactive, in-browser version of the scorer (`frontend/src/scoring.js`).
@@ -30,16 +30,16 @@ Every write goes through `/admin/*` in the UI and `/api/admin/*` in the API, so 
 
 ```
 sunset_code/            capture + scoring pipeline (one container per camera)
-  helpers/              get_photo, sunset_process, helpers, open_metro_weater_api, generate_ranked_image
+  helpers/              get_photo, sunset_process (+ hsv_score.json), helpers, open_metro_weater_api
   entrypoint.sh         loops __main__ daily so the container stays up
-ai_judge/               optional sidecar: weather backfill, fingerprints, thumbs, local AI, re-ranking
+ai_judge/               optional sidecar: weather backfill, fingerprints, thumbs, local AI, rescoring
 html_project/
   backend.py            Flask: JSON API, image proxy, serves frontend/dist
   frontend/src/         React app: App.jsx (nav, routes), pages/, components/charts (bklit), scoring.js, hsv.js
 config/                 one .env per camera: YOUTUBE_URL, CAMERA_TAG, LAT, LON, ALTITUDE, TIMEZONE, MODE
 webhook.py              tiny token-protected endpoint the dashboard calls to run `docker compose up -d --build`
 streamlit_project/      older Streamlit dashboard (superseded by html_project/, not in the compose files)
-tests/                  re_rank_sunsets.py (interactive batch re-score), scoring scratch, example images
+tests/                  sunset_process_testing.py (score + debug overlay for a few photos), example images
 skills/                 vendored UI/animation design skills for Claude Code (not part of the app)
 
 docker-compose.yml                  self-contained stack: InfluxDB + image server + 2 cameras + dashboard
@@ -108,12 +108,12 @@ On Windows PowerShell set `$env:IMAGE_BASE_URL = "http://<image-host>:8080"` fir
 
 ```bash
 cd html_project/frontend && npm test          # in-browser scorer (scoring.test.js)
-python -m unittest ai_judge.test_ai_judge ai_judge.test_rerank   # judge + re-rank (fake Ollama, no model needed)
+python -m unittest ai_judge.test_ai_judge ai_judge.test_rescore html_project.test_backend   # judge, rescore, best-shot pick (no model or database needed)
 ```
 
 ## Known rough edges
 
-- `streamlit_project/app.py` and `tests/re_rank_sunsets.py` hardcode the InfluxDB host (`100.107.153.41`), and the latter also hardcodes `/home/dlavoie/Pictures/...`. `tests/re_rank_sunsets.py` deletes and rewrites every point for the camera it re-scores.
+- `streamlit_project/app.py` hardcodes the InfluxDB host (`100.107.153.41`).
 - The scoring multipliers are read and written by regex against `sunset_process.py`, so reformatting that `score = (...)` line breaks the Admin → Scoring page.
 - Galleries lazy-load images but don't paginate or generate thumbnails, so visible images are full resolution.
 - `.cache.sqlite` is the `requests_cache` cache for the weather client.

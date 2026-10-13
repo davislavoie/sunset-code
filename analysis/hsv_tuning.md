@@ -64,5 +64,5 @@ Closer: 2025-12-02 22 / 58 / 4, 2026-04-14 25 / 68 / 34, 2026-03-08 14 / 59 / 38
 - The best frame of the day now matches your pick on 78 % of days (was 91 %): the contrast term sometimes prefers a
   neighbouring shot. The day score still agrees better, and so does the score of your own pick (above).
 - Tuned on one camera (btv_echo_cam); the other cameras' scores move too. Check them once some days are ranked there.
-- Stored scores keep the old formula until rescored (`python -m ai_judge rerank --rescore`); not run. The zoomed-day
+- Stored scores keep the old formula until rescored (`python -m ai_judge rescore --camera all`); not run. The zoomed-day
   -40 offset in `backend.py` is unchanged.

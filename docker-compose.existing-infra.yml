@@ -103,7 +103,7 @@ services:
     volumes:
       - ./config:/app/config
       - ./docker-compose.existing-infra.yml:/app/docker-compose.yml
-      - ./sunset_code:/sunset_code   # scoring multipliers (read by the dashboard, saved by admin Scoring)
+      - ./sunset_code:/sunset_code   # hsv_score.json: the score's numbers, read by the dashboard
     ports:
       - "8502:8502"
 
