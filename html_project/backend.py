@@ -49,11 +49,13 @@ def fetch_camera_data(camera_tag):
 
     sunset_data = []
     all_data = []
-    ranked_images = []
+    days = {}  # date -> [(point, data_item)] for picking each day's best shot
 
-    points_list = list(results.get_points())
-
-    for point in points_list:
+    for point in results.get_points():
+        # 11_ranked / 12_histogram points are the pipeline's old ranked images; the best shot is worked
+        # out below instead (`python -m ai_judge drop-ranked` removes them).
+        if point.get("label", "").startswith(("11_", "12_")):
+            continue
         dt_utc = datetime.strptime(point["time"], "%Y-%m-%dT%H:%M:%SZ")
         dt_local = dt_utc.replace(tzinfo=pytz.utc).astimezone(local_tz)
         date_str = dt_local.strftime("%Y-%m-%d")
@@ -69,6 +71,7 @@ def fetch_camera_data(camera_tag):
             # A capture that can't be a day's best shot (thumbs down, dark...) counts as 0.
             "Score": 0 if exclusion(point) else shown_score(hsv_score, point, zoom),
             "HSV Score": hsv_score,
+            "Breakdown": breakdown_fields(point),
             "Glass": glass_fields(point),
             "Zoom": zoom,
             "AI": ai_fields(point),
@@ -81,42 +84,56 @@ def fetch_camera_data(camera_tag):
         }
 
         all_data.append(data_item)
+        days.setdefault(date_str, []).append((point, data_item))
 
         if point.get("label", "").startswith("07_"):
             sunset_data.append(data_item)
 
-        if point.get("label", "").startswith("11_"):
-            epoch_time = point["time"]
-            matching_photo = [
-                p for p in points_list
-                if p["time"] == epoch_time and not p.get("label", "").startswith(("11_", "12_"))
-            ]
-            matching_photo_url = matching_photo[0]["url"] if matching_photo else None
-            hsv_photo = [
-                p for p in points_list
-                if p["time"] == epoch_time and p.get("label", "").startswith("12_")
-            ]
-
-            ranked_hsv = 0 if point["score"] is None else point["score"]
-            ranked_images.append({
-                "Ranked Image": point["url"],
-                "Raw Image": matching_photo_url,
-                "HSV Image": hsv_photo[0]["url"] if hsv_photo else None,
-                "Score": shown_score(ranked_hsv, matching_photo[0] if matching_photo else {}, zoom),
-                "HSV Score": ranked_hsv,
-                "Glass": glass_fields(matching_photo[0]) if matching_photo else None,
-                "Zoom": zoom,
-                "Date": date_str,
-                "Time": time_str,
-                "dt_local": dt_local.isoformat(),
-                "Label": point["label"],
-                # The AI judges the raw photo, so the best shot carries that photo's verdict.
-                "AI": ai_fields(matching_photo[0]) if matching_photo else None,
-                "Excluded": exclusion(matching_photo[0]) if matching_photo else None,
-                "Weather": weather_fields(matching_photo[0]) if matching_photo else None,
-            })
+    ranked_images = []
+    for date_str, shots in days.items():
+        best = best_shot([p for p, _ in shots])
+        if best is None:
+            continue  # nothing that day can be the best shot (all thumbed down / dark)
+        point, item = next(s for s in shots if s[0] is best)
+        ranked_images.append({
+            # The pipeline's annotated 11_ranked PNG is gone; the dashboard draws the overlay itself.
+            "Ranked Image": point["url"],
+            "Raw Image": point["url"],
+            "HSV Image": None,
+            "Score": shown_score(item["HSV Score"], point, item["Zoom"]),
+            "HSV Score": item["HSV Score"],
+            "Breakdown": item["Breakdown"],
+            "Glass": item["Glass"],
+            "Zoom": item["Zoom"],
+            "Date": date_str,
+            "Time": item["Time"],
+            "dt_local": datetime.strptime(point["time"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=pytz.utc).astimezone(local_tz).isoformat(),
+            "Label": point["label"],
+            "ts": point["time"],
+            "AI": item["AI"],
+            "Excluded": item["Excluded"],
+            "Weather": item["Weather"],
+        })
 
     return {"sunset_data": sunset_data, "all_data": all_data, "ranked_images": ranked_images}
+
+
+def best_shot(captures):
+    """A day's best shot: the highest HSV score plus glass bonus among captures that can win; a thumbs up
+    beats everything. None if no capture can win."""
+    candidates = [p for p in captures if not exclusion(p)]
+    liked = [p for p in candidates if (p.get("thumb") or 0) > 0]
+    return max(liked or candidates, key=lambda p: (p.get("score") or 0) + glass_bonus(p), default=None)
+
+
+BREAKDOWN_FIELDS = [f"{c}_{k}" for c in ("red", "orange", "yellow", "pink") for k in ("points", "coverage", "saturation")] + [
+    "hue_spread", "lit_contrast", "contrast"]
+
+
+def breakdown_fields(point):
+    """The score's pieces stored by sunset_process.rank_sunset, or None for captures scored before they were
+    stored (run `python -m ai_judge rescore`)."""
+    return {k: point[k] for k in BREAKDOWN_FIELDS if point.get(k) is not None} if point.get("contrast") is not None else None
 
 
 AI_EXCLUSIONS = {"dark": "too dark", "no_signal": "no camera signal"}
@@ -515,66 +532,26 @@ def add_compose_service():
         return jsonify({"error": str(e)}), 500
 
 
+SCORE_CONFIG = Path(__file__).parent.parent / "sunset_code" / "helpers" / "hsv_score.json"
+
+
 @app.route("/api/scoring-config")
 def get_scoring_config():
-    """Read current scoring multipliers from sunset_process.py."""
+    """Every number in the HSV score (sunset_code/helpers/hsv_score.json, mounted at /sunset_code)."""
     try:
-        # Find sunset_process.py
-        process_file = Path(__file__).parent.parent / "sunset_code" / "helpers" / "sunset_process.py"
-        if not process_file.exists():
-            return jsonify({"error": "sunset_process.py not found"}), 404
-
-        content = process_file.read_text()
-
-        # Extract multipliers using regex
-        import re
-        pattern = r'score\s*=\s*\(\s*red_score\s*\*\s*([\d.]+)\s*\+\s*orange_score\s*\*\s*([\d.]+)\s*\+\s*yellow_score\s*\*\s*([\d.]+)\s*\+\s*pink_score\s*\*\s*([\d.]+)'
-        match = re.search(pattern, content)
-
-        if match:
-            return jsonify({
-                "red": float(match.group(1)),
-                "orange": float(match.group(2)),
-                "yellow": float(match.group(3)),
-                "pink": float(match.group(4)),
-            })
-        else:
-            return jsonify({"error": "Could not parse multipliers"}), 500
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return Response(SCORE_CONFIG.read_text(), mimetype="application/json")
+    except OSError as e:
+        return jsonify({"error": str(e)}), 404
 
 
-@app.route("/api/admin/scoring-config", methods=["PUT"])
-def update_scoring_config():
-    """Update scoring multipliers in sunset_process.py."""
-    data = request.json
-    required = ["red", "orange", "yellow", "pink"]
-
-    for field in required:
-        if field not in data:
-            return jsonify({"error": f"Missing field: {field}"}), 400
-
-    try:
-        process_file = Path(__file__).parent.parent / "sunset_code" / "helpers" / "sunset_process.py"
-        if not process_file.exists():
-            return jsonify({"error": "sunset_process.py not found"}), 404
-
-        content = process_file.read_text()
-
-        # Replace the score calculation
-        import re
-        old_pattern = r'score\s*=\s*\(\s*red_score\s*\*\s*[\d.]+\s*\+\s*orange_score\s*\*\s*[\d.]+\s*\+\s*yellow_score\s*\*\s*[\d.]+\s*\+\s*pink_score\s*\*\s*[\d.]+'
-        new_score = f"score = (\n        red_score * {data['red']} +\n        orange_score * {data['orange']} +\n        yellow_score * {data['yellow']} +\n        pink_score * {data['pink']}"
-
-        new_content = re.sub(old_pattern, new_score, content)
-
-        if new_content == content:
-            return jsonify({"error": "Could not find score pattern to replace"}), 500
-
-        process_file.write_text(new_content)
-        return jsonify({"success": True})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+@app.route("/api/hist")
+def get_hist():
+    """A capture's sky histograms (hue / saturation / value shares), stored by the pipeline in sunset_hist."""
+    found = list(client.query("SELECT hist FROM sunset_hist WHERE camera = $camera AND time = $ts",
+                              bind_params={"camera": request.args.get("camera", ""), "ts": request.args.get("ts", "")}).get_points())
+    if not found:
+        return jsonify({"error": "no stored histogram (scored before they were stored)"}), 404
+    return Response(found[0]["hist"], mimetype="application/json")
 
 
 @app.route("/api/admin/rebuild", methods=["POST"])
