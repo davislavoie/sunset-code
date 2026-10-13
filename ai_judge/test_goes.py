@@ -92,17 +92,48 @@ class Fill(unittest.TestCase):
         points = [{"time": "2026-09-01T22:00:00Z", "camera": "btv_echo_cam", "label": "02_1h_pre"},
                   {"time": "2026-09-01T22:30:00Z", "camera": "btv_echo_cam", "label": "04_30m_pre"},
                   {"time": "2026-09-01T23:30:00Z", "camera": "btv_echo_cam", "label": "07_sunset"},
-                  {"time": "2026-09-01T21:00:00Z", "camera": "btv_echo_cam", "label": "01_2h_pre", "goes_fan": 0.5}]
+                  {"time": "2026-09-01T21:00:00Z", "camera": "btv_echo_cam", "label": "01_2h_pre", "goes_fan": 0.5,
+                   "goes_high_far": 0.0}]
         reading = {"goes_over": 1.0, "goes_near": 0.5, "goes_far": None, "goes_fan": 0.4}
+        tops = {"goes_top_far": 9.1, "goes_high_far": 0.6, "goes_low_far": 0.0}
         client = mock.Mock()
         with fake_pipeline(), mock.patch.object(goes.store, "captures", return_value=points), \
                 mock.patch.object(weather, "camera_config", return_value={"LAT": "44.47", "LON": "-73.22"}), \
-                mock.patch.object(goes, "observe", side_effect=[reading, TimeoutError("S3 slow"), reading]) as observe:
+                mock.patch.object(goes, "observe", side_effect=[reading, TimeoutError("S3 slow"), reading]) as observe, \
+                mock.patch.object(goes, "observe_heights", side_effect=[tops, TimeoutError("S3 slow"), None]) as heights:
             self.assertEqual(goes.fill(client, "btv_echo_cam"), 2)
-        self.assertEqual(observe.call_count, 3)  # the shot that already had GOES is skipped
+        self.assertEqual((observe.call_count, heights.call_count), (3, 3))  # the shot that had both is skipped
         (written,), _ = client.write_points.call_args
         self.assertEqual([w["tags"]["label"] for w in written], ["02_1h_pre", "07_sunset"])
-        self.assertEqual(written[0]["fields"], {"goes_over": 1.0, "goes_near": 0.5, "goes_fan": 0.4})
+        self.assertEqual(written[0]["fields"], {"goes_over": 1.0, "goes_near": 0.5, "goes_fan": 0.4, **tops})
+        self.assertEqual(written[1]["fields"], {"goes_over": 1.0, "goes_near": 0.5, "goes_fan": 0.4})
+
+    def test_only_the_missing_product_is_read(self):
+        points = [{"time": "2026-09-01T22:00:00Z", "camera": "btv_echo_cam", "label": "02_1h_pre", "goes_fan": 0.5}]
+        client = mock.Mock()
+        with fake_pipeline(), mock.patch.object(goes.store, "captures", return_value=points), \
+                mock.patch.object(weather, "camera_config", return_value={"LAT": "44.47", "LON": "-73.22"}), \
+                mock.patch.object(goes, "observe") as observe, \
+                mock.patch.object(goes, "observe_heights", return_value={"goes_high_far": 0.2}):
+            self.assertEqual(goes.fill(client, "btv_echo_cam"), 1)
+        observe.assert_not_called()
+
+
+class Heights(unittest.TestCase):
+    def test_high_cloud_far_toward_the_sun_low_cloud_overhead(self):
+        lat0, lon0 = 44.48, -73.22
+        lat, lon = np.meshgrid(np.linspace(41.5, 47.5, 301), np.linspace(-77.5, -69, 301), indexing="ij")
+        dy, dx = (lat - lat0) * 111.2, (lon - lon0) * 111.2 * np.cos(np.radians(lat0))
+        dist = np.hypot(dx, dy)
+        ht = np.full(lat.shape, np.nan)
+        ht[dist < 5] = 1.2  # overhead (within 15 km) but not the near fan (5-40 km)
+        ht[dist >= 80] = 9.5
+        z = goes.heights(ht, lat, lon, lat0, lon0, 270)
+        self.assertEqual((z["goes_top_over"], z["goes_high_over"]), (1.2, 0.0))
+        self.assertTrue(0 < z["goes_low_over"] < 1)
+        self.assertEqual((z["goes_top_far"], z["goes_high_far"], z["goes_mid_far"], z["goes_low_far"]), (9.5, 1.0, 0.0, 0.0))
+        self.assertIsNone(z["goes_top_near"])  # 5-40 km is clear
+        self.assertEqual((z["goes_high_near"], z["goes_low_near"]), (0.0, 0.0))
 
 
 class Icon(unittest.TestCase):

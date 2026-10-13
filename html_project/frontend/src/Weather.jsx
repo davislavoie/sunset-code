@@ -81,17 +81,21 @@ export function CloudProfile({ w, fill = false }) {
 
 // The satellite sees cloud or no cloud, not layers: one tall bar per zone, from the camera out
 // toward the sun. A far zone mostly cloudy is the bank that blocks the light, so it gets colour.
+// Under each, how high the cloud tops are (GOES cloud-top height; the top layer only).
 const ZONES = [
-  { key: "goes_over", label: "Overhead" },
-  { key: "goes_near", label: "3–25 mi" },
-  { key: "goes_far", label: "50–190 mi" },
+  { key: "goes_over", top: "goes_top_over", label: "Overhead" },
+  { key: "goes_near", top: "goes_top_near", label: "3–25 mi" },
+  { key: "goes_far", top: "goes_top_far", label: "50–190 mi" },
 ];
+const KM_TO_KFT = 3.28084;
+/** "Tops 31k ft" from a cloud-top height in km. */
+const tops = (km) => `Tops ${Math.round(km * KM_TO_KFT)}k ft`;
 const ZONE_COL = (SUN_X - 16 - LEFT - GAP * (ZONES.length - 1)) / ZONES.length;
 
 function SatelliteSvg({ w, ground }) {
   const top = 8, cellH = ground - top - 8;
   const x = (i) => LEFT + i * (ZONE_COL + GAP);
-  const summary = ZONES.map((z) => `${z.label} ${pct(w[z.key] != null ? 100 * w[z.key] : null)}`).join(", ");
+  const summary = ZONES.map((z) => `${z.label} ${pct(w[z.key] != null ? 100 * w[z.key] : null)}${w[z.top] != null ? ` (${tops(w[z.top])})` : ""}`).join(", ");
   return (
     <svg
       className="cloud-profile"
@@ -116,6 +120,11 @@ function SatelliteSvg({ w, ground }) {
               style={blocks ? { fill: "var(--destructive)" } : undefined}>
               {pct(v)}
             </text>
+            {w[z.top] != null && v > 0 && (
+              <text className="cp-axis" x={x(i) + ZONE_COL / 2} y={top + cellH / 2 + 22} textAnchor="middle">
+                {tops(w[z.top])}
+              </text>
+            )}
             <text x={x(i) + ZONE_COL / 2} y={ground + 18} textAnchor="middle" className="cp-axis">{z.label}</text>
           </g>
         );

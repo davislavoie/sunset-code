@@ -12,6 +12,16 @@ From the latest scan before the capture, the cloudy share of pixels (BCM) in:
   goes_fan   sun bearing +/-30 deg, 5-300 km out
 
 On 513 sunset days (analysis/goes.md) these beat every forecast source for predicting the sunset.
+
+Cloud height, product ABI-L2-ACHAC (CONUS cloud-top height, ~10 km, every 5 min, ~0.3 MB, day and night).
+It sees the top layer only: low cloud under high cloud is missed. Per zone (over / near / far as above):
+
+  goes_top_<zone>   median cloud-top height of the zone's cloudy pixels, km (None when it's clear)
+  goes_high_<zone>  share of the zone's pixels with a cloud top at 6 km or higher (cirrus, the cloud that
+                    lights up after sunset)
+  goes_mid_<zone>   share with a cloud top at 2-6 km (mid-level cloud, altocumulus and the like)
+  goes_low_<zone>   share with a cloud top under 2 km (low cloud that can block the horizon)
+
 Anything unavailable (S3 down, a missing scan) is skipped and retried next pass.
 """
 
@@ -29,9 +39,12 @@ log = logging.getLogger(__name__)
 
 BUCKET = "https://noaa-goes19.s3.amazonaws.com"
 PRODUCT = "ABI-L2-ACMC"
+HEIGHT_PRODUCT = "ABI-L2-ACHAC"
 LATENCY = timedelta(minutes=5)  # a scan's file appears ~4 min after it starts
 TIMEOUT = 15
 FIELDS = ("goes_over", "goes_near", "goes_far", "goes_fan")
+HIGH_KM, LOW_KM = 6.0, 2.0
+HEIGHT_FIELDS = tuple(f"goes_{k}_{z}" for z in ("over", "near", "far") for k in ("top", "high", "mid", "low"))
 
 
 class RangeFile(io.RawIOBase):
@@ -86,10 +99,10 @@ def scan_start(key):
     return datetime.strptime(key.split("_s")[1][:13], "%Y%j%H%M%S").replace(tzinfo=timezone.utc)
 
 
-def scan_url(when, session=requests):
+def scan_url(when, session=requests, product=PRODUCT):
     """URL of the latest scan that had landed by `when` (aware UTC datetime), or None."""
     cutoff = when - LATENCY
-    keys = [k for hour in (cutoff - timedelta(hours=1), cutoff) for k in listing(f"{hour:%Y/%j/%H}", session)]
+    keys = [k for hour in (cutoff - timedelta(hours=1), cutoff) for k in listing(f"{hour:%Y/%j/%H}", session, product)]
     keys = [k for k in keys if scan_start(k) <= cutoff]
     return f"{BUCKET}/{max(keys, key=scan_start)}" if keys else None
 
@@ -97,15 +110,15 @@ def scan_url(when, session=requests):
 _listings = {}
 
 
-def listing(hour, session=requests):
+def listing(hour, session=requests, product=PRODUCT):
     """Scan keys for one UTC hour ("YYYY/DDD/HH"). A finished hour never changes, so it's kept."""
-    if hour in _listings:
-        return _listings[hour]
-    resp = session.get(f"{BUCKET}/?list-type=2&prefix={PRODUCT}/{hour}/", timeout=TIMEOUT)
+    if (product, hour) in _listings:
+        return _listings[product, hour]
+    resp = session.get(f"{BUCKET}/?list-type=2&prefix={product}/{hour}/", timeout=TIMEOUT)
     resp.raise_for_status()
     keys = [k.split("</Key>")[0] for k in resp.text.split("<Key>")[1:]]
     if len(keys) >= 12:  # complete (12 scans an hour)
-        _listings[hour] = keys
+        _listings[product, hour] = keys
     return keys
 
 
@@ -142,16 +155,50 @@ def cloud_window(url, lat0, lon0, session=requests):
     return bcm, lat, lon
 
 
-def zones(bcm, lat, lon, lat0, lon0, azimuth):
-    """Cloudy share in each zone (FIELDS), None where a zone has no valid pixels."""
+def zone_masks(lat, lon, lat0, lon0, azimuth, over_km=10):
+    """Pixel masks for the zones: overhead, and the fan toward the sun (+/-30 deg) near, far and whole."""
     dy = (lat - lat0) * 111.2
     dx = (lon - lon0) * 111.2 * math.cos(math.radians(lat0))
     dist = np.hypot(dx, dy)
     off = np.abs((np.degrees(np.arctan2(dx, dy)) - azimuth + 180) % 360 - 180)
     fan = off <= 30
-    masks = {"goes_over": dist <= 10, "goes_near": fan & (dist >= 5) & (dist <= 40),
-             "goes_far": fan & (dist >= 80) & (dist <= 300), "goes_fan": fan & (dist >= 5) & (dist <= 300)}
-    return {k: round(float(np.nanmean(bcm[m])), 3) if np.isfinite(bcm[m]).any() else None for k, m in masks.items()}
+    return {"over": dist <= over_km, "near": fan & (dist >= 5) & (dist <= 40),
+            "far": fan & (dist >= 80) & (dist <= 300), "fan": fan & (dist >= 5) & (dist <= 300)}
+
+
+def zones(bcm, lat, lon, lat0, lon0, azimuth):
+    """Cloudy share in each zone (FIELDS), None where a zone has no valid pixels."""
+    masks = zone_masks(lat, lon, lat0, lon0, azimuth)
+    return {f"goes_{k}": round(float(np.nanmean(bcm[m])), 3) if np.isfinite(bcm[m]).any() else None for k, m in masks.items()}
+
+
+def height_window(url, session=requests):
+    """(cloud-top height km, nan where clear, lat, lon) for the whole CONUS height scan (~0.3 MB)."""
+    import h5py
+
+    with h5py.File(RangeFile(url, session), "r") as h:
+        scale = lambda v: h[v][:] * h[v].attrs["scale_factor"][0] + h[v].attrs["add_offset"][0]
+        raw = h["HT"][:]
+        ht = np.where(raw == h["HT"].attrs["_FillValue"][0], np.nan, raw * h["HT"].attrs["scale_factor"][0] / 1000)
+        lat, lon = latlon_grid(scale("x"), scale("y"), dict(h["goes_imager_projection"].attrs))
+    return ht, lat, lon
+
+
+def heights(ht, lat, lon, lat0, lon0, azimuth):
+    """HEIGHT_FIELDS from a cloud-top height grid (km, nan = clear). The pixels are ~10 km, so overhead
+    takes the pixels within 15 km."""
+    masks = zone_masks(lat, lon, lat0, lon0, azimuth, over_km=15)
+    out = {}
+    for z in ("over", "near", "far"):
+        h = ht[masks[z] & np.isfinite(lat)]
+        if not h.size:
+            continue
+        cloudy = h[np.isfinite(h)]
+        out[f"goes_top_{z}"] = round(float(np.median(cloudy)), 2) if cloudy.size else None
+        out[f"goes_high_{z}"] = round(float((cloudy >= HIGH_KM).sum() / h.size), 3)
+        out[f"goes_mid_{z}"] = round(float(((cloudy >= LOW_KM) & (cloudy < HIGH_KM)).sum() / h.size), 3)
+        out[f"goes_low_{z}"] = round(float((cloudy < LOW_KM).sum() / h.size), 3)
+    return out
 
 
 def observe(when, lat0, lon0, azimuth, session=requests):
@@ -160,26 +207,36 @@ def observe(when, lat0, lon0, azimuth, session=requests):
     return zones(*cloud_window(url, lat0, lon0, session), lat0, lon0, azimuth) if url else None
 
 
+def observe_heights(when, lat0, lon0, azimuth, session=requests):
+    """HEIGHT_FIELDS from the latest cloud-height scan by `when`, or None if there's no scan."""
+    url = scan_url(when, session, HEIGHT_PRODUCT)
+    return heights(*height_window(url, session), lat0, lon0, azimuth) if url else None
+
+
 def fill(client, camera, recent="2d", since=None, before=None):
-    """Add GOES fields to captures lacking them. Returns how many got them."""
+    """Add GOES cloud (and cloud height) fields to captures lacking them. Returns how many got any."""
     from sunset_code.helpers.open_metro_weater_api import sun_bearing
 
     from .weather import camera_config
 
     todo = [p for p in store.captures(client, camera, recent=None if since or before else recent, since=since, before=before)
-            if p.get("goes_fan") is None]
+            if p.get("goes_fan") is None or p.get("goes_high_far") is None]
     if not todo:
         return 0
     config = camera_config(camera)
     lat, lon, mode = float(config["LAT"]), float(config["LON"]), config.get("MODE", "sunset")
     session, writes, done = requests.Session(), [], 0
     for i, p in enumerate(todo, 1):
-        try:
-            got = observe(store.parse_time(p), lat, lon, sun_bearing(store.local_date(p), lat, lon, mode), session)
-        except Exception as e:  # S3 slow or down, odd file: try again next pass
-            log.warning("%s %s: no GOES reading (%s)", camera, p["time"], e)
-            continue
-        fields = {k: v for k, v in (got or {}).items() if v is not None}
+        when, bearing, got = store.parse_time(p), sun_bearing(store.local_date(p), lat, lon, mode), {}
+        for what, missing, read in (("cloud", p.get("goes_fan") is None, observe),
+                                    ("cloud height", p.get("goes_high_far") is None, observe_heights)):
+            if not missing:
+                continue
+            try:
+                got.update(read(when, lat, lon, bearing, session) or {})
+            except Exception as e:  # S3 slow or down, odd file: try again next pass
+                log.warning("%s %s: no GOES %s reading (%s)", camera, p["time"], what, e)
+        fields = {k: v for k, v in got.items() if v is not None}
         if fields:
             writes.append(store.field_point(p, fields))
         if len(writes) >= 50:  # save as we go: a backfill of history takes hours
