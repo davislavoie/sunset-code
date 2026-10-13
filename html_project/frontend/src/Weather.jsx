@@ -26,8 +26,16 @@ export function WeatherStats({ w }) {
     ["Dew point", w.dew_point_2m != null && `${Math.round(w.dew_point_2m)}°F`],
     ["Chance of rain", pct(w.precipitation_probability)],
     ["Precipitation", w.precipitation != null && `${w.precipitation} mm`],
-    ["Visibility", w.visibility != null && `${(w.visibility / 1000).toFixed(1)} km`],
-    ["Wind", w.wind_speed_10m != null && `${Math.round(w.wind_speed_10m)} mph` + (w.wind_gusts_10m != null ? `, gusts ${Math.round(w.wind_gusts_10m)}` : "")],
+    // Visibility, wind and sky as observed at the airport (METAR) when there's a report; Open-Meteo's are model output.
+    ...(w.obs_station ? [
+      [`Visibility (${w.obs_station})`, w.obs_visibility_mi != null && `${w.obs_visibility_mi} mi`],
+      [`Wind (${w.obs_station})`, w.obs_wind_mph != null && `${Math.round(w.obs_wind_mph)} mph` + (w.obs_gust_mph != null ? `, gusts ${Math.round(w.obs_gust_mph)}` : "")],
+      [`Sky (${w.obs_station})`, w.obs_sky],
+      [`Weather (${w.obs_station})`, w.obs_wx],
+    ] : [
+      ["Visibility (model)", w.visibility != null && `${(w.visibility / 1000).toFixed(1)} km`],
+      ["Wind (model)", w.wind_speed_10m != null && `${Math.round(w.wind_speed_10m)} mph` + (w.wind_gusts_10m != null ? `, gusts ${Math.round(w.wind_gusts_10m)}` : "")],
+    ]),
   ].filter(([, v]) => v);
   return (
     <dl className="weather-stats">

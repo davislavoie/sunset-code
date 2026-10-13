@@ -21,8 +21,8 @@ const PAGE_SIZE = 20;
 const SORTS = {
   Score: (r) => r.Score, Date: (r) => r.Date, Time: (r) => r.dt_local?.slice(11),
   Temperature: (r) => r.Weather?.temperature_2m, Humidity: (r) => r.Weather?.relative_humidity_2m,
-  Visibility: (r) => r.Weather?.visibility, "Cloud cover": (r) => r.Weather?.cloud_cover_total,
-  Precipitation: (r) => r.Weather?.precipitation, Wind: (r) => r.Weather?.wind_speed_10m,
+  Visibility: (r) => r.Weather?.obs_visibility_mi, // observed at the airport; the model's is unreliable "Cloud cover": (r) => r.Weather?.cloud_cover_total,
+  Precipitation: (r) => r.Weather?.precipitation, Wind: (r) => r.Weather?.obs_wind_mph ?? r.Weather?.wind_speed_10m,
 };
 
 export default function Ranking({ data, camera, onLoadToHsv }) {

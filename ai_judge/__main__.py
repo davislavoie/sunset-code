@@ -8,6 +8,7 @@ after a change to sunset_process.py / hsv_score.json.
   python -m ai_judge goes     --camera all [--since ...] [--before ...]   # GOES-East observed cloud on captures (history; watch does recent ones)
   python -m ai_judge predict  --camera all [--since ...] [--before ...] [--refill]   # sunset forecast on the pre shots
   python -m ai_judge views    --camera all   # fingerprint captures for "all shots like this"
+  python -m ai_judge metar    --camera all   # observed airport weather (KBTV METAR) on captures
   python -m ai_judge band     --camera all   # horizon light band (horizon_lift) on the pre shots, for the forecast
   python -m ai_judge reflect  --camera all   # "Glass lake" badge: mirror score on btv_echo_cam captures
   python -m ai_judge cleanup  --camera all [--delete]   # list (or remove) entries whose photo you deleted
@@ -34,7 +35,7 @@ from pathlib import Path
 
 from influxdb import InfluxDBClient
 
-from . import band, goes, predict, reflect, store, views, weather
+from . import band, goes, metar, predict, reflect, store, views, weather
 from .judge import ensure_model, judge_image
 from .rescore import drop_ranked, rescore
 
@@ -77,7 +78,7 @@ def watch(_args):
     while True:
         for camera in store.cameras(client):
             # Each step on its own, so e.g. Open-Meteo being down doesn't stop thumbs from applying.
-            steps = [lambda: weather.fill(client, camera), lambda: goes.fill(client, camera), lambda: band.fill(client, camera),
+            steps = [lambda: weather.fill(client, camera), lambda: metar.fill(client, camera), lambda: goes.fill(client, camera), lambda: band.fill(client, camera),
                      lambda: predict.fill(client, camera),
                      lambda: views.fill_fingerprints(client, camera), lambda: reflect.fill(client, camera)]
             if AI_MODEL:
@@ -170,6 +171,12 @@ def goes_cmd(args):
     client = influx()
     for camera in camera_list(client, args.camera):
         goes.fill(client, camera, recent=None, since=args.since, before=args.before)
+
+
+def metar_cmd(args):
+    client = influx()
+    for camera in camera_list(client, args.camera):
+        metar.fill(client, camera)
 
 
 def band_cmd(args):
@@ -293,6 +300,8 @@ def main():
     add_date_range(g)
     m = sub.add_parser("reflect", help="add the glass-lake mirror score to btv_echo_cam captures that lack one")
     m.add_argument("--camera", required=True, help="camera tag, or 'all' (only btv_echo_cam is scored)")
+    o = sub.add_parser("metar", help="add the observed airport weather (METAR, obs_*) to captures that lack it")
+    o.add_argument("--camera", required=True, help="camera tag, or 'all'")
     b = sub.add_parser("band", help="add the horizon light band (horizon_lift) to the pre shots that lack it")
     b.add_argument("--camera", required=True, help="camera tag, or 'all'")
     x = sub.add_parser("cleanup", help="list (or --delete) entries whose photo file is gone")
@@ -300,7 +309,7 @@ def main():
     x.add_argument("--delete", action="store_true", help="actually remove them (default: just list)")
     args = parser.parse_args()
     commands = {"backfill": backfill, "rescore": rescore_cmd, "drop-ranked": drop_ranked_cmd, "bakeoff": bakeoff, "weather": weather_cmd, "predict": predict_cmd,
-                "views": views_cmd, "reflect": reflect_cmd, "band": band_cmd, "goes": goes_cmd, "cleanup": cleanup_cmd}
+                "views": views_cmd, "reflect": reflect_cmd, "band": band_cmd, "metar": metar_cmd, "goes": goes_cmd, "cleanup": cleanup_cmd}
     commands.get(args.command, watch)(args)
 
 
