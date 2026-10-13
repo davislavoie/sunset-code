@@ -78,6 +78,33 @@ def kind_of_sky(r, tag):
     return "mixed"
 
 
+def photo_check(d):
+    """The satellite layers 1 h before sunset vs the cloud type the vision model read off the 02_1h_pre photo
+    (vision.py, analysis_export/vision_qwen3-vl_4b.jsonl) and, if present, hand labels in
+    analysis_export/goes/heights_photo_labels.csv (camera, day, layer: clear / low / mid / high / mixed)."""
+    out = []
+    near = [f"{k}_near@h1" for k in ("high", "mid", "low")] + ["top_near@h1"]
+    path = data.EXPORT / "vision_qwen3-vl_4b.jsonl"
+    if path.exists():
+        v = pd.DataFrame(map(json.loads, path.read_text().splitlines())).drop_duplicates(["camera", "day"], keep="last")
+        v = v.assign(day=lambda x: pd.to_datetime(x.day).dt.date)[["camera", "day", "cloud_type"]]
+        g = d.merge(v, on=["camera", "day"])
+        out += [f"\n## Satellite layers vs the photo's cloud type (vision model, {len(g)} camera-days)\n",
+                "Mean share of the near fan (5-40 km toward the sun) per layer, and median top (km), by what the photo shows.\n",
+                g.groupby("cloud_type")[near].agg("mean").round(2).join(g.groupby("cloud_type").size().rename("days"))
+                .to_markdown()]
+    path = data.EXPORT / "goes" / "heights_photo_labels.csv"
+    if path.exists():
+        lab = pd.read_csv(path).assign(day=lambda x: pd.to_datetime(x.day).dt.date)
+        g = d.merge(lab, on=["camera", "day"])
+        sat = g[[f"{k}_near@h1" for k in ("high", "mid", "low")]].fillna(0)
+        g["satellite"] = np.where(sat.sum(axis=1) < 0.1, "clear", sat.idxmax(axis=1).str.split("_").str[0])
+        out += [f"\n## Satellite's main layer vs hand labels from the photos ({len(g)} camera-days)\n",
+                pd.crosstab(g.layer, g.satellite).to_markdown(),
+                f"\nAgree on {(g.layer == g.satellite).mean():.0%} (mixed labels count as misses).\n"]
+    return out
+
+
 def main():
     t = pd.read_parquet(data.EXPORT / "analysis_table.parquet")
     t = t[t.camera.isin(goes_analysis.CENTERS)].dropna(subset=["y_pct"])
@@ -109,6 +136,7 @@ def main():
     dm["sky"] = dm.apply(kind_of_sky, axis=1, tag="h1")
     by = d.groupby("sky").agg(days=("y_pct", "size"), hsv_pct=("y_pct", "mean"))
     by = by.join(dm.groupby("sky").agg(ranked_days=("mine_pct", "size"), your_pct=("mine_pct", "mean")))
+    out += photo_check(d)
     out += ["\n## By kind of sky 1 h before sunset (mean percentile; 0.5 is an average day)\n",
             by.sort_values("hsv_pct", ascending=False).round(2).to_markdown()]
 
