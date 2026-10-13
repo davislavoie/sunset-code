@@ -16,7 +16,7 @@ export default function Weather({ w, fill = false }) {
   );
 }
 
-/** Temperature, humidity, rain and visibility at capture time. */
+/** Temperature, humidity, rain, visibility and wind at capture time. */
 export function WeatherStats({ w }) {
   if (!w) return null;
   const temp = w.temperature_2m != null && `${Math.round(w.temperature_2m)}°F`;
@@ -27,6 +27,7 @@ export function WeatherStats({ w }) {
     ["Chance of rain", pct(w.precipitation_probability)],
     ["Precipitation", w.precipitation != null && `${w.precipitation} mm`],
     ["Visibility", w.visibility != null && `${(w.visibility / 1000).toFixed(1)} km`],
+    ["Wind", w.wind_speed_10m != null && `${Math.round(w.wind_speed_10m)} mph` + (w.wind_gusts_10m != null ? `, gusts ${Math.round(w.wind_gusts_10m)}` : "")],
   ].filter(([, v]) => v);
   return (
     <dl className="weather-stats">

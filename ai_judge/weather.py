@@ -20,7 +20,7 @@ log = logging.getLogger(__name__)
 URL = "https://historical-forecast-api.open-meteo.com/v1/forecast"
 FIELDS = ["temperature_2m", "relative_humidity_2m", "dew_point_2m", "precipitation_probability",
           "precipitation", "rain", "showers", "snowfall", "cloud_cover_low", "cloud_cover_mid",
-          "cloud_cover_high", "cloud_cover", "visibility"]
+          "cloud_cover_high", "cloud_cover", "visibility", "wind_speed_10m", "wind_gusts_10m", "wind_direction_10m"]
 # Stored as cloud_cover_total, the name the commented-out pipeline code used.
 STORED = {"cloud_cover": "cloud_cover_total"}
 

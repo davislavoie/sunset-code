@@ -187,7 +187,7 @@ def glass_fields(point):
 
 WEATHER_FIELDS = ["temperature_2m", "relative_humidity_2m", "dew_point_2m", "precipitation_probability",
                   "precipitation", "rain", "showers", "snowfall", "cloud_cover_low", "cloud_cover_mid",
-                  "cloud_cover_high", "cloud_cover_total", "visibility"] + [
+                  "cloud_cover_high", "cloud_cover_total", "visibility", "wind_speed_10m", "wind_gusts_10m", "wind_direction_10m"] + [
     f"path{km}_{model}cloud_cover_{layer}" for model in ("", "icon_") for km in (13, 40, 80)
     for layer in ("low", "mid", "high")] + [  # toward the sun, 8/25/50 mi (best_match, and the ICON model)
     "goes_over", "goes_near", "goes_far", "goes_fan"] + [  # observed by GOES-East: cloudy share overhead / toward the sun
