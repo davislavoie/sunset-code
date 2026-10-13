@@ -1,13 +1,13 @@
-// Hue / saturation / value histograms of a photo's sky, computed in the browser. Same data as
-// the pipeline's 12_histogram PNG (sunset_process.py: cv2.calcHist on the top half + 30 rows),
-// drawn as three overlaid area charts. Shares of sky pixels rather than raw counts.
+// Hue / saturation / value histograms of a photo's sky (shares of sky pixels), drawn as three overlaid
+// area charts. Stored by sunset_process.py with each capture (/api/hist); captures scored before that
+// are counted here in the browser instead.
 
 import { useEffect, useId, useRef, useState } from "react";
 import { AreaClosed } from "@visx/shape";
 import { scaleLinear } from "@visx/scale";
 import { ParentSize } from "@visx/responsive";
 import { curveMonotoneX } from "@visx/curve";
-import { proxied } from "./api.js";
+import { getJson, proxied } from "./api.js";
 import { loadImage, rgbToOpenCvHsv, toResizedCanvas } from "./hsv.js";
 
 // Histogram shape doesn't need every pixel; 480 px wide is ~16x fewer and looks the same.
@@ -34,7 +34,7 @@ const SERIES = [
   { key: "hue", label: "Hue", fill: "url(#hue-spectrum)", opacity: 0.8, swatch: "linear-gradient(90deg, #e33, #ee3, #3e3, #3ee, #33e, #e3e)" },
 ];
 
-export default function HsvHistogram({ imageUrl }) {
+export default function HsvHistogram({ imageUrl, camera, ts }) {
   const ref = useRef(null);
   const [hist, setHist] = useState(null);
   const [error, setError] = useState(false);
@@ -47,11 +47,15 @@ export default function HsvHistogram({ imageUrl }) {
     const observer = new IntersectionObserver(([entry]) => {
       if (!entry.isIntersecting) return;
       observer.disconnect();
-      loadImage(proxied(imageUrl))
-        .then((img) => {
+      const compute = () =>
+        loadImage(proxied(imageUrl)).then((img) => {
           const ctx = toResizedCanvas(img, SAMPLE_WIDTH).getContext("2d");
-          if (live) setHist(hsvHistograms(ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height)));
-        })
+          return hsvHistograms(ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height));
+        });
+      const stored = camera && ts ? getJson(`/api/hist?camera=${encodeURIComponent(camera)}&ts=${encodeURIComponent(ts)}`) : Promise.reject();
+      stored
+        .catch(compute)
+        .then((h) => live && setHist(h))
         .catch(() => live && setError(true));
     }, { rootMargin: "400px" });
     observer.observe(el);
@@ -59,7 +63,7 @@ export default function HsvHistogram({ imageUrl }) {
       live = false;
       observer.disconnect();
     };
-  }, [imageUrl]);
+  }, [imageUrl, camera, ts]);
 
   return (
     <div className="hsv-hist" ref={ref}>

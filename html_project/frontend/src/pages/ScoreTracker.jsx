@@ -11,6 +11,7 @@ import { XAxis } from "@/components/charts/x-axis";
 import { YAxis } from "@/components/charts/y-axis";
 import { GRID_STYLE, INSTANT_TOOLTIP, monthTicks } from "../chartTheme.js";
 import Img, { SIZES } from "../Img.jsx";
+import ScoreOverlay from "../ScoreOverlay.jsx";
 import ScoreHistogram from "./ScoreHistogram.jsx";
 import ScoreScatter from "./ScoreScatter.jsx";
 
@@ -182,10 +183,7 @@ function PointDetail({ row }) {
         <div><strong>Date:</strong> {new Date(row.dt_local).toLocaleString()}</div>
       </div>
       <div className="images">
-        <figure>
-          <Img src={row["Ranked Image"]} alt="" loading="lazy" {...SIZES.ranked} />
-          <figcaption>Ranked Image (with analysis)</figcaption>
-        </figure>
+        <ScoreOverlay imageUrl={row["Raw Image"]} />
         <figure>
           {row["Raw Image"] ? (
             <>

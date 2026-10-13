@@ -18,7 +18,7 @@ import Select from "../Select.jsx";
 
 const PAGE_SIZE = 20;
 
-export default function Ranking({ data, onLoadToHsv }) {
+export default function Ranking({ data, camera, onLoadToHsv }) {
   const [sortBy, setSortBy] = useState("Score");
   const [order, setOrder] = useState("Highest to Lowest");
   const [showHidden, setShowHidden] = useState(false);
@@ -68,7 +68,7 @@ export default function Ranking({ data, onLoadToHsv }) {
       <hr />
       {!rows.length && <div className="empty">No data available.</div>}
       {rows.slice(0, visible).map((row) => (
-        <RankingRow key={row["Ranked Image"]} row={row} event={event} allData={data.all_data} onLoadToHsv={onLoadToHsv} />
+        <RankingRow key={row["Ranked Image"]} row={row} camera={camera} event={event} allData={data.all_data} onLoadToHsv={onLoadToHsv} />
       ))}
       <div ref={sentinel} />
       {visible < rows.length && (
@@ -80,7 +80,7 @@ export default function Ranking({ data, onLoadToHsv }) {
   );
 }
 
-function RankingRow({ row, event, allData, onLoadToHsv }) {
+function RankingRow({ row, camera, event, allData, onLoadToHsv }) {
   const [showDay, setShowDay] = useState(false);
   const rawUrl = row["Raw Image"];
 
@@ -117,7 +117,7 @@ function RankingRow({ row, event, allData, onLoadToHsv }) {
         <div className="ranking-row">
           <ImageCell url={rawUrl} size={SIZES.photo} title="Original photo" />
           <ScoreOverlay imageUrl={rawUrl} />
-          <HsvHistogram imageUrl={rawUrl} />
+          <HsvHistogram imageUrl={rawUrl} camera={camera} ts={row.ts} />
           <div className="rank-media">
             <div className="hsv-hist-title">Clouds toward the sun{row.Weather && <span className="cp-source"> · {cloudSource(row.Weather)}</span>}</div>
             {row.Weather ? <CloudProfile w={row.Weather} fill /> : <div className="rank-media-empty">No weather saved</div>}

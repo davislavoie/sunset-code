@@ -125,7 +125,7 @@ function ComparePane({ cameras, camera, state, entry, isWinner, onChange }) {
               Sunset page <ArrowRight size={16} />
             </Link>
           </div>
-          {entry["Raw Image"] && <ScoreBreakdown imageUrl={entry["Raw Image"]} />}
+          <ScoreBreakdown breakdown={entry.Breakdown} score={entry["HSV Score"]} />
         </>
       )}
     </div>

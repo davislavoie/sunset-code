@@ -1,88 +1,27 @@
-// How sunset ranking works + an interactive scorer.
-// Public visitors can tweak every parameter but changes stay in their browser;
-// only the admin route can save multipliers back to sunset_process.py.
+// How sunset ranking works. Every number comes from /api/scoring-config, which serves
+// sunset_code/helpers/hsv_score.json: the same file sunset_process.py scores with.
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { loadImageData } from "../hsv.js";
-import Img, { SIZES } from "../Img.jsx";
-import { COLORS, DEFAULT_COLOR_RANGES, DEFAULT_FORMULA, scoreImage } from "../scoring.js";
+import { useEffect, useState } from "react";
+import { fetchScoringConfig } from "../api.js";
 
 const COLOR_ROWS = [
-  { color: "red", label: "Red", swatch: "hsl(0, 70%, 50%)" },
-  { color: "orange", label: "Orange", swatch: "hsl(20, 70%, 50%)" },
-  { color: "yellow", label: "Yellow", swatch: "hsl(30, 70%, 50%)" },
-  { color: "pink", label: "Pink/Purple", swatch: "hsl(300, 70%, 50%)" },
+  { color: "red", label: "Red", swatch: "hsl(0, 70%, 50%)", why: "Deep reds indicate intense light scattering, typically seen at peak sunset moments." },
+  { color: "orange", label: "Orange", swatch: "hsl(20, 70%, 50%)", why: "Common in good sunsets but less dramatic than reds." },
+  { color: "yellow", label: "Yellow", swatch: "hsl(30, 70%, 50%)", why: "Often present but can indicate earlier/later timing or less atmospheric drama." },
+  { color: "pink", label: "Pink/Purple", swatch: "hsl(300, 70%, 50%)", why: "Rare and visually striking. Only counted when bright: dim mauve dusk cloud isn't a pink sunset." },
 ];
 
-const toNumber = (value, fallback = 0) => parseFloat(value) || fallback;
-
-export default function RankingExplained({ rankedImages, admin = false }) {
-  const [savedMultipliers, setSavedMultipliers] = useState(null);
-  const [multipliers, setMultipliers] = useState({ red: 4, orange: 3, yellow: 2, pink: 9 });
-  const [colorRanges, setColorRanges] = useState(DEFAULT_COLOR_RANGES);
-  const [formulaParams, setFormulaParams] = useState(DEFAULT_FORMULA);
-  const [testImages, setTestImages] = useState([]);
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [status, setStatus] = useState(null);
-  // Inputs are uncontrolled so a half-typed value isn't snapped to 0; bump to re-seed them.
-  const [inputsVersion, setInputsVersion] = useState(0);
-  const nextId = useRef(0);
+export default function RankingExplained() {
+  const [config, setConfig] = useState(null);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    fetch("/api/scoring-config")
-      .then((res) => (res.ok ? res.json() : null))
-      .then((config) => {
-        if (!config) return;
-        setSavedMultipliers(config);
-        setMultipliers(config);
-        setInputsVersion((v) => v + 1);
-      })
-      .catch((e) => console.error("Failed to load scoring config:", e));
+    fetchScoringConfig().then(setConfig, (e) => setError(e.message));
   }, []);
 
-  const params = useMemo(() => ({ multipliers, colorRanges, formulaParams }), [multipliers, colorRanges, formulaParams]);
-
-  function reset() {
-    if (savedMultipliers) setMultipliers(savedMultipliers);
-    setColorRanges(DEFAULT_COLOR_RANGES);
-    setFormulaParams(DEFAULT_FORMULA);
-    setInputsVersion((v) => v + 1);
-  }
-
-  async function save() {
-    setStatus({ text: "Saving..." });
-    try {
-      const res = await fetch("/api/admin/scoring-config", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(multipliers),
-      });
-      if (res.ok) {
-        setSavedMultipliers(multipliers);
-        setStatus({ text: "Saved! Rebuild to apply.", className: "status-success" });
-      } else {
-        const err = await res.json();
-        setStatus({ text: err.error || "Save failed", className: "status-error" });
-      }
-    } catch (e) {
-      setStatus({ text: "Error: " + e.message, className: "status-error" });
-    }
-  }
-
-  async function addTestImage(url, name) {
-    const id = nextId.current++;
-    setTestImages((list) => [...list, { id, name, image: null, error: null }]);
-    const update = (fields) =>
-      setTestImages((list) => list.map((t) => (t.id === id ? { ...t, ...fields } : t)));
-    try {
-      update({ image: await loadImageData(url) });
-    } catch (e) {
-      update({ error: e.message });
-    }
-  }
-
-  const setRange = (color, param, value) =>
-    setColorRanges((ranges) => ({ ...ranges, [color]: { ...ranges[color], [param]: toNumber(value) } }));
+  if (error) return <div className="status-error">{error}</div>;
+  if (!config) return <div className="skeleton" style={{ height: 400 }} />;
+  const { bands, power, divisor, contrast: c, soft_cap: cap, min_brightness: minV } = config;
 
   return (
     <>
@@ -90,20 +29,20 @@ export default function RankingExplained({ rankedImages, admin = false }) {
       <p>Each sunset image is scored from 0-100 based on the colors detected in the sky portion of the image.</p>
       <hr />
 
-      <section key={inputsVersion}>
+      <section>
         <h3>Color detection &amp; multipliers</h3>
         <p>
           The algorithm analyzes the <strong>top half</strong> of each image (the sky) and identifies pixels in
-          specific hue ranges:
+          specific hue ranges (OpenCV scale: hue 0-179, saturation and brightness 0-255). Pixels darker than {minV} are
+          ignored: their color is noise.
         </p>
-
         <table className="info-table multiplier-table">
           <thead>
             <tr>
               <th>Color</th>
-              <th>Hue Min</th>
-              <th>Hue Max</th>
-              <th>Min Sat</th>
+              <th>Hue</th>
+              <th>Min saturation</th>
+              <th>Min brightness</th>
               <th>Multiplier</th>
             </tr>
           </thead>
@@ -111,145 +50,51 @@ export default function RankingExplained({ rankedImages, admin = false }) {
             {COLOR_ROWS.map(({ color, label, swatch }) => (
               <tr key={color}>
                 <td>
-                  <span className="color-swatch" style={{ background: swatch }}></span> {label}
+                  <span className="color-swatch" style={{ background: swatch }} /> {label}
                 </td>
-                {["hueMin", "hueMax", "satMin"].map((param) => (
-                  <td key={param}>
-                    <input
-                      type="number"
-                      className="param-input-small"
-                      defaultValue={colorRanges[color][param]}
-                      onChange={(e) => setRange(color, param, e.target.value)}
-                    />
-                  </td>
-                ))}
-                <td>
-                  <input
-                    type="number"
-                    className="param-input"
-                    step="0.5"
-                    defaultValue={multipliers[color]}
-                    onChange={(e) => setMultipliers((m) => ({ ...m, [color]: toNumber(e.target.value) }))}
-                  />
-                </td>
+                <td>{`${bands[color].hue[0]}-${bands[color].hue[1]}`}</td>
+                <td>{bands[color].sat_min}</td>
+                <td>{bands[color].val_min}</td>
+                <td>{bands[color].weight}x</td>
               </tr>
             ))}
           </tbody>
         </table>
-
-        <div className="multiplier-actions">
-          {admin && (
-            <button className="btn btn-primary" onClick={save}>
-              Save to Python
-            </button>
-          )}
-          <button className="btn" onClick={reset}>
-            Reset
-          </button>
-          {admin ? (
-            status && <span className={status.className}>{status.text}</span>
-          ) : (
-            <span>Try your own values. Changes only affect this page.</span>
-          )}
-        </div>
-
-        <h3>Score calculation</h3>
-        <p>For each color, a weighted score is calculated:</p>
-
-        <div className="formula-box editable-formula">
-          <code>
-            color_score = (pixel_ratio × avg_saturation
-            <sup>
-              <input
-                type="number"
-                className="param-input-small"
-                step="0.1"
-                defaultValue={formulaParams.power}
-                onChange={(e) => setFormulaParams((f) => ({ ...f, power: toNumber(e.target.value, 2.0) }))}
-              />
-            </sup>
-            ) /{" "}
-            <input
-              type="number"
-              className="param-input-small"
-              step="1"
-              defaultValue={formulaParams.divisor}
-              onChange={(e) => setFormulaParams((f) => ({ ...f, divisor: toNumber(e.target.value, 40) }))}
-            />
-          </code>
-        </div>
       </section>
-
-      <p>Where:</p>
-      <ul>
-        <li><strong>pixel_ratio</strong> = matching pixels / total pixels in image</li>
-        <li><strong>avg_saturation</strong> = average saturation (0-255) of matching pixels</li>
-        <li><strong>power</strong> = exponent to reward vibrant colors (higher = more exponential)</li>
-        <li><strong>divisor</strong> = normalizing factor</li>
-      </ul>
-
-      <div className="formula-box">
-        <code>
-          final_score = (red × {multipliers.red}) + (orange × {multipliers.orange}) + (yellow × {multipliers.yellow}) +
-          (pink × {multipliers.pink})
-        </code>
-      </div>
-
-      <p>
-        That sum is multiplied by the <strong>cloud contrast</strong> factor, (0.36 + 2.5 × hue spread) × (0.93 + 0.0086
-        × lit contrast): hue spread is how many different hues the coloured pixels cover (orange and pink together scores
-        higher than one flat colour), lit contrast is how much brighter the coloured pixels are than the rest of the sky.
-        Then it is soft-capped: <strong>100 × (1 − e^(−score / 66.9))</strong>. Pink only counts at half brightness or more.
-      </p>
-
-      <hr />
 
       <section>
-        <h3>Test scoring</h3>
+        <h3>Score calculation</h3>
+        <p>For each color:</p>
+        <div className="formula-box">
+          <code>
+            points = pixel_ratio × avg_saturation^{power} ÷ {divisor} × multiplier
+          </code>
+        </div>
+        <ul>
+          <li><strong>pixel_ratio</strong> = matching pixels / total pixels in image</li>
+          <li><strong>avg_saturation</strong> = average saturation (0-255) of matching pixels</li>
+        </ul>
         <p>
-          Add images to see how they score with the current multipliers. Scores update in real-time as you adjust
-          the values above.
+          The four colors' points are added up and multiplied by the <strong>cloud contrast</strong> factor:
         </p>
-        <div className="image-source-controls">
-          <button className="btn" onClick={() => setPickerOpen(true)}>
-            Add from Gallery
-          </button>
-          <label className="btn">
-            Upload Image
-            <input
-              type="file"
-              accept="image/*"
-              hidden
-              onChange={(e) => {
-                const file = e.target.files[0];
-                if (file) addTestImage(URL.createObjectURL(file), file.name);
-                e.target.value = "";
-              }}
-            />
-          </label>
+        <div className="formula-box">
+          <code>
+            ({c.hue_base} + {c.hue_slope} × hue spread) × ({c.lit_base} + {c.lit_slope} × lit contrast)
+          </code>
         </div>
-        <div className="test-images-grid">
-          {testImages.map((entry) => (
-            <TestImageCard
-              key={entry.id}
-              entry={entry}
-              params={params}
-              onRemove={() => setTestImages((list) => list.filter((t) => t.id !== entry.id))}
-            />
-          ))}
+        <ul>
+          <li><strong>hue spread</strong>: how many different hues the colored pixels cover (orange and pink together scores higher than one flat color)</li>
+          <li><strong>lit contrast</strong>: how much brighter the colored pixels are than the rest of the sky (lit cloud against dark cloud)</li>
+        </ul>
+        <p>Then it is soft-capped, so big days spread out instead of all tying at 100:</p>
+        <div className="formula-box">
+          <code>score = 100 × (1 − e^(−total / {cap}))</code>
         </div>
+        <p>
+          A day&apos;s best shot is its highest score (plus the glass-lake bonus), leaving out thumbed-down, dark and
+          no-signal shots; a thumbs up wins outright.
+        </p>
       </section>
-
-      {pickerOpen && (
-        <GalleryPicker
-          rankedImages={rankedImages}
-          onPick={(img) => {
-            const url = img["Raw Image"] || img["Ranked Image"];
-            addTestImage(`/api/image-proxy?url=${encodeURIComponent(url)}`, img.Date);
-          }}
-          onClose={() => setPickerOpen(false)}
-        />
-      )}
 
       <hr />
 
@@ -257,119 +102,15 @@ export default function RankingExplained({ rankedImages, admin = false }) {
         <h3>Why these multipliers?</h3>
         <table className="info-table">
           <tbody>
-            <tr>
-              <td><strong>Pink/Purple (9x)</strong></td>
-              <td>Rare and visually striking. Only appears in exceptional sunsets with specific atmospheric conditions.</td>
-            </tr>
-            <tr>
-              <td><strong>Red (4x)</strong></td>
-              <td>Deep reds indicate intense light scattering, typically seen at peak sunset moments.</td>
-            </tr>
-            <tr>
-              <td><strong>Orange (3x)</strong></td>
-              <td>Common in good sunsets but less dramatic than reds.</td>
-            </tr>
-            <tr>
-              <td><strong>Yellow (2x)</strong></td>
-              <td>Often present but can indicate earlier/later timing or less atmospheric drama.</td>
-            </tr>
+            {[...COLOR_ROWS].sort((a, b) => bands[b.color].weight - bands[a.color].weight).map(({ color, label, why }) => (
+              <tr key={color}>
+                <td><strong>{`${label} (${bands[color].weight}x)`}</strong></td>
+                <td>{why}</td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </section>
     </>
-  );
-}
-
-function TestImageCard({ entry, params, onRemove }) {
-  const originalRef = useRef(null);
-  const overlayRef = useRef(null);
-  const { image } = entry;
-  const result = useMemo(() => image && scoreImage(image, params), [image, params]);
-
-  useEffect(() => {
-    if (!image) return;
-    for (const canvas of [originalRef.current, overlayRef.current]) {
-      canvas.width = image.width;
-      canvas.height = image.height;
-    }
-    originalRef.current.getContext("2d").putImageData(image, 0, 0);
-  }, [image]);
-
-  useEffect(() => {
-    if (!result) return;
-    overlayRef.current
-      .getContext("2d")
-      .putImageData(new ImageData(result.overlay, image.width, image.height), 0, 0);
-  }, [result, image]);
-
-  return (
-    <div className="test-image-card">
-      <div className="test-image-header">
-        <span>{entry.name}</span>
-        <button className="btn btn-small btn-delete" onClick={onRemove}>
-          X
-        </button>
-      </div>
-      <div className="test-image-views">
-        <div className="test-image-container">
-          <div className="view-label">Original</div>
-          <canvas className="test-canvas" ref={originalRef}></canvas>
-          {!image && <div className="test-image-loading">{entry.error || "Loading..."}</div>}
-        </div>
-        <div className="test-image-container">
-          <div className="view-label">Overlay</div>
-          <canvas className="test-canvas" ref={overlayRef}></canvas>
-        </div>
-      </div>
-      <div className="test-image-scores">
-        <div className="score-breakdown">
-          {COLORS.map((color) => (
-            <span key={color} className={`color-score ${color}-score`}>
-              {color[0].toUpperCase() + color.slice(1)}: {result ? result.perColor[color].toFixed(2) : "--"}
-            </span>
-          ))}
-        </div>
-        <div className="total-score">
-          {result && <span className="color-score">Cloud contrast: ×{result.contrast.toFixed(2)}</span>}
-          Score: <strong>{result ? result.total.toFixed(2) + "%" : "--"}</strong>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function GalleryPicker({ rankedImages, onPick, onClose }) {
-  const [picked, setPicked] = useState(new Set());
-
-  return (
-    <div className="edit-modal" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="edit-modal-content" style={{ maxWidth: 800 }}>
-        <h3>Select images from the gallery</h3>
-        <div className="gallery-picker-grid">
-          {rankedImages.length === 0 && <div className="empty">No images available</div>}
-          {rankedImages.slice(0, 30).map((img, i) => (
-            <div
-              key={i}
-              className={`gallery-picker-item${picked.has(i) ? " selected" : ""}`}
-              onClick={() => {
-                onPick(img);
-                setPicked((s) => new Set(s).add(i));
-              }}
-            >
-              <Img src={img["Raw Image"] || img["Ranked Image"]} alt="" loading="lazy" {...SIZES.photo} />
-              <div className="picker-label">{img.Date}</div>
-            </div>
-          ))}
-        </div>
-        <div className="form-actions">
-          <button className="btn btn-primary" onClick={onClose}>
-            Done
-          </button>
-          <button className="btn" onClick={onClose}>
-            Cancel
-          </button>
-        </div>
-      </div>
-    </div>
   );
 }

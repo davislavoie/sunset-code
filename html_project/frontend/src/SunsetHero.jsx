@@ -15,7 +15,6 @@ import Weather from "./Weather.jsx";
 export default function SunsetHero({ shots, index, onSelect, best, camera, date }) {
   const shot = shots[index];
   const isBest = !!best && shot.Image === best["Raw Image"];
-  const generated = /^(11_|12_)/.test(shot.Label);
   const step = (d) => onSelect((index + d + shots.length) % shots.length);
 
   useEffect(() => {
@@ -30,7 +29,7 @@ export default function SunsetHero({ shots, index, onSelect, best, camera, date 
 
   return (
     <div className="sunset-hero">
-      <div className={`sunset-hero-photo${generated ? " generated" : ""}`}>
+      <div className="sunset-hero-photo">
         <Zoomable
           className="sunset-hero-img"
           src={shot.Image}
@@ -75,7 +74,7 @@ export default function SunsetHero({ shots, index, onSelect, best, camera, date 
         </div>
         <AiVerdict ai={shot.AI} />
         <Weather w={shot.Weather} fill />
-        {!generated && <ScoreBreakdown imageUrl={shot.Image} />}
+        <ScoreBreakdown breakdown={shot.Breakdown} score={shot["HSV Score"]} />
       </aside>
     </div>
   );

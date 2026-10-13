@@ -1,17 +1,8 @@
-// In-browser port of the scorer from static/pages/rankingexplained.js.
-// Pure function so it can be tested without a DOM.
+// Paints the pixels the HSV score counts over a photo's sky. The score itself is only computed in
+// sunset_code/helpers/sunset_process.py (stored with each capture); this only needs the band limits,
+// which come from the same file the Python reads (hsv_score.json, served at /api/scoring-config).
 
 export const COLORS = ["red", "orange", "yellow", "pink"];
-
-export const DEFAULT_COLOR_RANGES = {
-  red: { hueMin: 0, hueMax: 8, satMin: 20 },
-  orange: { hueMin: 8, hueMax: 25, satMin: 20 },
-  yellow: { hueMin: 25, hueMax: 35, satMin: 20 },
-  // valMin 128: dim mauve / grey-purple dusk cloud isn't pink sunset (analysis/hsv_tuning.md)
-  pink: { hueMin: 140, hueMax: 179, satMin: 20, valMin: 128 },
-};
-
-export const DEFAULT_FORMULA = { power: 2.0, divisor: 40 };
 
 const OVERLAY_RGB = {
   red: [255, 0, 0],
@@ -20,13 +11,6 @@ const OVERLAY_RGB = {
   pink: [255, 0, 255],
 };
 const OVERLAY_OPACITY = 0.5;
-
-// sunset_process.py ignores pixels darker than this (0-255), i.e. 15% brightness.
-const MIN_BRIGHTNESS = 38;
-
-// Red/orange use an exclusive hueMax so the shared boundary (8, 25) isn't
-// double counted; yellow/pink are inclusive. Mirrors the original page.
-const EXCLUSIVE_MAX = new Set(["red", "orange"]);
 
 function rgbToHsv(r, g, b) {
   r /= 255; g /= 255; b /= 255;
@@ -42,75 +26,34 @@ function rgbToHsv(r, g, b) {
 }
 
 /**
- * Scores the sky (top half) of an image.
+ * Paints the counted pixels of the sky (top half) of an image.
  * @param {{data: Uint8ClampedArray, width: number, height: number}} image
- * @returns {{perColor: Record<string, number>, coverage: Record<string, number>,
- *   avgSaturation: Record<string, number>, total: number, overlay: Uint8ClampedArray}}
- *   perColor is points (already multiplied). coverage is the matched share of the whole
- *   image (0-1), the pixel_ratio in sunset_process.py; avgSaturation is 0-255.
- *   overlay is RGBA pixels with color masks blended in.
+ * @param {{bands: Record<string, {hue: [number, number], sat_min: number, val_min: number}>}} config hsv_score.json
+ * @returns {{overlay: Uint8ClampedArray, coverage: Record<string, number>}} overlay is RGBA pixels with the
+ *   bands blended in; coverage is each band's share of the whole image (0-1), as sunset_process.py stores it.
  */
-export function scoreImage({ data, width, height }, { multipliers, colorRanges, formulaParams }) {
-  const totalPixels = width * height;
+export function paintMasks({ data, width, height }, { bands }) {
   const skyHeight = Math.floor(height / 2);
   const overlay = new Uint8ClampedArray(data);
-  const counts = { red: 0, orange: 0, yellow: 0, pink: 0 };
-  const satSums = { red: 0, orange: 0, yellow: 0, pink: 0 };
-  // Cloud colour contrast, as sunset_process.py: hue spread and brightness of coloured vs the rest of the sky
-  let cos = 0, sin = 0, colouredN = 0, colouredV = 0, restN = 0, restV = 0;
+  const counts = Object.fromEntries(COLORS.map((c) => [c, 0]));
 
   for (let i = 0; i < skyHeight * width * 4; i += 4) {
     const [h, s, v] = rgbToHsv(data[i], data[i + 1], data[i + 2]);
-    // Near-black pixels' hue/saturation is noise; skip them like sunset_process.py does.
-    if (Math.round(v * 255) < MIN_BRIGHTNESS) continue;
-    // Round like OpenCV's 8-bit HSV conversion (sunset_process.py) so pixels on a hue
-    // boundary land in the same bucket; without this, scores drift up to ~1 point.
+    // Round like OpenCV's 8-bit HSV conversion so boundary pixels land in the same band as in Python.
     const hue = Math.round(h * 180) % 180;
     const sat = Math.round(s * 255);
     const val = Math.round(v * 255);
-
-    if (sat >= 20 && (hue < 36 || hue >= 140)) {
-      const angle = (hue * Math.PI) / 90;
-      cos += Math.cos(angle); sin += Math.sin(angle);
-      colouredN++; colouredV += val;
-    } else {
-      restN++; restV += val;
-    }
-
-    const match = COLORS.find((color) => {
-      const { hueMin, hueMax, satMin, valMin = 0 } = colorRanges[color];
-      const belowMax = EXCLUSIVE_MAX.has(color) ? hue < hueMax : hue <= hueMax;
-      return hue >= hueMin && belowMax && sat >= satMin && val >= valMin;
+    const match = COLORS.find((c) => {
+      const b = bands[c];
+      return hue >= b.hue[0] && hue <= b.hue[1] && sat >= b.sat_min && val >= b.val_min;
     });
     if (!match) continue;
-
     counts[match]++;
-    satSums[match] += sat;
     const rgb = OVERLAY_RGB[match];
     for (let c = 0; c < 3; c++) {
       overlay[i + c] = Math.round(OVERLAY_OPACITY * rgb[c] + (1 - OVERLAY_OPACITY) * data[i + c]);
     }
   }
-
-  const { power, divisor } = formulaParams;
-  const perColor = {};
-  const coverage = {};
-  const avgSaturation = {};
-  for (const color of COLORS) {
-    coverage[color] = counts[color] / totalPixels;
-    avgSaturation[color] = counts[color] > 0 ? satSums[color] / counts[color] : 0;
-    // calculate_saturation_weighted_score: pixel_ratio * avg_saturation^power / divisor
-    perColor[color] = ((coverage[color] * Math.pow(avgSaturation[color], power)) / divisor) * multipliers[color];
-  }
-  let hueSpread = 0, litContrast = 0;
-  if (colouredN > 0) {
-    hueSpread = Math.sqrt(Math.max(0, -2 * Math.log(Math.max(Math.hypot(cos / colouredN, sin / colouredN), 1e-6))));
-    if (restN > 0) litContrast = colouredV / colouredN - restV / restN;
-  }
-  const contrast = Math.max(0, 0.36 + 2.5 * hueSpread) * Math.max(0, 0.93 + 0.0086 * litContrast);
-  // Soft cap, as sunset_process.py: 100 * (1 - e^(-raw / 66.9))
-  const raw = COLORS.reduce((sum, color) => sum + perColor[color], 0) * contrast;
-  const total = 100 * (1 - Math.exp(-raw / 66.9));
-
-  return { perColor, coverage, avgSaturation, hueSpread, litContrast, contrast, total, overlay };
+  const total = width * height;
+  return { overlay, coverage: Object.fromEntries(COLORS.map((c) => [c, counts[c] / total])) };
 }

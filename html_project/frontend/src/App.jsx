@@ -35,7 +35,6 @@ const PUBLIC_PAGES = [
 const ADMIN_PAGES = [
   ["/admin/my-ranking", "My ranking"],
   ["/admin/config", "Config"],
-  ["/admin/scoring", "Scoring"],
   ["/admin/archive", "Archive"],
 ];
 
@@ -195,7 +194,7 @@ export default function App() {
             />
             <Route
               path="/ranking"
-              element={withData((d) => <Ranking data={d} onLoadToHsv={loadToHsv} />, "rows")}
+              element={withData((d) => <Ranking data={d} camera={dataCamera} onLoadToHsv={loadToHsv} />, "rows")}
             />
             <Route
               path="/score-tracker"
@@ -214,7 +213,7 @@ export default function App() {
                 <HsvTuner allData={d.all_data} tuner={tuner} setTuner={setTuner} onLoadToHsv={loadToHsv} />
               ))}
             />
-            <Route path="/ranking-explained" element={<RankingExplained rankedImages={data?.ranked_images ?? []} />} />
+            <Route path="/ranking-explained" element={<RankingExplained />} />
             <Route
               path="/map"
               element={
@@ -228,10 +227,8 @@ export default function App() {
               element={withData((d) => <MyRanking data={d} camera={dataCamera} />, "rows")}
             />
             <Route path="/admin/config" element={<Config />} />
-            <Route
-              path="/admin/scoring"
-              element={<RankingExplained rankedImages={data?.ranked_images ?? []} admin />}
-            />
+            {/* Multipliers live in sunset_code/helpers/hsv_score.json now; the old admin editor is gone. */}
+            <Route path="/admin/scoring" element={<Navigate to="/ranking-explained" replace />} />
             <Route path="*" element={<div className="empty">Page not found.</div>} />
           </Routes>
         </div>

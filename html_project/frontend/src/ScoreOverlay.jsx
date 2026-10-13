@@ -1,20 +1,18 @@
-// The photo with the colors the score counts painted over the sky, drawn in the browser with
-// the same scorer as the Day view's breakdown. Replaces the pipeline's 11_ranked PNG, whose
-// style changed over time and whose label boxes don't match the dashboard.
+// The photo with the colors the score counts painted over the sky, drawn in the browser from the
+// band limits in hsv_score.json (the score itself comes from sunset_process.py). Replaces the
+// pipeline's 11_ranked PNG, which is no longer made.
 
 import { useEffect, useRef, useState } from "react";
 import { Maximize2, X } from "lucide-react";
-import { proxied } from "./api.js";
+import { fetchScoringConfig, proxied } from "./api.js";
 import { loadImage, toResizedCanvas } from "./hsv.js";
 import { useLightbox } from "./lightbox.jsx";
 import { COLOR_META } from "./ScoreBreakdown.jsx";
-import { COLORS, DEFAULT_COLOR_RANGES, DEFAULT_FORMULA, scoreImage } from "./scoring.js";
+import { COLORS, paintMasks } from "./scoring.js";
 import Tip from "./Tip.jsx";
 
 // Big enough to look sharp fullscreen, small enough to score quickly in a long list.
 const WIDTH = 1280;
-// Only coverage is shown, so the multipliers don't matter here.
-const MULTIPLIERS = { red: 1, orange: 1, yellow: 1, pink: 1 };
 
 export default function ScoreOverlay({ imageUrl }) {
   const ref = useRef(null);
@@ -32,13 +30,13 @@ export default function ScoreOverlay({ imageUrl }) {
     const observer = new IntersectionObserver(([entry]) => {
       if (!entry.isIntersecting) return;
       observer.disconnect();
-      loadImage(proxied(imageUrl))
-        .then((img) => {
+      Promise.all([loadImage(proxied(imageUrl)), fetchScoringConfig()])
+        .then(([img, config]) => {
           if (!live) return;
           const ctx = toResizedCanvas(img, WIDTH).getContext("2d");
           const { width, height } = ctx.canvas;
           const image = ctx.getImageData(0, 0, width, height);
-          const result = scoreImage(image, { multipliers: MULTIPLIERS, colorRanges: DEFAULT_COLOR_RANGES, formulaParams: DEFAULT_FORMULA });
+          const result = paintMasks(image, config);
           const canvas = canvasRef.current;
           canvas.width = width;
           canvas.height = height;
