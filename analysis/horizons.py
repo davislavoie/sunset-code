@@ -32,7 +32,8 @@ SETS = {"base": BASE,
         "icon": BASE + ["icon_weather"],
         "goes": BASE + ["goes_fan"],
         "icon+goes": BASE + ["icon_weather", "goes_fan"],
-        "icon+goes zones": BASE + ["icon_weather", "goes_over", "goes_near", "goes_far"]}
+        "icon+goes zones": BASE + ["icon_weather", "goes_over", "goes_near", "goes_far"],
+        "icon+goes+band": BASE + ["icon_weather", "goes_fan", "horizon_lift"]}
 FEATS = BASE
 # For the 15m and 5m shots the window target includes shots already seen, so also check against
 # only the shots still to come.
@@ -62,7 +63,9 @@ def build():
     cap = cap[cap.camera.isin(data.SUNSET_CAMS)].reset_index(drop=True)
     cap = icon_fields(cap)
     shots = pd.read_json(data.EXPORT / "goes" / "shots.jsonl", lines=True)
-    cap = cap.merge(shots.drop_duplicates(["camera", "time"]), on=["camera", "time"], how="left")
+    cap = cap.merge(shots.drop_duplicates(["camera", "time"]), on=["camera", "time"], how="left", suffixes=("", "_cache"))
+    for c in [c for c in cap if c.endswith("_cache")]:  # newer exports carry goes_* from Influx: fill gaps from the cache
+        cap[c[:-6]] = cap[c[:-6]].fillna(cap.pop(c))
     d = data.days(cap)
     best = {(cam, day): y for cam, day, y in d[["camera", "day", "y"]].itertuples(index=False)}
     ok = cap[~cap.excluded]
@@ -136,7 +139,7 @@ def main():
     compare = pd.DataFrame(compare)
     best = compare.groupby("features", sort=False)["AUC top-25%"].mean().idxmax()
     models, rows, per_cam = [], [], []
-    for name in dict.fromkeys([best, "base"]):
+    for name in dict.fromkeys([best, "icon+goes", "base"]):  # fallbacks for shots missing an input
         feats, src = SETS[name], (full if name != "base" else t)
         coefs = {}
         for h in HORIZONS:

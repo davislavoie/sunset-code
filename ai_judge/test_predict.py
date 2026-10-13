@@ -43,8 +43,9 @@ class PieceTests(unittest.TestCase):
     def test_uses_the_best_set_it_has_inputs_for(self):
         x = {"weather": 0.5, "cur_pct": .5, "max_pct": .5}
         self.assertEqual(predict.forecast("02_1h_pre", x)[1], "base")
-        full = dict(x, icon_weather=0.5, goes_over=0.2, goes_near=0.2, goes_far=0.2, goes_fan=0.2)
+        full = dict(x, icon_weather=0.5, goes_over=0.2, goes_near=0.2, goes_far=0.2, goes_fan=0.2, horizon_lift=0.05)
         self.assertEqual(predict.forecast("02_1h_pre", full)[1], predict.MODELS[0]["name"])
+        self.assertEqual(predict.forecast("02_1h_pre", dict(full, horizon_lift=None))[1], "icon+goes")  # band missing: next set
         self.assertEqual(predict.forecast("02_1h_pre", {"cur_pct": .5, "max_pct": .5}), (None, None))
 
     def test_features_read_icon_and_goes_fields(self):
