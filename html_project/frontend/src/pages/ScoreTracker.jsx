@@ -17,7 +17,7 @@ import ScoreScatter from "./ScoreScatter.jsx";
 
 const SCORE_TICKS = [0, 20, 40, 60, 80, 100];
 
-export default function ScoreTracker({ data }) {
+export default function ScoreTracker({ data, camera }) {
   const rows = data.ranked_images;
   const [tab, setTab] = useState("chart");
   const [selected, setSelected] = useState(null);
@@ -77,7 +77,7 @@ export default function ScoreTracker({ data }) {
         ) : tab === "compare" ? (
           <>
             <ScoreScatter rows={rows} onSelect={setSelected} />
-            {selected && <PointDetail row={selected} />}
+            {selected && <PointDetail row={selected} camera={camera} />}
           </>
         ) : tab === "chart" ? (
           <>
@@ -121,7 +121,7 @@ export default function ScoreTracker({ data }) {
                 <SelectOnClick onSelect={(point) => setSelected(point.row)} />
               </LineChart>
             </div>
-            {selected && <PointDetail row={selected} />}
+            {selected && <PointDetail row={selected} camera={camera} />}
           </>
         ) : (
           <DataTable rows={rows} />
@@ -173,7 +173,7 @@ function SelectOnClick({ onSelect }) {
   return null;
 }
 
-function PointDetail({ row }) {
+function PointDetail({ row, camera }) {
   return (
     <div className="point-detail">
       <div>
@@ -183,7 +183,7 @@ function PointDetail({ row }) {
         <div><strong>Date:</strong> {new Date(row.dt_local).toLocaleString()}</div>
       </div>
       <div className="images">
-        <ScoreOverlay imageUrl={row["Raw Image"]} />
+        <ScoreOverlay imageUrl={row["Raw Image"]} camera={camera} />
         <figure>
           {row["Raw Image"] ? (
             <>

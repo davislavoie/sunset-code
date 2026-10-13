@@ -32,7 +32,7 @@ export default function RankingExplained() {
       <section>
         <h3>Color detection &amp; multipliers</h3>
         <p>
-          The algorithm analyzes the <strong>top half</strong> of each image (the sky) and identifies pixels in
+          The algorithm analyzes the <strong>sky</strong> of each image (the top half, or above the horizon on cameras where it sits higher) and identifies pixels in
           specific hue ranges (OpenCV scale: hue 0-179, saturation and brightness 0-255). Pixels darker than {minV} are
           ignored: their color is noise.
         </p>

@@ -10,5 +10,6 @@
   "power": 2.0,
   "divisor": 40,
   "contrast": {"hue_base": 0.36, "hue_slope": 2.5, "lit_base": 0.93, "lit_slope": 0.0086},
-  "soft_cap": 66.9
+  "soft_cap": 66.9,
+  "sky": {"_comment": "Share of the frame, from the top, that is sky: the score only looks above it. Per camera where the horizon isn't at the middle of the photo.", "default": 0.5, "bolton_summit_cam": 0.255}
 }

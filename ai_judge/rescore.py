@@ -27,7 +27,7 @@ def rescore(client, camera, since=None, before=None, dry_run=False, rank_sunset=
     pending, moved = [], []
     for i, p in enumerate(caps, 1):
         try:
-            result = rank_sunset(store.local_path(p))
+            result = rank_sunset(store.local_path(p), camera)
         except Exception:
             log.exception("%s %s %s: rescore failed", camera, p["time"], p["label"])
             continue

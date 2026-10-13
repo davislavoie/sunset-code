@@ -26,14 +26,22 @@ function rgbToHsv(r, g, b) {
 }
 
 /**
- * Paints the counted pixels of the sky (top half) of an image.
+ * Paints the counted pixels of the sky (above the camera's horizon, hsv_score.json "sky") of an image.
  * @param {{data: Uint8ClampedArray, width: number, height: number}} image
  * @param {{bands: Record<string, {hue: [number, number], sat_min: number, val_min: number}>}} config hsv_score.json
+ * @param {string} [camera] picks the camera's horizon from config.sky
  * @returns {{overlay: Uint8ClampedArray, coverage: Record<string, number>}} overlay is RGBA pixels with the
  *   bands blended in; coverage is each band's share of the whole image (0-1), as sunset_process.py stores it.
  */
-export function paintMasks({ data, width, height }, { bands }) {
-  const skyHeight = Math.floor(height / 2);
+/** Share of the frame, from the top, that the score counts as sky (same as sunset_process.sky_height). */
+export function skyShare(config, camera) {
+  const sky = config.sky ?? { default: 0.5 };
+  return sky[camera] ?? sky.default;
+}
+
+export function paintMasks({ data, width, height }, config, camera) {
+  const { bands } = config;
+  const skyHeight = Math.floor(height * skyShare(config, camera));
   const overlay = new Uint8ClampedArray(data);
   const counts = Object.fromEntries(COLORS.map((c) => [c, 0]));
 

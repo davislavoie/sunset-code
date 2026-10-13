@@ -8,13 +8,13 @@ import { fetchScoringConfig, proxied } from "./api.js";
 import { loadImage, toResizedCanvas } from "./hsv.js";
 import { useLightbox } from "./lightbox.jsx";
 import { COLOR_META } from "./ScoreBreakdown.jsx";
-import { COLORS, paintMasks } from "./scoring.js";
+import { COLORS, paintMasks, skyShare } from "./scoring.js";
 import Tip from "./Tip.jsx";
 
 // Big enough to look sharp fullscreen, small enough to score quickly in a long list.
 const WIDTH = 1280;
 
-export default function ScoreOverlay({ imageUrl }) {
+export default function ScoreOverlay({ imageUrl, camera }) {
   const ref = useRef(null);
   const canvasRef = useRef(null);
   const [sky, setSky] = useState(null); // share of the sky per color, 0-1
@@ -36,14 +36,14 @@ export default function ScoreOverlay({ imageUrl }) {
           const ctx = toResizedCanvas(img, WIDTH).getContext("2d");
           const { width, height } = ctx.canvas;
           const image = ctx.getImageData(0, 0, width, height);
-          const result = paintMasks(image, config);
+          const result = paintMasks(image, config, camera);
           const canvas = canvasRef.current;
           canvas.width = width;
           canvas.height = height;
           canvas.getContext("2d").putImageData(new ImageData(result.overlay, width, height), 0, 0);
-          // coverage is a share of the whole frame; the scorer only looks at the top half.
-          const skyShare = Math.floor(height / 2) / height;
-          setSky(Object.fromEntries(COLORS.map((c) => [c, result.coverage[c] / skyShare])));
+          // coverage is a share of the whole frame; the scorer only looks above the horizon.
+          const share = Math.floor(height * skyShare(config, camera)) / height;
+          setSky(Object.fromEntries(COLORS.map((c) => [c, result.coverage[c] / share])));
         })
         .catch(() => live && setError(true));
     }, { rootMargin: "400px" });
@@ -52,7 +52,7 @@ export default function ScoreOverlay({ imageUrl }) {
       live = false;
       observer.disconnect();
     };
-  }, [imageUrl]);
+  }, [imageUrl, camera]);
 
   const isOpen = fullSrc && lightbox.src === fullSrc;
   const toggleFull = (e) => {

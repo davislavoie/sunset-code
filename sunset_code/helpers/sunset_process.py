@@ -10,8 +10,14 @@ import numpy as np
 CONFIG = json.loads((Path(__file__).parent / "hsv_score.json").read_text())
 
 
-def rank_sunset(frame):
-    """Score a photo 0-100 from the colours in its sky (top half).
+def sky_height(img, camera=None):
+    """Rows of the photo above the horizon (hsv_score.json "sky": per camera, else the top half)."""
+    sky = CONFIG["sky"]
+    return int(img.shape[0] * sky.get(camera, sky["default"]))
+
+
+def rank_sunset(frame, camera=None):
+    """Score a photo 0-100 from the colours in its sky (above the camera's horizon, top half by default).
 
     Returns (score, fields, hist):
       fields: the breakdown stored next to the score in InfluxDB, so the dashboard shows it without
@@ -27,7 +33,7 @@ def rank_sunset(frame):
         return None
 
     #horizon_img, horizon_y = find_horizon(img)
-    horizon_y = img.shape[0] // 2
+    horizon_y = sky_height(img, camera)
     sky_image = img[:horizon_y, :]
 
     hsv = cv2.cvtColor(sky_image, cv2.COLOR_BGR2HSV)
@@ -78,12 +84,12 @@ def rank_sunset(frame):
     return score, fields, hist
 
 
-def draw_overlay(frame):
+def draw_overlay(frame, camera=None):
     """Debug view only, not used by the pipeline: the photo with the counted sky pixels painted in
     (red, orange, pink, yellow) and the coverage of each written on it."""
     img = cv2.imread(frame)
-    sky_image = img[:img.shape[0] // 2]
-    bot_image = img[img.shape[0] // 2:]
+    sky_image = img[:sky_height(img, camera)]
+    bot_image = img[sky_height(img, camera):]
     hsv = cv2.cvtColor(sky_image, cv2.COLOR_BGR2HSV)
     h, s, v = hsv[:,:,0], hsv[:,:,1], hsv[:,:,2]
     paint = {"red": (0, 0, 255), "orange": (0, 140, 255), "pink": (255, 0, 255), "yellow": (0, 255, 255)}

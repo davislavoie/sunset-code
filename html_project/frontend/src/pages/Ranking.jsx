@@ -116,7 +116,7 @@ function RankingRow({ row, camera, event, allData, onLoadToHsv }) {
         </div>
         <div className="ranking-row">
           <ImageCell url={rawUrl} size={SIZES.photo} title="Original photo" />
-          <ScoreOverlay imageUrl={rawUrl} />
+          <ScoreOverlay imageUrl={rawUrl} camera={camera} />
           <HsvHistogram imageUrl={rawUrl} camera={camera} ts={row.ts} />
           <div className="rank-media">
             <div className="hsv-hist-title">Clouds toward the sun{row.Weather && <span className="cp-source"> · {cloudSource(row.Weather)}</span>}</div>

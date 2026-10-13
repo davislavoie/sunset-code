@@ -33,7 +33,7 @@ class FakeClient:
         self.writes.extend(points)
 
 
-def fake_rank_sunset(path):
+def fake_rank_sunset(path, camera=None):
     return (55.5, {"red_points": 1.0}, {"hue": [1.0]})
 
 
@@ -82,7 +82,7 @@ class RescoreTests(unittest.TestCase):
         rescore.rescore(client, "cam", dry_run=True, rank_sunset=fake_rank_sunset)
         self.assertEqual(client.writes, [])
         client = FakeClient([SKY_A, SKY_B])
-        rescore.rescore(client, "cam", rank_sunset=lambda path: None if path.endswith(SKY_B["label"]) else fake_rank_sunset(path))
+        rescore.rescore(client, "cam", rank_sunset=lambda path, camera: None if path.endswith(SKY_B["label"]) else fake_rank_sunset(path))
         self.assertEqual(len(client.writes), 2)  # SKY_A's score + histogram
 
     def test_drop_ranked_lists_then_deletes_only_the_old_ranked_points_and_pngs(self):

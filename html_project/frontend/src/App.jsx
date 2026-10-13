@@ -106,7 +106,10 @@ export default function App() {
   /** Adds a gallery image to the HSV tuner, then (by default) opens the tuner. */
   async function loadToHsv(url, { navigate: go = true } = {}) {
     const canvas = await loadGalleryCanvas(url);
-    setTuner((t) => ({ ...t, loaded: [...t.loaded, { id: crypto.randomUUID(), url, canvas }] }));
+    // Not crypto.randomUUID(): browsers only have it on https or localhost, and the dashboard is opened over
+    // plain http (Tailscale IP), where it threw inside the state update and blanked the whole app.
+    const id = `${Date.now()}-${Math.random()}`;
+    setTuner((t) => ({ ...t, loaded: [...t.loaded, { id, url, canvas }] }));
     if (go) navigate("/hsv-tuner");
   }
 
@@ -201,7 +204,7 @@ export default function App() {
               element={withData(
                 (d) => (
                   <Suspense fallback={<PageSkeleton kind="chart" />}>
-                    <ScoreTracker data={d} />
+                    <ScoreTracker data={d} camera={dataCamera} />
                   </Suspense>
                 ),
                 "chart",

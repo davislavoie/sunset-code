@@ -29,7 +29,7 @@ def main(youtube_url, lat, lon, altitude, timezone_str, camera_tag, mode='sunset
         try:
             frame, photo_filename = get_photo(photo_interval, youtube_url, camera_tag)
 
-            score, fields, hist = rank_sunset(photo_filename)
+            score, fields, hist = rank_sunset(photo_filename, camera_tag)
 
             influxdb_push(photo_filename, epoch_time, photo_interval, camera_tag, score, fields=fields, hist=hist)
 
