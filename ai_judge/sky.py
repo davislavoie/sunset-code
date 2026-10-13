@@ -52,7 +52,7 @@ SCHEMA = {
     "required": ["horizon_found", "cloud_cover", "cloud_base", "gap", "gap_thickness", "clouds_overhead",
                  "underside_lit", "predicted_quality", "reason"],
 }
-LIT = {"unlikely": 0, "possible": 0.5, "likely": 1}
+LIT = {"unlikely": 0.0, "possible": 0.5, "likely": 1.0}  # floats: the first write fixes the field type
 
 
 def ask(image_bytes, label, ollama_url):
@@ -76,7 +76,7 @@ def fields(a):
     clamp = lambda v: max(0.0, min(100.0, float(v)))
     return {"sky_model": MODEL, "sky_gap": a["gap"], "sky_gap_thickness": clamp(a["gap_thickness"]),
             "sky_cloud_cover": clamp(a["cloud_cover"]), "sky_cloud_base": a["cloud_base"],
-            "sky_overhead": bool(a["clouds_overhead"]), "sky_underside_lit": LIT.get(a["underside_lit"], 0.5),
+            "sky_overhead": bool(a["clouds_overhead"]), "sky_lit": LIT.get(a["underside_lit"], 0.5),
             "sky_quality": clamp(a["predicted_quality"]), "sky_reason": str(a["reason"])[:200]}
 
 
@@ -89,7 +89,7 @@ def fill(client, camera, ollama_url, recent=None, limit=None):
     if weather.camera_config(camera).get("MODE", "sunset") != "sunset":
         return 0
     todo = sorted((p for p in store.captures(client, camera, recent=recent)
-                   if label_of(p) and p.get("sky_model") != MODEL), key=lambda p: p["time"], reverse=True)[:limit]
+                   if label_of(p) and (p.get("sky_model") != MODEL or (p.get("sky_gap") and p.get("sky_lit") is None))), key=lambda p: p["time"], reverse=True)[:limit]
     done = 0
     for p in todo:
         try:

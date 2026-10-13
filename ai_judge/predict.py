@@ -61,7 +61,7 @@ def features(point, cur_pct, max_pct):
     return {"weather": weather_raw(point), "icon_weather": weather_raw(point, "icon_"),
             "cur_pct": cur_pct, "max_pct": max_pct,
             **{k: point.get(k) for k in ("goes_over", "goes_near", "goes_far", "goes_fan")},
-            **{k: point.get(k) for k in ("sky_gap_thickness", "sky_quality", "sky_cloud_cover", "sky_underside_lit")},
+            **{k: point.get(k) for k in ("sky_gap_thickness", "sky_quality", "sky_cloud_cover", "sky_lit")},
             "horizon_lift": lift if (lift := point.get("horizon_lift")) is not None and lift >= -1 else None}
 
 
