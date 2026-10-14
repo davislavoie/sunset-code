@@ -1,6 +1,9 @@
 // The photo with the colors the score counts painted over the sky, drawn in the browser from the
 // band limits in hsv_score.json (the score itself comes from sunset_process.py). Replaces the
 // pipeline's 11_ranked PNG, which is no longer made.
+//
+// interactive: one photo, plain by default, with a checkbox per color beside it to paint that color
+// (Ranked images). Otherwise every color is painted, with the shares as a legend above (Score tracker).
 
 import { useEffect, useRef, useState } from "react";
 import { Maximize2, X } from "lucide-react";
@@ -14,13 +17,25 @@ import Tip from "./Tip.jsx";
 // Big enough to look sharp fullscreen, small enough to score quickly in a long list.
 const WIDTH = 1280;
 
-export default function ScoreOverlay({ imageUrl, camera }) {
+export default function ScoreOverlay({ imageUrl, camera, interactive = false }) {
   const ref = useRef(null);
   const canvasRef = useRef(null);
+  const source = useRef(null); // { image, config }: the unpainted photo, kept to repaint on toggle
   const [sky, setSky] = useState(null); // share of the sky per color, 0-1
   const [error, setError] = useState(false);
   const [fullSrc, setFullSrc] = useState(null);
+  const [shown, setShown] = useState(() => new Set(interactive ? [] : COLORS));
   const lightbox = useLightbox();
+
+  const paint = (show) => {
+    const { image, config } = source.current;
+    const result = paintMasks(image, config, camera, show);
+    const canvas = canvasRef.current;
+    canvas.width = image.width;
+    canvas.height = image.height;
+    canvas.getContext("2d").putImageData(new ImageData(result.overlay, image.width, image.height), 0, 0);
+    return result;
+  };
 
   // Only fetch and score the photo once the row scrolls near the screen.
   useEffect(() => {
@@ -35,12 +50,8 @@ export default function ScoreOverlay({ imageUrl, camera }) {
           if (!live) return;
           const ctx = toResizedCanvas(img, WIDTH).getContext("2d");
           const { width, height } = ctx.canvas;
-          const image = ctx.getImageData(0, 0, width, height);
-          const result = paintMasks(image, config, camera);
-          const canvas = canvasRef.current;
-          canvas.width = width;
-          canvas.height = height;
-          canvas.getContext("2d").putImageData(new ImageData(result.overlay, width, height), 0, 0);
+          source.current = { image: ctx.getImageData(0, 0, width, height), config };
+          const result = paint(shown);
           // coverage is a share of the whole frame; the scorer only looks above the horizon.
           const share = Math.floor(height * skyShare(config, camera)) / height;
           setSky(Object.fromEntries(COLORS.map((c) => [c, result.coverage[c] / share])));
@@ -54,11 +65,19 @@ export default function ScoreOverlay({ imageUrl, camera }) {
     };
   }, [imageUrl, camera]);
 
+  const toggle = (color) => {
+    const next = new Set(shown);
+    next.has(color) ? next.delete(color) : next.add(color);
+    setShown(next);
+    if (source.current) paint(next);
+  };
+
+  // Fullscreen shows the photo as painted right now.
   const isOpen = fullSrc && lightbox.src === fullSrc;
   const toggleFull = (e) => {
     e.stopPropagation();
     if (isOpen) return lightbox.close();
-    const src = fullSrc || canvasRef.current.toDataURL("image/jpeg", 0.9);
+    const src = canvasRef.current.toDataURL("image/jpeg", 0.9);
     setFullSrc(src);
     lightbox.open(src);
   };
@@ -66,6 +85,50 @@ export default function ScoreOverlay({ imageUrl, camera }) {
   if (!imageUrl || error) {
     return <div className="score-overlay empty">{imageUrl ? "Couldn't read the photo" : "No photo"}</div>;
   }
+
+  const photo = (
+    <div className="score-overlay ranked-img-cell">
+      <canvas ref={canvasRef} width={1920} height={1080} className={sky ? "ready" : ""} />
+      {!sky && <div className="skeleton score-overlay-skeleton" />}
+      {sky && (
+        <Tip label={isOpen ? "Close fullscreen" : "View fullscreen"}>
+          <button className="fullscreen-toggle-btn" aria-label={isOpen ? "Close fullscreen" : "View fullscreen"} onClick={toggleFull}>
+            {isOpen ? <X size={16} /> : <Maximize2 size={16} />}
+          </button>
+        </Tip>
+      )}
+    </div>
+  );
+
+  if (interactive) {
+    const top = sky ? Math.max(...COLORS.map((c) => sky[c]), 0.0001) : 1;
+    return (
+      <div className="rank-media overlay-split" ref={ref}>
+        <div className="hsv-hist-title">Photo{shown.size ? " · colors the score counts painted on" : ""}</div>
+        <div className="overlay-split-body">
+          {photo}
+          <fieldset className="overlay-picker">
+            <legend>Share of the sky the score counts. Check to show it on the photo.</legend>
+            {COLORS.map((c) => (
+              <label key={c} className="overlay-pick">
+                <input type="checkbox" checked={shown.has(c)} onChange={() => toggle(c)} disabled={!sky} />
+                <span className="overlay-pick-name">
+                  <i style={{ background: COLOR_META[c].swatch }} />
+                  {COLOR_META[c].label}
+                  <b>{sky ? `${(sky[c] * 100).toFixed(1)}%` : "–"}</b>
+                </span>
+                <span className="overlay-pick-bar" aria-hidden="true">
+                  {/* bars scaled to the biggest color, so small shares are still visible */}
+                  <span style={{ width: sky ? `${(sky[c] / top) * 100}%` : 0, background: COLOR_META[c].swatch }} />
+                </span>
+              </label>
+            ))}
+          </fieldset>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="rank-media" ref={ref}>
       <div className="hsv-hist-title">Score overlay</div>
@@ -79,19 +142,7 @@ export default function ScoreOverlay({ imageUrl, camera }) {
           </Tip>
         ))}
       </div>
-      <div className="score-overlay ranked-img-cell">
-        <canvas ref={canvasRef} width={1920} height={1080} className={sky ? "ready" : ""} />
-        {!sky && <div className="skeleton score-overlay-skeleton" />}
-        {sky && (
-          <>
-            <Tip label={isOpen ? "Close fullscreen" : "View fullscreen"}>
-              <button className="fullscreen-toggle-btn" aria-label={isOpen ? "Close fullscreen" : "View fullscreen"} onClick={toggleFull}>
-                {isOpen ? <X size={16} /> : <Maximize2 size={16} />}
-              </button>
-            </Tip>
-          </>
-        )}
-      </div>
+      {photo}
     </div>
   );
 }

@@ -2,17 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
-import { ArrowRight, ChevronDown, Maximize2, X } from "lucide-react";
+import { ArrowRight, ChevronDown } from "lucide-react";
 import { dayPath } from "../api.js";
 import DayDetail, { captureName } from "../DayDetail.jsx";
 import { ForecastMetric } from "../Forecast.jsx";
 import HsvHistogram from "../HsvHistogram.jsx";
-import Img, { SIZES } from "../Img.jsx";
 import Reveal from "../Reveal.jsx";
 import ScoreOverlay from "../ScoreOverlay.jsx";
-import Tip from "../Tip.jsx";
 import { CloudProfile, WeatherStats, cloudSource } from "../Weather.jsx";
-import { useLightbox } from "../lightbox.jsx";
 import { GlassPill } from "../Thumbs.jsx";
 import Select from "../Select.jsx";
 
@@ -21,7 +18,7 @@ const PAGE_SIZE = 20;
 const SORTS = {
   Score: (r) => r.Score, Date: (r) => r.Date, Time: (r) => r.dt_local?.slice(11),
   Temperature: (r) => r.Weather?.temperature_2m, Humidity: (r) => r.Weather?.relative_humidity_2m,
-  Visibility: (r) => r.Weather?.obs_visibility_mi, // observed at the airport; the model's is unreliable "Cloud cover": (r) => r.Weather?.cloud_cover_total,
+  "Cloud cover": (r) => r.Weather?.cloud_cover_total,
   Precipitation: (r) => r.Weather?.precipitation, Wind: (r) => r.Weather?.obs_wind_mph ?? r.Weather?.wind_speed_10m,
 };
 
@@ -123,8 +120,7 @@ function RankingRow({ row, camera, event, allData, onLoadToHsv }) {
           </div>
         </div>
         <div className="ranking-row">
-          <ImageCell url={rawUrl} size={SIZES.photo} title="Original photo" />
-          <ScoreOverlay imageUrl={rawUrl} camera={camera} />
+          <ScoreOverlay imageUrl={rawUrl} camera={camera} interactive />
           <HsvHistogram imageUrl={rawUrl} camera={camera} ts={row.ts} />
           <div className="rank-media">
             <div className="hsv-hist-title">Clouds toward the sun{row.Weather && <span className="cp-source"> · {cloudSource(row.Weather)}</span>}</div>
@@ -140,34 +136,6 @@ function RankingRow({ row, camera, event, allData, onLoadToHsv }) {
         <DayDetail date={row.Date} allData={allData} onClose={() => setShowDay(false)} onLoadToHsv={onLoadToHsv} />
       </Reveal>
     </>
-  );
-}
-
-function ImageCell({ url, size, title }) {
-  const lightbox = useLightbox();
-  if (!url) return <div />;
-  const isOpen = lightbox.src === url;
-
-  return (
-    <div className="rank-media">
-      <div className="hsv-hist-title">{title}</div>
-      <div className="hsv-hist-legend" />
-      <div className="ranked-img-cell">
-        <Img src={url} alt="" loading="lazy" {...size} />
-        <Tip label={isOpen ? "Close fullscreen" : "View fullscreen"}>
-          <button
-            className="fullscreen-toggle-btn"
-            aria-label={isOpen ? "Close fullscreen" : "View fullscreen"}
-            onClick={(e) => {
-              e.stopPropagation();
-              isOpen ? lightbox.close() : lightbox.open(url);
-            }}
-          >
-            {isOpen ? <X size={16} /> : <Maximize2 size={16} />}
-          </button>
-        </Tip>
-      </div>
-    </div>
   );
 }
 

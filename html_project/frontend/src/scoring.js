@@ -30,6 +30,7 @@ function rgbToHsv(r, g, b) {
  * @param {{data: Uint8ClampedArray, width: number, height: number}} image
  * @param {{bands: Record<string, {hue: [number, number], sat_min: number, val_min: number}>}} config hsv_score.json
  * @param {string} [camera] picks the camera's horizon from config.sky
+ * @param {Iterable<string>} [show] the bands to paint (default all); coverage always counts every band
  * @returns {{overlay: Uint8ClampedArray, coverage: Record<string, number>}} overlay is RGBA pixels with the
  *   bands blended in; coverage is each band's share of the whole image (0-1), as sunset_process.py stores it.
  */
@@ -39,8 +40,9 @@ export function skyShare(config, camera) {
   return sky[camera] ?? sky.default;
 }
 
-export function paintMasks({ data, width, height }, config, camera) {
+export function paintMasks({ data, width, height }, config, camera, show = COLORS) {
   const { bands } = config;
+  const paint = new Set(show);
   const skyHeight = Math.floor(height * skyShare(config, camera));
   const overlay = new Uint8ClampedArray(data);
   const counts = Object.fromEntries(COLORS.map((c) => [c, 0]));
@@ -57,6 +59,7 @@ export function paintMasks({ data, width, height }, config, camera) {
     });
     if (!match) continue;
     counts[match]++;
+    if (!paint.has(match)) continue;
     const rgb = OVERLAY_RGB[match];
     for (let c = 0; c < 3; c++) {
       overlay[i + c] = Math.round(OVERLAY_OPACITY * rgb[c] + (1 - OVERLAY_OPACITY) * data[i + c]);

@@ -684,7 +684,8 @@ button {
 .ranking-title span { color: var(--text-muted); font-weight: 500; }
 .ranking-row {
   display: grid;
-  grid-template-columns: 2fr 2fr 2fr 1.6fr 1.5fr;
+  /* photo + color picker, HSV histogram, clouds, weather */
+  grid-template-columns: 3.9fr 2.3fr 2.1fr 1.7fr;
   gap: 16px;
   /* Titles share the top line; photo, overlay and the chart's x-axis share the bottom one. */
   align-items: stretch;
@@ -734,7 +735,8 @@ button {
 }
 
 @media (max-width: 900px) {
-  .ranking-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .ranking-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ranking-row .overlay-split { grid-column: 1 / -1; }
 }
 
 .metric-label { color: var(--text-muted); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
@@ -2629,4 +2631,20 @@ main#content.is-stale { opacity: 0.5; pointer-events: none; }
   .myrank-card { flex-wrap: wrap; }
   .myrank-thumb, .myrank-thumb img { width: 100%; }
   .myrank-actions { width: 100%; justify-content: flex-end; }
+}
+
+/* Ranked tab: one photo, plain until a color is checked in the picker beside it. */
+.overlay-split-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(130px, 34%); gap: 12px; margin-top: auto; }
+.overlay-picker { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 10px; }
+.overlay-picker legend { padding: 0; margin-bottom: 4px; font-size: 12px; color: var(--text-muted); line-height: 1.35; }
+.overlay-pick { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 2px 8px; cursor: pointer; font-size: 13px; }
+.overlay-pick input { margin: 0; grid-row: span 2; accent-color: var(--ink); }
+.overlay-pick-name { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.overlay-pick-name i { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.overlay-pick-name b { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--text); }
+.overlay-pick-bar { display: block; height: 6px; border-radius: 3px; background: var(--tile); overflow: hidden; }
+.overlay-pick-bar span { display: block; height: 100%; border-radius: 3px; transition: width 300ms var(--ease-out); }
+.overlay-pick input:disabled + .overlay-pick-name { color: var(--text-muted); }
+@media (max-width: 560px) {
+  .overlay-split-body { grid-template-columns: 1fr; }
 }

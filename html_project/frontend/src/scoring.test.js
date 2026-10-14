@@ -38,3 +38,10 @@ test("near-black pixels and dim mauve cloud aren't counted", () => {
   assert.equal(paintMasks(solid([100, 70, 100]), config).coverage.pink, 0); // pink hue, under half brightness
   assert.ok(paintMasks(solid([255, 0, 200]), config).coverage.pink > 0);
 });
+
+test("only the chosen bands are painted, but every band is counted", () => {
+  const img = solid([255, 0, 0]);
+  const { overlay, coverage } = paintMasks(img, config, undefined, []);
+  assert.deepEqual([...overlay.slice(0, 4)], [...img.data.slice(0, 4)]);
+  assert.ok(coverage.red > 0);
+});
