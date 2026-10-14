@@ -6,11 +6,11 @@ export const COLORS = ["red", "orange", "yellow", "pink"];
 
 const OVERLAY_RGB = {
   red: [255, 0, 0],
-  orange: [255, 140, 0],
+  orange: [140, 45, 0], // darker than the sky it marks, or it vanishes into an orange sunset
   yellow: [255, 255, 0],
   pink: [255, 0, 255],
 };
-const OVERLAY_OPACITY = 0.5;
+const OVERLAY_OPACITY = { red: 0.5, orange: 0.85, yellow: 0.5, pink: 0.5 };
 
 function rgbToHsv(r, g, b) {
   r /= 255; g /= 255; b /= 255;
@@ -60,9 +60,9 @@ export function paintMasks({ data, width, height }, config, camera, show = COLOR
     if (!match) continue;
     counts[match]++;
     if (!paint.has(match)) continue;
-    const rgb = OVERLAY_RGB[match];
+    const rgb = OVERLAY_RGB[match], a = OVERLAY_OPACITY[match];
     for (let c = 0; c < 3; c++) {
-      overlay[i + c] = Math.round(OVERLAY_OPACITY * rgb[c] + (1 - OVERLAY_OPACITY) * data[i + c]);
+      overlay[i + c] = Math.round(a * rgb[c] + (1 - a) * data[i + c]);
     }
   }
   const total = width * height;
