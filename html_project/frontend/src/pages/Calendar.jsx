@@ -403,7 +403,6 @@ function expandedWeek(expanded, year, month, startWeekday, day) {
 // Month view (the original calendar grid)
 // ---------------------------------------------------------------------------
 function MonthView({ date, goTo, byDate, allData, onLoadToHsv, permalinkFor, cellHeight, setCellHeight, expanded, setExpanded }) {
-  const detailRef = useRef(null);
   const focus = fromISODate(date);
   const year = focus.getFullYear();
   const month = focus.getMonth();
@@ -414,12 +413,6 @@ function MonthView({ date, goTo, byDate, allData, onLoadToHsv, permalinkFor, cel
   const startWeekday = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const trailingBlanks = (7 - ((startWeekday + daysInMonth) % 7)) % 7;
-
-  // Scroll to the viewer's top as soon as a day opens. Its top edge is already in place
-  // while the open animation grows downward, so this doesn't wait on the animation or image.
-  useEffect(() => {
-    if (expanded) detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [expanded]);
 
   return (
     <div style={{ "--cal-row-height": `${cellHeight}px` }}>
@@ -482,7 +475,7 @@ function MonthView({ date, goTo, byDate, allData, onLoadToHsv, permalinkFor, cel
             return [cell, ...(day === daysInMonth ? Array.from({ length: trailingBlanks }, (_, t) => (
               <div key={`trail-${t}`} className="calendar-cell empty-cell" />
             )) : []), (
-              <div key="detail" ref={detailRef} className="detail-scroll-target cal-inline-detail">
+              <div key="detail" className="cal-inline-detail">
                 <DayDetail
                   key={expanded}
                   date={expanded}
