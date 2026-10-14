@@ -685,7 +685,7 @@ button {
 .ranking-row {
   display: grid;
   /* photo + color picker, HSV histogram, clouds, weather */
-  grid-template-columns: 3.9fr 2.3fr 2.1fr 1.7fr;
+  grid-template-columns: 5.2fr 2.2fr 2fr 1.6fr;
   gap: 16px;
   /* Titles share the top line; photo, overlay and the chart's x-axis share the bottom one. */
   align-items: stretch;
@@ -2634,7 +2634,7 @@ main#content.is-stale { opacity: 0.5; pointer-events: none; }
 }
 
 /* Ranked tab: one photo, plain until a color is checked in the picker beside it. */
-.overlay-split-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(130px, 34%); gap: 12px; margin-top: auto; }
+.overlay-split-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(120px, 26%); gap: 12px; margin-top: auto; }
 .overlay-picker { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 10px; }
 .overlay-picker legend { padding: 0; margin-bottom: 4px; font-size: 12px; color: var(--text-muted); line-height: 1.35; }
 .overlay-pick { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 2px 8px; cursor: pointer; font-size: 13px; }
