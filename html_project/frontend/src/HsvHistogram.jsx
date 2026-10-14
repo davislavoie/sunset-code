@@ -94,7 +94,6 @@ const FULL = [0, 255];
 // Drag across the chart to zoom into that range; double-click to zoom back out.
 function HistChart({ hist }) {
   const [hover, setHover] = useState(null);
-  const [hoverY, setHoverY] = useState(null); // cursor height in px, for the y readout
   const [domain, setDomain] = useState(FULL);
   const [drag, setDrag] = useState(null); // [startBin, currentBin] while dragging
   const clipId = useId();
@@ -112,8 +111,6 @@ function HistChart({ hist }) {
         {SERIES.slice().reverse().map((sr) => (
           <span key={sr.key}>
             <i style={{ background: sr.swatch }} /> {sr.label}
-            {/* Always there at a fixed width so the legend doesn't shift while hovering. */}
-            <b>{hover != null && hist ? pct(sr.key) : ""}</b>
           </span>
         ))}
       </div>
@@ -143,7 +140,6 @@ function HistChart({ hist }) {
                   onMouseMove={(e) => {
                     const bin = binAt(e);
                     setHover(bin < domain[0] || bin > domain[1] ? null : bin);
-                    setHoverY(Math.max(M.top, Math.min(bottom, e.clientY - e.currentTarget.getBoundingClientRect().top)));
                     if (drag) setDrag([drag[0], clampBin(bin)]);
                   }}
                   onMouseUp={() => {
@@ -196,8 +192,16 @@ function HistChart({ hist }) {
                 {hover != null && !drag && (
                   // The channel value under the cursor; flips left past the middle to stay inside the plot.
                   <div className="scatter-tip hsv-hist-tip" style={x(hover) > width / 2
-                    ? { right: width - x(hover) + 10, top: Math.max(0, hoverY - 22) } : { left: x(hover) + 10, top: Math.max(0, hoverY - 22) }}>
-                    {`${hover}, ${(y.invert(hoverY) * 100).toFixed(1)}%`}
+                    ? { right: width - x(hover) + 10, top: 4 } : { left: x(hover) + 10, top: 4 }}>
+                    {/* x is the channel's own number (OpenCV: hue 0-179 = half-degrees, saturation and value 0-255);
+                        each % is the share of the sky's pixels that have exactly that number. */}
+                    <div className="scatter-tip-title">% of sky at this number</div>
+                    {SERIES.slice().reverse().map((sr) => (
+                      <div key={sr.key}>
+                        <span>{sr.key === "hue" ? `Hue ${hover}${hover < 180 ? ` (${hover * 2}°)` : ""}` : `${sr.label} ${hover}`}</span>
+                        <b>{sr.key === "hue" && hover >= 180 ? "–" : pct(sr.key)}</b>
+                      </div>
+                    ))}
                   </div>
                 )}
                 </>
