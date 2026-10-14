@@ -10,6 +10,7 @@ import { ChartTooltip } from "@/components/charts/tooltip";
 import { XAxis } from "@/components/charts/x-axis";
 import { YAxis } from "@/components/charts/y-axis";
 import { GRID_STYLE, INSTANT_TOOLTIP, monthTicks } from "../chartTheme.js";
+import { thumb } from "../api.js";
 import Img, { SIZES } from "../Img.jsx";
 import ScoreOverlay from "../ScoreOverlay.jsx";
 import ScoreHistogram from "./ScoreHistogram.jsx";
@@ -187,7 +188,7 @@ function PointDetail({ row, camera }) {
         <figure>
           {row["Raw Image"] ? (
             <>
-              <Img src={row["Raw Image"]} alt="" loading="lazy" {...SIZES.photo} />
+              <Img src={row["Raw Image"]} placeholder={thumb(row["Raw Image"])} alt="" loading="lazy" {...SIZES.photo} />
               <figcaption>Original Image</figcaption>
             </>
           ) : (

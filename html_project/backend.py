@@ -1,7 +1,7 @@
-from flask import Flask, jsonify, request, send_from_directory, Response
+from flask import Flask, jsonify, request, send_file, send_from_directory, Response
 from influxdb import InfluxDBClient
 from datetime import datetime
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 from pathlib import Path
 import os
 import pytz
@@ -251,6 +251,72 @@ def data():
     return jsonify(fetch_camera_data_cached(camera))
 
 
+# Photos on disk (the image server's folder, mounted read-only) and the small copies made from them.
+PICTURES_DIR = Path(os.environ.get("PICTURES_DIR", "/pictures"))
+THUMB_DIR = Path(os.environ.get("THUMB_DIR", "/cache/thumbs"))
+THUMB_WIDTHS = (480, 960)  # tiles and filmstrips; the Ranked images photo and its overlay
+CACHE_FOREVER = "public, max-age=31536000, immutable"  # a capture's photo never changes once taken
+
+
+def picture_path(url):
+    """The file behind one of our image-server urls, or None if the url isn't ours or leaves the folder."""
+    allowed, target = urlsplit(IMAGE_BASE_URL), urlsplit(url or "")
+    if not IMAGE_BASE_URL or (target.scheme, target.netloc) != (allowed.scheme, allowed.netloc):
+        return None
+    root = PICTURES_DIR.resolve()
+    path = (root / unquote(target.path).lstrip("/")).resolve()
+    if not path.is_relative_to(root) or path.suffix.lower() not in (".jpg", ".jpeg", ".png"):
+        return None
+    return path
+
+
+def make_thumb(src, out, width):
+    """A width-px JPEG of src at out (written to a temp file first, so a half-written one is never served)."""
+    from PIL import Image
+    with Image.open(src) as im:
+        im.draft("RGB", (width, width))  # JPEG decodes straight at 1/2, 1/4 or 1/8 size: much faster
+        im = im.convert("RGB")
+        im.thumbnail((width, width * 4))
+        out.parent.mkdir(parents=True, exist_ok=True)
+        tmp = out.with_name(out.name + ".tmp")
+        im.save(tmp, "JPEG", quality=80, optimize=True, progressive=True)
+    os.replace(tmp, out)
+
+
+def thumb_path(src, width):
+    return THUMB_DIR / str(width) / src.relative_to(PICTURES_DIR.resolve())
+
+
+@app.route("/api/thumb")
+def thumb():
+    """A small copy of a photo for tiles and filmstrips, made on first request and kept on disk."""
+    width = request.args.get("w", type=int)
+    src = picture_path(request.args.get("url"))
+    if width not in THUMB_WIDTHS or src is None:
+        return jsonify({"error": f"url must point at IMAGE_BASE_URL and w be one of {THUMB_WIDTHS}"}), 400
+    if not src.is_file():
+        return jsonify({"error": "no such photo"}), 404
+    out = thumb_path(src, width)
+    if not out.is_file():
+        make_thumb(src, out, width)
+    resp = send_file(out, mimetype="image/jpeg")
+    resp.headers["Cache-Control"] = CACHE_FOREVER
+    return resp
+
+
+def warm_thumbs():
+    """Make every thumbnail ahead of time, so first visits are fast too:
+    docker compose ... exec dashboard python -c "import backend; backend.warm_thumbs()" """
+    made = 0
+    for src in sorted(PICTURES_DIR.rglob("*.jpg")):
+        for width in THUMB_WIDTHS:
+            out = thumb_path(src.resolve(), width)
+            if not out.is_file():
+                make_thumb(src, out, width)
+                made += 1
+    print(f"made {made} thumbnails")
+
+
 @app.route("/api/image-proxy")
 def image_proxy():
     """Fetch a gallery image server-side so the browser can read its pixels
@@ -264,6 +330,11 @@ def image_proxy():
     target = urlsplit(url)
     if not IMAGE_BASE_URL or (target.scheme, target.netloc) != (allowed.scheme, allowed.netloc):
         return jsonify({"error": "url must point at IMAGE_BASE_URL"}), 400
+    src = picture_path(url)
+    if src is not None and src.is_file():  # straight off the disk when it's mounted
+        resp = send_file(src, mimetype="image/jpeg")
+        resp.headers["Cache-Control"] = CACHE_FOREVER
+        return resp
     resp = requests.get(url, timeout=10, allow_redirects=False)
     return Response(resp.content, mimetype=resp.headers.get("Content-Type", "image/jpeg"))
 

@@ -6,7 +6,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { dayPath, useDocumentTitle } from "../api.js";
+import { dayPath, thumb, useDocumentTitle } from "../api.js";
 import DayDetail, { captureName } from "../DayDetail.jsx";
 import { ForecastCard } from "../Forecast.jsx";
 import Img, { SIZES, sizeForLabel } from "../Img.jsx";
@@ -216,9 +216,9 @@ export function CaptureCard({ img, camera, event = "sunset", selected = false, o
   return (
     <div className={`day-view-card${excluded ? " ai-not-sky" : ""}${selected ? " selected" : ""}`}>
       {onSelect ? (
-        <Img src={img.Image} alt={img.Label} loading="lazy" onClick={onSelect} {...sizeForLabel(img.Label)} />
+        <Img src={thumb(img.Image)} alt={img.Label} loading="lazy" onClick={onSelect} {...sizeForLabel(img.Label)} />
       ) : (
-        <Zoomable src={img.Image} alt={img.Label} loading="lazy" {...sizeForLabel(img.Label)} />
+        <Zoomable src={thumb(img.Image, 960)} full={img.Image} alt={img.Label} loading="lazy" {...sizeForLabel(img.Label)} />
       )}
       <div className="day-view-caption">
         <strong>{captureName(img.Label, event)}</strong>
@@ -367,7 +367,7 @@ function YearMonthRow({ year, month, name, byDate, allData, onLoadToHsv, permali
               onClick={() => setOpenDate(iso === openDate ? null : iso)}
             >
               <Tip label={`${iso} · ${entry.Score.toFixed(0)}%${entry.Excluded ? ` · doesn't count: ${entry.Excluded}` : ""}`}>
-                <Img src={entry.Image} alt={iso} loading="lazy" {...SIZES.photo} />
+                <Img src={thumb(entry.Image)} alt={iso} loading="lazy" {...SIZES.photo} />
               </Tip>
             </div>
           ))}
@@ -461,7 +461,7 @@ function MonthView({ date, goTo, byDate, allData, onLoadToHsv, permalinkFor, cel
                 <div className="day-number">{day}</div>
                 {entry && (
                   <>
-                    <Img src={entry.Image} alt={iso} loading="lazy" />
+                    <Img src={thumb(entry.Image)} alt={iso} loading="lazy" />
                     <div className="day-time">{entry.Time}</div>
                     <div className="day-score">{`${entry.Score.toFixed(0)}%`}</div>
                     <FlagPill reason={entry.Excluded} className="on-photo" />

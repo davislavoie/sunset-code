@@ -4,7 +4,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, ChevronDown, ChevronLeft, ChevronRight, RotateCcw } from "lucide-react";
-import { getJson } from "../api.js";
+import { getJson, thumb } from "../api.js";
 import { captureName } from "../DayDetail.jsx";
 import Img, { SIZES } from "../Img.jsx";
 import Reveal from "../Reveal.jsx";
@@ -130,7 +130,7 @@ function RankCard({ r, place, frames, save, onMove }) {
       <div ref={card} className={`ranking-card myrank-card${r.auto ? " is-auto" : ""}`}>
         <div className="myrank-place">{place}</div>
         <button className="myrank-thumb" onClick={() => setChoosing(!choosing)} aria-label={`Choose the frame for ${r.date}`}>
-          <Img src={r.url} loading="lazy" alt="" {...SIZES.photo} />
+          <Img src={thumb(r.url, 960)} loading="lazy" alt="" {...SIZES.photo} />
         </button>
         <div className="myrank-main">
           <div className="ranking-when">
@@ -193,7 +193,7 @@ function FramePicker({ r, frames, onSave, onClose }) {
     }}>
       <div className="myrank-picker-view">
         <button className="icon-btn" onClick={() => go(-1)} aria-label="Previous frame"><ChevronLeft size={22} /></button>
-        <Img src={f.Image} alt={captureName(f.Label)} {...SIZES.photo} />
+        <Img src={f.Image} placeholder={thumb(f.Image)} alt={captureName(f.Label)} {...SIZES.photo} />
         <button className="icon-btn" onClick={() => go(1)} aria-label="Next frame"><ChevronRight size={22} /></button>
       </div>
       <div className="myrank-picker-bar">
@@ -208,7 +208,7 @@ function FramePicker({ r, frames, onSave, onClose }) {
         {frames.map((x, j) => (
           <button key={x.ts} className={`myrank-frame${j === i ? " active" : ""}${x.ts === r.ts ? " saved" : ""}`}
             onClick={() => setI(j)} aria-label={captureName(x.Label)}>
-            <Img src={x.Image} loading="lazy" alt="" {...SIZES.photo} />
+            <Img src={thumb(x.Image)} loading="lazy" alt="" {...SIZES.photo} />
           </button>
         ))}
       </div>

@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { sunsetPath } from "./api.js";
+import { sunsetPath, thumb } from "./api.js";
 import { sizeForLabel } from "./Img.jsx";
 import { Zoomable } from "./lightbox.jsx";
 import ScoreBreakdown from "./ScoreBreakdown.jsx";
@@ -33,6 +33,7 @@ export default function SunsetHero({ shots, index, onSelect, best, camera, date 
         <Zoomable
           className="sunset-hero-img"
           src={shot.Image}
+          placeholder={thumb(shot.Image)}
           alt={`${camera} ${shot.Label.slice(3)} on ${date}`}
           fetchPriority="high"
           {...sizeForLabel(shot.Label)}

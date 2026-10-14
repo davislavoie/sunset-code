@@ -38,9 +38,9 @@ export function LightboxProvider({ children }) {
 
 export const useLightbox = () => useContext(LightboxContext);
 
-/** A fade-in <img> that opens fullscreen on click. */
-export function Zoomable({ className = "", ...props }) {
+/** A fade-in <img> that opens fullscreen on click; full: the photo to open when src is a small copy. */
+export function Zoomable({ className = "", full, ...props }) {
   const { open } = useLightbox();
-  return <Img {...props} className={`zoomable ${className}`.trim()} onClick={() => open(props.src)} />;
+  return <Img {...props} className={`zoomable ${className}`.trim()} onClick={() => open(full ?? props.src)} />;
 }
 

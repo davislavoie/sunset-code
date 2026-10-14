@@ -51,5 +51,45 @@ class CameraData(unittest.TestCase):
         self.assertIsNone(data["all_data"][0]["Breakdown"])  # scored before breakdowns were stored
 
 
+class Thumbs(unittest.TestCase):
+    def setUp(self):
+        import tempfile
+        from pathlib import Path
+        from PIL import Image
+        self.tmp = Path(tempfile.mkdtemp())
+        photo = self.tmp / "pictures" / "sunset_images" / "cam" / "07_sunset.jpg"
+        photo.parent.mkdir(parents=True)
+        Image.new("RGB", (1920, 1080), (200, 120, 40)).save(photo)
+        (self.tmp / "pictures" / "secret.txt").write_text("no")
+        patches = [mock.patch.object(backend, "IMAGE_BASE_URL", "http://nuc:8080"),
+                   mock.patch.object(backend, "PICTURES_DIR", self.tmp / "pictures"),
+                   mock.patch.object(backend, "THUMB_DIR", self.tmp / "thumbs")]
+        for p in patches:
+            p.start()
+            self.addCleanup(p.stop)
+        self.client = backend.app.test_client()
+
+    def get(self, url, w=480):
+        return self.client.get("/api/thumb", query_string={"url": url, "w": w})
+
+    def test_makes_and_caches_a_small_copy(self):
+        from io import BytesIO
+        from PIL import Image
+        r = self.get("http://nuc:8080/sunset_images/cam/07_sunset.jpg")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(Image.open(BytesIO(r.data)).size, (480, 270))
+        self.assertIn("immutable", r.headers["Cache-Control"])
+        self.assertTrue((self.tmp / "thumbs" / "480" / "sunset_images" / "cam" / "07_sunset.jpg").is_file())
+        r.close()
+
+    def test_only_our_photos(self):
+        self.assertEqual(self.get("http://evil:8080/sunset_images/cam/07_sunset.jpg").status_code, 400)
+        self.assertEqual(self.get("http://nuc:8080/../../etc/passwd.jpg").status_code, 400)
+        self.assertEqual(self.get("http://nuc:8080/%2e%2e/%2e%2e/x.jpg").status_code, 400)
+        self.assertEqual(self.get("http://nuc:8080/secret.txt").status_code, 400)
+        self.assertEqual(self.get("http://nuc:8080/sunset_images/cam/07_sunset.jpg", w=4000).status_code, 400)
+        self.assertEqual(self.get("http://nuc:8080/sunset_images/cam/missing.jpg").status_code, 404)
+
+
 if __name__ == "__main__":
     unittest.main()

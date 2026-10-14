@@ -3,3 +3,4 @@ influxdb
 pytz
 requests
 pyyaml
+pillow

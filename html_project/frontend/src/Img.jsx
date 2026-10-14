@@ -3,7 +3,7 @@
 // Only the first load animates: when src changes (e.g. Next in a viewer) the browser
 // keeps showing the current image until the new one is ready, so it swaps in place.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 // Every camera shoots 1920x1080; the generated ranked/histogram plots are close to fixed sizes.
 export const SIZES = {
@@ -15,13 +15,25 @@ export const SIZES = {
 export const sizeForLabel = (label) =>
   /ranked/i.test(label) ? SIZES.ranked : /histogram/i.test(label) ? SIZES.histogram : SIZES.photo;
 
-export default function Img({ className = "", onLoad, ...props }) {
+// placeholder: a small copy to show at once (usually already cached from a tile) while the full
+// photo in src downloads; the full one swaps in when it's ready.
+export default function Img({ className = "", onLoad, placeholder, src, ...props }) {
   const [loaded, setLoaded] = useState(false);
+  const [ready, setReady] = useState(null); // the full src once it has downloaded
+
+  useEffect(() => {
+    if (!placeholder || !src) return;
+    const full = new Image();
+    full.onload = () => setReady(src);
+    full.src = src;
+    return () => { full.onload = null; };
+  }, [src, placeholder]);
 
   return (
     <img
       decoding="async"
       {...props}
+      src={placeholder && ready !== src ? placeholder : src}
       className={`img-fade${loaded ? " is-loaded" : ""} ${className}`.trim()}
       onLoad={(e) => {
         setLoaded(true);

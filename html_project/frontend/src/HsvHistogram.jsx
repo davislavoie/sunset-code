@@ -7,7 +7,7 @@ import { AreaClosed } from "@visx/shape";
 import { scaleLinear } from "@visx/scale";
 import { ParentSize } from "@visx/responsive";
 import { curveMonotoneX } from "@visx/curve";
-import { getJson, proxied } from "./api.js";
+import { getJson, thumb } from "./api.js";
 import { loadImage, rgbToOpenCvHsv, toResizedCanvas } from "./hsv.js";
 
 // Histogram shape doesn't need every pixel; 480 px wide is ~16x fewer and looks the same.
@@ -48,7 +48,7 @@ export default function HsvHistogram({ imageUrl, camera, ts }) {
       if (!entry.isIntersecting) return;
       observer.disconnect();
       const compute = () =>
-        loadImage(proxied(imageUrl)).then((img) => {
+        loadImage(thumb(imageUrl, 960)).then((img) => {
           const ctx = toResizedCanvas(img, SAMPLE_WIDTH).getContext("2d");
           return hsvHistograms(ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height));
         });

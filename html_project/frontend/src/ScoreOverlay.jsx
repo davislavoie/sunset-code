@@ -7,15 +7,15 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Maximize2, X } from "lucide-react";
-import { fetchScoringConfig, proxied } from "./api.js";
+import { fetchScoringConfig, thumb } from "./api.js";
 import { loadImage, toResizedCanvas } from "./hsv.js";
 import { useLightbox } from "./lightbox.jsx";
 import { COLOR_META } from "./ScoreBreakdown.jsx";
 import { COLORS, paintMasks, skyShare } from "./scoring.js";
 import Tip from "./Tip.jsx";
 
-// Big enough to look sharp fullscreen, small enough to score quickly in a long list.
-const WIDTH = 1280;
+// The 960 px copy: sharp at row size, ~50 KB instead of the ~350 KB original. (Fullscreen shows it as painted.)
+const WIDTH = 960;
 
 export default function ScoreOverlay({ imageUrl, camera, interactive = false }) {
   const ref = useRef(null);
@@ -46,7 +46,7 @@ export default function ScoreOverlay({ imageUrl, camera, interactive = false }) 
     const observer = new IntersectionObserver(([entry]) => {
       if (!entry.isIntersecting) return;
       observer.disconnect();
-      Promise.all([loadImage(proxied(imageUrl)), fetchScoringConfig()])
+      Promise.all([loadImage(thumb(imageUrl, WIDTH)), fetchScoringConfig()])
         .then(([img, config]) => {
           if (!live) return;
           const ctx = toResizedCanvas(img, WIDTH).getContext("2d");

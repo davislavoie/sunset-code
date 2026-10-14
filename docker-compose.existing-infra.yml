@@ -104,6 +104,8 @@ services:
       - ./config:/app/config
       - ./docker-compose.existing-infra.yml:/app/docker-compose.yml
       - ./sunset_code:/sunset_code   # hsv_score.json: the score's numbers, read by the dashboard
+      - ${HOME}/Pictures:/pictures:ro   # photos read straight off disk for thumbnails / the image proxy
+      - thumb-cache:/cache              # thumbnails made from them (/api/thumb)
     ports:
       - "8502:8502"
 
@@ -124,3 +126,4 @@ services:
 volumes:
   influxdb-storage:
     external: true
+  thumb-cache:

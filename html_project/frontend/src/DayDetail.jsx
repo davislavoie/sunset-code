@@ -4,6 +4,7 @@
 import { useState } from "react";
 import { Link } from "react-router";
 import { ArrowRight, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { thumb } from "./api.js";
 import Img, { sizeForLabel } from "./Img.jsx";
 import { Zoomable } from "./lightbox.jsx";
 import { FlagPill, GlassPill } from "./Thumbs.jsx";
@@ -69,6 +70,7 @@ export default function DayDetail({ date, allData, onClose, onLoadToHsv, permali
       <div className="detail-main-img">
         <Zoomable
           src={current.Image}
+          placeholder={thumb(current.Image)}
           alt={current.Label}
           fetchPriority="high"
           {...sizeForLabel(current.Label)}
@@ -90,9 +92,9 @@ export default function DayDetail({ date, allData, onClose, onLoadToHsv, permali
       <div className="thumb-strip" style={{ gridTemplateColumns: `repeat(${images.length}, 1fr)` }}>
         {images.map((img, idx) => (
           <div key={img.Image} className={`thumb${idx === i ? " selected" : ""}`} onClick={() => setIndex(idx)}>
-            {/* Eager: the whole day loads as soon as the viewer opens. Thumbnails use the same
-                files as the main view, so once loaded, clicking any of them is instant. */}
-            <Img src={img.Image} alt="" fetchPriority="low" {...sizeForLabel(img.Label)} />
+            {/* Eager: the whole day's small copies load as soon as the viewer opens, so clicking any
+                of them shows it at once while the full photo downloads. */}
+            <Img src={thumb(img.Image)} alt="" fetchPriority="low" {...sizeForLabel(img.Label)} />
             <div className="label">{img.Time}</div>
           </div>
         ))}

@@ -40,6 +40,8 @@ export const dayPath = (date) => `/calendar?view=day&date=${date}`;
 
 /** Gallery images go through the same-origin proxy so canvas code can read their pixels. */
 export const proxied = (url) => `/api/image-proxy?url=${encodeURIComponent(url)}`;
+/** A small copy of one of our photos (480 px wide for tiles and filmstrips, 960 for mid-size); the full photo is url itself. */
+export const thumb = (url, w = 480) => (url ? `/api/thumb?w=${w}&url=${encodeURIComponent(url)}` : url);
 
 /** { data, error } for any camera, independent of the sidebar's selection. */
 export function useCameraData(camera) {
