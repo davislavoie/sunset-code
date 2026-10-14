@@ -2,8 +2,8 @@
 // band limits in hsv_score.json (the score itself comes from sunset_process.py). Replaces the
 // pipeline's 11_ranked PNG, which is no longer made.
 //
-// interactive: one photo, plain by default, with a checkbox per color beside it to paint that color
-// (Ranked images). Otherwise every color is painted, with the shares as a legend above (Score tracker).
+// interactive: one photo, plain by default, with a row per color beside it: hover paints that color,
+// click pins it (Ranked images). Otherwise every color is painted, with the shares as a legend above (Score tracker).
 
 import { useEffect, useRef, useState } from "react";
 import { Maximize2, X } from "lucide-react";
@@ -24,7 +24,8 @@ export default function ScoreOverlay({ imageUrl, camera, interactive = false }) 
   const [sky, setSky] = useState(null); // share of the sky per color, 0-1
   const [error, setError] = useState(false);
   const [fullSrc, setFullSrc] = useState(null);
-  const [shown, setShown] = useState(() => new Set(interactive ? [] : COLORS));
+  const [shown, setShown] = useState(() => new Set(interactive ? [] : COLORS)); // pinned
+  const [preview, setPreview] = useState(null); // color under the mouse
   const lightbox = useLightbox();
 
   const paint = (show) => {
@@ -65,11 +66,16 @@ export default function ScoreOverlay({ imageUrl, camera, interactive = false }) 
     };
   }, [imageUrl, camera]);
 
+  const painted = (pins, hover) => (hover ? new Set([...pins, hover]) : pins);
   const toggle = (color) => {
     const next = new Set(shown);
     next.has(color) ? next.delete(color) : next.add(color);
     setShown(next);
-    if (source.current) paint(next);
+    if (source.current) paint(painted(next, preview));
+  };
+  const hover = (color) => {
+    setPreview(color);
+    if (source.current) paint(painted(shown, color));
   };
 
   // Fullscreen shows the photo as painted right now.
@@ -103,25 +109,28 @@ export default function ScoreOverlay({ imageUrl, camera, interactive = false }) 
   if (interactive) {
     return (
       <div className="rank-media overlay-split" ref={ref}>
-        <div className="hsv-hist-title">Photo<span className="cp-source"> · check a color to paint it on</span></div>
+        <div className="hsv-hist-title">Photo<span className="cp-source"> · hover a color to see it, click to pin</span></div>
         <div className="overlay-split-body">
           {photo}
-          <fieldset className="overlay-picker">
-            <legend className="sr-only">Share of the sky in each color the score counts; check one to paint it on the photo</legend>
+          <div className="overlay-picker" role="group" aria-label="Colors the score counts: hover to preview on the photo, click to pin">
             {COLORS.map((c) => (
-              <label key={c} className="overlay-pick">
-                <input type="checkbox" checked={shown.has(c)} onChange={() => toggle(c)} disabled={!sky} />
+              <button key={c} type="button" className={`overlay-pick${shown.has(c) ? " pinned" : ""}`}
+                style={{ "--swatch": COLOR_META[c].swatch }} aria-pressed={shown.has(c)} disabled={!sky}
+                // mouse only: a tap on a phone fires pointerenter too, and would leave the color stuck on
+                onPointerEnter={(e) => e.pointerType === "mouse" && hover(c)}
+                onPointerLeave={(e) => e.pointerType === "mouse" && hover(null)}
+                onClick={() => toggle(c)}>
                 <span className="overlay-pick-name">
-                  <i style={{ background: COLOR_META[c].swatch }} />
+                  <i />
                   {COLOR_META[c].label}
                 </span>
                 <b>{sky ? `${(sky[c] * 100).toFixed(1)}%` : "–"}</b>
                 <span className="overlay-pick-bar" aria-hidden="true">
-                  <span style={{ width: sky ? `${Math.min(100, sky[c] * 100)}%` : 0, background: COLOR_META[c].swatch }} />
+                  <span style={{ width: sky ? `${Math.min(100, sky[c] * 100)}%` : 0 }} />
                 </span>
-              </label>
+              </button>
             ))}
-          </fieldset>
+          </div>
         </div>
       </div>
     );
