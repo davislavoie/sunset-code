@@ -685,7 +685,7 @@ button {
 .ranking-row {
   display: grid;
   /* photo + color picker, HSV histogram, clouds, weather */
-  grid-template-columns: 5.2fr 2.2fr 2fr 1.6fr;
+  grid-template-columns: 4.7fr 2.4fr 2fr 1.6fr;
   gap: 16px;
   /* Titles share the top line; photo, overlay and the chart's x-axis share the bottom one. */
   align-items: stretch;
@@ -2634,17 +2634,29 @@ main#content.is-stale { opacity: 0.5; pointer-events: none; }
 }
 
 /* Ranked tab: one photo, plain until a color is checked in the picker beside it. */
-.overlay-split-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(120px, 26%); gap: 12px; margin-top: auto; }
-.overlay-picker { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 10px; }
-.overlay-picker legend { padding: 0; margin-bottom: 4px; font-size: 12px; color: var(--text-muted); line-height: 1.35; }
-.overlay-pick { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 2px 8px; cursor: pointer; font-size: 13px; }
-.overlay-pick input { margin: 0; grid-row: span 2; accent-color: var(--ink); }
-.overlay-pick-name { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.overlay-split-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(128px, 30%); gap: 16px; margin-top: 8px; align-items: stretch; }
+.overlay-picker { border: 0; margin: 0; padding: 2px 0; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 14px; }
+.overlay-pick { display: grid; grid-template-columns: 16px 1fr auto; align-items: center; gap: 5px 8px; cursor: pointer; font-size: 13px; color: var(--text); }
+.overlay-pick input { margin: 0; width: 15px; height: 15px; accent-color: var(--sun); cursor: pointer; }
+.overlay-pick-name { display: flex; align-items: center; gap: 6px; min-width: 0; white-space: nowrap; }
 .overlay-pick-name i { width: 10px; height: 10px; border-radius: 3px; flex: none; }
-.overlay-pick-name b { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--text); }
-.overlay-pick-bar { display: block; height: 6px; border-radius: 3px; background: var(--tile); overflow: hidden; }
+.overlay-pick b { font-variant-numeric: tabular-nums; font-weight: 600; }
+/* 0-100 % of the sky, so the bars compare across days */
+.overlay-pick-bar { grid-column: 2 / -1; display: block; height: 6px; border-radius: 3px; background: var(--tile); overflow: hidden; }
 .overlay-pick-bar span { display: block; height: 100%; border-radius: 3px; transition: width 300ms var(--ease-out); }
-.overlay-pick input:disabled + .overlay-pick-name { color: var(--text-muted); }
+.overlay-pick input:disabled ~ * { color: var(--text-muted); }
+/* Charts fill the row's height (set by the photo) instead of a fixed 16:9 box at the bottom. */
+@media (min-width: 901px) {
+  .ranking-row .hsv-hist { height: 100%; }
+  .ranking-row .hsv-hist-plot { flex: 1; aspect-ratio: auto; min-height: 150px; margin-top: 4px; }
+}
+/* Mid widths: the photo and picker get their own line, the three charts share the next. */
+@media (min-width: 901px) and (max-width: 1400px) {
+  .ranking-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .ranking-row .overlay-split { grid-column: 1 / -1; }
+  .overlay-split-body { grid-template-columns: minmax(0, 560px) minmax(180px, 260px); }
+}
+.overlay-pick-name { overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 560px) {
-  .overlay-split-body { grid-template-columns: 1fr; }
+  .overlay-split-body { grid-template-columns: minmax(0, 1fr); }
 }

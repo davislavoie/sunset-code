@@ -101,25 +101,23 @@ export default function ScoreOverlay({ imageUrl, camera, interactive = false }) 
   );
 
   if (interactive) {
-    const top = sky ? Math.max(...COLORS.map((c) => sky[c]), 0.0001) : 1;
     return (
       <div className="rank-media overlay-split" ref={ref}>
-        <div className="hsv-hist-title">Photo{shown.size ? " · colors the score counts painted on" : ""}</div>
+        <div className="hsv-hist-title">Photo<span className="cp-source"> · check a color to paint it on</span></div>
         <div className="overlay-split-body">
           {photo}
           <fieldset className="overlay-picker">
-            <legend>Share of the sky the score counts. Check to show it on the photo.</legend>
+            <legend className="sr-only">Share of the sky in each color the score counts; check one to paint it on the photo</legend>
             {COLORS.map((c) => (
               <label key={c} className="overlay-pick">
                 <input type="checkbox" checked={shown.has(c)} onChange={() => toggle(c)} disabled={!sky} />
                 <span className="overlay-pick-name">
                   <i style={{ background: COLOR_META[c].swatch }} />
                   {COLOR_META[c].label}
-                  <b>{sky ? `${(sky[c] * 100).toFixed(1)}%` : "–"}</b>
                 </span>
+                <b>{sky ? `${(sky[c] * 100).toFixed(1)}%` : "–"}</b>
                 <span className="overlay-pick-bar" aria-hidden="true">
-                  {/* bars scaled to the biggest color, so small shares are still visible */}
-                  <span style={{ width: sky ? `${(sky[c] / top) * 100}%` : 0, background: COLOR_META[c].swatch }} />
+                  <span style={{ width: sky ? `${Math.min(100, sky[c] * 100)}%` : 0, background: COLOR_META[c].swatch }} />
                 </span>
               </label>
             ))}
