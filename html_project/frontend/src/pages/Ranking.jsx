@@ -133,7 +133,7 @@ function RankingRow({ row, camera, event, allData, onLoadToHsv }) {
         </div>
       </div>
       <Reveal show={showDay}>
-        <DayDetail date={row.Date} allData={allData} onClose={() => setShowDay(false)} onLoadToHsv={onLoadToHsv} />
+        <DayDetail date={row.Date} start={rawUrl} allData={allData} onClose={() => setShowDay(false)} onLoadToHsv={onLoadToHsv} />
       </Reveal>
     </>
   );

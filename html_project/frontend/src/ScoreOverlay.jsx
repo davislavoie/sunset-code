@@ -110,12 +110,10 @@ export default function ScoreOverlay({ imageUrl, camera, interactive = false }) 
     return (
       <div className="rank-media overlay-split" ref={ref}>
         <div className="hsv-hist-title">Photo</div>
-        <p className="overlay-help">
-          Share of the sky in each color the score counts. Hover a color to see it on the photo, click to pin it.
-        </p>
         <div className="overlay-split-body">
           {photo}
           <div className="overlay-picker" role="group" aria-label="Colors the score counts: hover to preview on the photo, click to pin">
+            <p className="overlay-help">Hover to overlay color</p>
             {COLORS.map((c) => (
               <button key={c} type="button" className={`overlay-pick${shown.has(c) ? " pinned" : ""}`}
                 style={{ "--swatch": COLOR_META[c].swatch }} aria-pressed={shown.has(c)} disabled={!sky}

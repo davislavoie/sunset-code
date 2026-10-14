@@ -23,14 +23,14 @@ export function captureName(label, event = "sunset") {
   return name.split(".")[0];
 }
 
-export default function DayDetail({ date, allData, onClose, onLoadToHsv, permalink }) {
-  const [index, setIndex] = useState(0);
-
+/** start: the image url to open on (the photo that was clicked); the day's first frame otherwise. */
+export default function DayDetail({ date, allData, onClose, onLoadToHsv, permalink, start }) {
   const dateImages = allData.filter((img) => img.Date === date);
   const images = [
     ...dateImages.filter((img) => !isSpecial(img)).sort((a, b) => (a.Time > b.Time ? 1 : -1)),
     ...dateImages.filter(isSpecial),
   ];
+  const [index, setIndex] = useState(() => Math.max(0, images.findIndex((img) => img.Image === start)));
   const i = index < images.length ? index : 0;
   const current = images[i];
   const event = images.some((img) => /^\d+_sunrise/.test(img.Label)) ? "sunrise" : "sunset";

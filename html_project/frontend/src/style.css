@@ -335,7 +335,8 @@ main#content {
   letter-spacing: 0.03em;
 }
 
-.day-grid { grid-auto-rows: var(--cal-row-height, 110px); }
+/* Height on the cells, not the rows, so the inline day viewer's row can grow to fit it. */
+.day-grid > .calendar-cell { height: var(--cal-row-height, 110px); }
 
 .calendar-cell {
   position: relative;
@@ -534,6 +535,9 @@ main#content {
   border: 2px solid transparent;
 }
 .year-mini-cell.selected { border-color: var(--ink); }
+/* Month view: the open day's viewer spans the grid, right under its week. */
+.cal-inline-detail { grid-column: 1 / -1; margin: 4px 0 8px; }
+.calendar-cell.selected { outline: 2px solid var(--sun); outline-offset: 2px; overflow: visible; }
 .year-mini-cell img { width: 100%; height: auto; display: block; }
 
 @media (max-width: 1100px) {
@@ -969,8 +973,8 @@ a.btn { text-decoration: none; color: var(--text); }
     gap: 4px;
   }
 
-  .day-grid {
-    grid-auto-rows: 60px;
+  .day-grid > .calendar-cell {
+    height: 60px;
   }
 
   .calendar-cell {
@@ -1130,8 +1134,8 @@ a.btn { text-decoration: none; color: var(--text); }
     gap: 3px;
   }
 
-  .day-grid {
-    grid-auto-rows: 50px;
+  .day-grid > .calendar-cell {
+    height: 50px;
   }
 
   .year-month-row-strip {
@@ -2638,11 +2642,12 @@ main#content.is-stale { opacity: 0.5; pointer-events: none; }
 
 /* Ranked tab: one photo, plain until a color is checked in the picker beside it. */
 .overlay-split-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(128px, 30%); gap: 16px; margin-top: 8px; align-items: stretch; }
-.overlay-help { margin: 2px 0 0; padding: 6px 10px; border-radius: 8px; background: var(--tile); font-size: 12px; line-height: 1.4; color: var(--text-secondary); }
-.overlay-picker { min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 6px; }
+.overlay-help { margin: 0 0 2px 10px; font-size: 12px; color: var(--text-muted); }
+.overlay-picker { min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 4px; }
+.overlay-split .ranked-img-cell { margin-top: 0; align-self: start; }
 .overlay-pick {
   display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 5px 8px;
-  padding: 7px 10px; border: 1px solid transparent; border-radius: 8px; background: none;
+  padding: 5px 10px; border: 1px solid transparent; border-radius: 8px; background: none;
   font: inherit; font-size: 13px; color: var(--text); text-align: left; cursor: pointer;
   transition: background 150ms var(--ease-out), border-color 150ms var(--ease-out);
 }

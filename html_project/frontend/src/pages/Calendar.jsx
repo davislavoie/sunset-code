@@ -378,6 +378,7 @@ function YearMonthRow({ year, month, name, byDate, allData, onLoadToHsv, permali
           <DayDetail
             key={openDate}
             date={openDate}
+            start={byDate.get(openDate)?.Image}
             allData={allData}
             onClose={() => setOpenDate(null)}
             onLoadToHsv={onLoadToHsv}
@@ -387,6 +388,15 @@ function YearMonthRow({ year, month, name, byDate, allData, onLoadToHsv, permali
       </Reveal>
     </>
   );
+}
+
+/** True when the open day falls in the week (grid row) that ends on `day` of this month. */
+function expandedWeek(expanded, year, month, startWeekday, day) {
+  if (!expanded) return false;
+  const d = fromISODate(expanded);
+  if (d.getFullYear() !== year || d.getMonth() !== month) return false;
+  const row = (n) => Math.floor((startWeekday + n - 1) / 7);
+  return row(d.getDate()) === row(day);
 }
 
 // ---------------------------------------------------------------------------
@@ -449,11 +459,11 @@ function MonthView({ date, goTo, byDate, allData, onLoadToHsv, permalinkFor, cel
             const day = i + 1;
             const iso = isoFor(year, month, day);
             const entry = byDate.get(iso);
-            return (
+            const cell = (
               <div
                 key={iso}
-                className={`calendar-cell${entry ? " has-image" : ""}`}
-                onClick={entry ? () => setExpanded(iso) : undefined}
+                className={`calendar-cell${entry ? " has-image" : ""}${iso === expanded ? " selected" : ""}`}
+                onClick={entry ? () => setExpanded(iso === expanded ? null : iso) : undefined}
               >
                 <div className="day-number">{day}</div>
                 {entry && (
@@ -466,25 +476,31 @@ function MonthView({ date, goTo, byDate, allData, onLoadToHsv, permalinkFor, cel
                 )}
               </div>
             );
+            // The viewer opens inline, right under the week of the day that was clicked (as in the year view).
+            const weekEnds = (startWeekday + i) % 7 === 6 || day === daysInMonth;
+            if (!weekEnds || !expandedWeek(expanded, year, month, startWeekday, day)) return cell;
+            return [cell, ...(day === daysInMonth ? Array.from({ length: trailingBlanks }, (_, t) => (
+              <div key={`trail-${t}`} className="calendar-cell empty-cell" />
+            )) : []), (
+              <div key="detail" ref={detailRef} className="detail-scroll-target cal-inline-detail">
+                <DayDetail
+                  key={expanded}
+                  date={expanded}
+                  start={byDate.get(expanded)?.Image}
+                  allData={allData}
+                  onClose={() => setExpanded(null)}
+                  onLoadToHsv={onLoadToHsv}
+                  permalink={permalinkFor(expanded)}
+                />
+              </div>
+            )];
           })}
-          {Array.from({ length: trailingBlanks }, (_, i) => (
+          {!expandedWeek(expanded, year, month, startWeekday, daysInMonth) && Array.from({ length: trailingBlanks }, (_, i) => (
             <div key={`trail-${i}`} className="calendar-cell empty-cell" />
           ))}
         </div>
       </div>
 
-      <Reveal show={!!expanded}>
-        <div ref={detailRef} className="detail-scroll-target">
-          <DayDetail
-            key={expanded}
-            date={expanded}
-            allData={allData}
-            onClose={() => setExpanded(null)}
-            onLoadToHsv={onLoadToHsv}
-            permalink={permalinkFor(expanded)}
-          />
-        </div>
-      </Reveal>
     </div>
   );
 }
