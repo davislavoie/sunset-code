@@ -114,7 +114,28 @@ class CameraRequests(unittest.TestCase):
     def test_dismissed_requests_drop_out(self):
         self.db.query.return_value.get_points.return_value = [
             {"time": "a", "stream_url": "https://x", "dismissed": False}, {"time": "b", "stream_url": "https://y", "dismissed": True}]
-        self.assertEqual([r["id"] for r in self.client.get("/api/admin/camera-requests").json], ["a"])
+        with mock.patch.object(backend, "ADMIN_PASSWORD", "pw"):
+            r = self.client.get("/api/admin/camera-requests", headers={"Authorization": "Basic eDpwdw=="})  # x:pw
+        self.assertEqual([r["id"] for r in r.json], ["a"])
+
+
+class AdminPassword(unittest.TestCase):
+    def setUp(self):
+        self.client = backend.app.test_client()
+        mock.patch.object(backend, "client").start()
+        self.addCleanup(mock.patch.stopall)
+
+    def test_admin_needs_the_password(self):
+        import base64
+        basic = lambda pw: {"Authorization": "Basic " + base64.b64encode(f"x:{pw}".encode()).decode()}
+        with mock.patch.object(backend, "ADMIN_PASSWORD", "secret"):
+            self.assertEqual(self.client.get("/api/admin/camera-requests").status_code, 401)
+            self.assertEqual(self.client.get("/api/admin/camera-requests", headers=basic("nope")).status_code, 401)
+            self.assertEqual(self.client.get("/api/admin/camera-requests", headers=basic("secret")).status_code, 200)
+            self.assertEqual(self.client.get("/admin/config").status_code, 401)
+            self.assertEqual(self.client.get("/api/camera-locations").status_code, 200)  # public stays open
+        with mock.patch.object(backend, "ADMIN_PASSWORD", ""):
+            self.assertEqual(self.client.get("/api/admin/camera-requests", headers=basic("")).status_code, 503)
 
 
 if __name__ == "__main__":

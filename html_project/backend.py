@@ -8,11 +8,29 @@ import pytz
 import time
 import requests
 import glob
+import hmac
 import html
 import re
 import yaml
 
 app = Flask(__name__, static_folder=None)
+
+# Admin pages (/admin/...) and everything that writes (/api/admin/...) need the admin password (HTTP Basic,
+# any username). It comes from ADMIN_PASSWORD in .env on the NUC; unset = admin locked rather than open.
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
+
+
+@app.before_request
+def require_admin():
+    if not request.path.startswith(("/admin", "/api/admin")):
+        return None
+    if not ADMIN_PASSWORD:
+        return jsonify({"error": "Admin is locked: set ADMIN_PASSWORD"}), 503
+    auth = request.authorization
+    if auth and hmac.compare_digest((auth.password or "").encode(), ADMIN_PASSWORD.encode()):
+        return None
+    return Response("Admin password required", 401, {"WWW-Authenticate": 'Basic realm="Sunsets admin"'})
+
 
 # Config directory - check /app/config first (Docker mount), fallback to relative path
 def get_config_dir():
