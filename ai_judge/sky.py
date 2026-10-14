@@ -1,8 +1,8 @@
-"""The local vision model reads the sky on the 1h, 45m and 30m pre shots: is there a lit band between the cloud
+"""The local vision model reads the sky on the 1h, 45m, 30m and 15m pre shots: is there a lit band between the cloud
 base and the horizon that the setting sun can shine through, and clouds above it to catch the light?
 On 160 1h-pre photos its gap_thickness tracked the day's outcome at rho 0.61 (analysis/vision_gap.md), the
-strongest single sign found. 30 min before is the last shot with time to get down to the lake, so that's
-where this stops; at 15 and 5 min the photo's own colour already says it.
+strongest single sign found. 30 min before is the last shot with plenty of time to get down to the lake;
+15 min is a last check. At 5 min the photo's own colour already says it.
 
 Stored as sky_* fields on the shot; predict.py uses them once predict_coefs.json has a set with them
 (analysis/horizons.py, after the history is filled: python -m ai_judge sky --camera all).
@@ -23,7 +23,7 @@ from . import store, weather
 log = logging.getLogger(__name__)
 
 MODEL = os.environ.get("SKY_MODEL", "qwen3-vl:4b")
-LABELS = {"02_1h_pre": "1 hour", "03_45m_pre": "45 minutes", "04_30m_pre": "30 minutes"}
+LABELS = {"02_1h_pre": "1 hour", "03_45m_pre": "45 minutes", "04_30m_pre": "30 minutes", "05_15m_pre": "15 minutes"}
 WIDTH = 320
 
 # analysis/vision_gap.py's prompt, with the time before sunset filled in per shot.
@@ -85,7 +85,7 @@ def label_of(point):
 
 
 def fill(client, camera, ollama_url, recent=None, limit=None):
-    """Read the sky on sunset-camera 1h/45m/30m shots that don't have it yet, newest first."""
+    """Read the sky on sunset-camera 1h/45m/30m/15m shots that don't have it yet, newest first."""
     if weather.camera_config(camera).get("MODE", "sunset") != "sunset":
         return 0
     todo = sorted((p for p in store.captures(client, camera, recent=recent)

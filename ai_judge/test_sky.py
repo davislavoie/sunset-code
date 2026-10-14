@@ -17,8 +17,8 @@ class Sky(unittest.TestCase):
         self.assertEqual((x["sky_gap_thickness"], x["sky_quality"]), (100.0, 85.0))
 
     def test_only_the_shots_with_time_to_go(self):
-        self.assertEqual([sky.label_of({"label": l}) for l in ("01_2h_pre", "02_1h_pre", "04_30m_pre_06-22-2026.jpg", "05_15m_pre")],
-                         [None, "02_1h_pre", "04_30m_pre", None])
+        self.assertEqual([sky.label_of({"label": l}) for l in ("01_2h_pre", "02_1h_pre", "04_30m_pre_06-22-2026.jpg", "05_15m_pre", "06_5m_pre")],
+                         [None, "02_1h_pre", "04_30m_pre", "05_15m_pre", None])
         self.assertIn("30 minutes before sunset", sky.PROMPT.format(when=sky.LABELS["04_30m_pre"]))
 
 

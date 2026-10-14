@@ -9,7 +9,7 @@ after a change to sunset_process.py / hsv_score.json.
   python -m ai_judge predict  --camera all [--since ...] [--before ...] [--refill]   # sunset forecast on the pre shots
   python -m ai_judge views    --camera all   # fingerprint captures for "all shots like this"
   python -m ai_judge metar    --camera all   # observed airport weather (KBTV METAR) on captures
-  python -m ai_judge sky      --camera all   # vision model reads the band of light on the 1h/45m/30m shots
+  python -m ai_judge sky      --camera all   # vision model reads the band of light on the 1h/45m/30m/15m shots
   python -m ai_judge band     --camera all   # horizon light band (horizon_lift) on the pre shots, for the forecast
   python -m ai_judge reflect  --camera all   # "Glass lake" badge: mirror score on btv_echo_cam captures
   python -m ai_judge cleanup  --camera all [--delete]   # list (or remove) entries whose photo you deleted
@@ -316,7 +316,7 @@ def main():
     m.add_argument("--camera", required=True, help="camera tag, or 'all' (only btv_echo_cam is scored)")
     o = sub.add_parser("metar", help="add the observed airport weather (METAR, obs_*) to captures that lack it")
     o.add_argument("--camera", required=True, help="camera tag, or 'all'")
-    y = sub.add_parser("sky", help="vision model reads the band of light / cloud on the 1h, 45m, 30m shots (10-20 s each)")
+    y = sub.add_parser("sky", help="vision model reads the band of light / cloud on the 1h, 45m, 30m, 15m shots (about 40-70 s each on the NUC)")
     y.add_argument("--camera", required=True, help="camera tag, or 'all'")
     y.add_argument("--limit", type=int, help="at most this many shots per camera (newest first)")
     b = sub.add_parser("band", help="add the horizon light band (horizon_lift) to the pre shots that lack it")
