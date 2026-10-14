@@ -474,7 +474,7 @@ def camera_configs():
 @app.route("/api/camera-locations")
 def camera_locations():
     """Public subset of the camera configs for the map: no stream URLs."""
-    public_fields = ["CAMERA_TAG", "LAT", "LON", "ALTITUDE", "MODE"]
+    public_fields = ["CAMERA_TAG", "LAT", "LON", "ALTITUDE", "TIMEZONE", "MODE"]
     locations = []
     for env_file in get_config_dir().glob("*.env"):
         try:
@@ -483,6 +483,50 @@ def camera_locations():
             continue
         locations.append({k: config[k] for k in public_fields if k in config})
     return jsonify(locations)
+
+
+# Camera requests from the public Cameras page; the admin Config page lists them and can turn one into a camera.
+# One point per request (its time is when it was sent); dismissing writes dismissed=true on the same point.
+REQUEST_FIELDS = {"name": 80, "stream_url": 500, "lat": 20, "lon": 20, "mode": 10, "notes": 1000, "contact": 200}
+MAX_PENDING_REQUESTS = 50  # a public form: don't let it fill the database
+
+
+def pending_requests():
+    rows = client.query("SELECT * FROM camera_requests").get_points()
+    return [{"id": r["time"], **{k: r.get(k) or "" for k in REQUEST_FIELDS}} for r in rows if not r.get("dismissed")]
+
+
+@app.route("/api/camera-requests", methods=["POST"])
+def request_camera():
+    """Anyone can ask for a camera to be added; nothing changes until an admin adds it on the Config page."""
+    body = request.json or {}
+    fields = {k: str(body.get(k) or "").strip()[:limit] for k, limit in REQUEST_FIELDS.items()}
+    if not fields["stream_url"].startswith(("http://", "https://")):
+        return jsonify({"error": "A stream or webcam link (http/https) is required"}), 400
+    if fields["mode"] not in ("sunset", "sunrise"):
+        fields["mode"] = "sunset"
+    if len(pending_requests()) >= MAX_PENDING_REQUESTS:
+        return jsonify({"error": "Too many requests waiting for review; try again later"}), 429
+    client.write_points([{"measurement": "camera_requests", "time": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+                          "tags": {}, "fields": {**fields, "dismissed": False}}])
+    return jsonify({"ok": True})
+
+
+@app.route("/api/admin/camera-requests")
+def camera_requests():
+    return jsonify(pending_requests())
+
+
+@app.route("/api/admin/camera-requests/dismiss", methods=["POST"])
+def dismiss_camera_request():
+    rid = (request.json or {}).get("id")
+    match = [r for r in client.query("SELECT * FROM camera_requests").get_points() if r["time"] == rid]
+    if not match:
+        return jsonify({"error": "No such request"}), 404
+    r = match[0]
+    client.write_points([{"measurement": "camera_requests", "time": rid, "tags": {},
+                          "fields": {**{k: r.get(k) or "" for k in REQUEST_FIELDS}, "dismissed": True}}])
+    return jsonify({"ok": True})
 
 
 @app.route("/api/admin/camera-configs", methods=["POST"])

@@ -15,7 +15,6 @@ import RankingExplained from "./pages/RankingExplained.jsx";
 import { PageSkeleton } from "./Skeleton.jsx";
 
 // Chart pages (bklit/visx, Leaflet) only download when opened.
-const CameraMap = lazy(() => import("./pages/CameraMap.jsx"));
 const ScoreTracker = lazy(() => import("./pages/ScoreTracker.jsx"));
 
 const DEFAULT_CAMERA = "btv_echo_cam";
@@ -28,7 +27,7 @@ const PUBLIC_PAGES = [
   ["/score-tracker", "Score tracker"],
   ["/hsv-tuner", "HSV tuner"],
   ["/ranking-explained", "Ranking explained"],
-  ["/map", "Camera map"],
+  ["/cameras", "Cameras"],
   ["/compare", "Compare"],
 ];
 // Everything that writes lives under /admin so a reverse proxy can gate it.
@@ -217,19 +216,14 @@ export default function App() {
               ))}
             />
             <Route path="/ranking-explained" element={<RankingExplained />} />
-            <Route
-              path="/map"
-              element={
-                <Suspense fallback={<PageSkeleton />}>
-                  <CameraMap />
-                </Suspense>
-              }
-            />
+            {/* Cameras: the config list (read-only, with a request form) over the map; /admin/config is the same page with editing. */}
+            <Route path="/cameras" element={<Config />} />
+            <Route path="/map" element={<Navigate to="/cameras" replace />} />
             <Route
               path="/admin/my-ranking"
               element={withData((d) => <MyRanking data={d} camera={dataCamera} />, "rows")}
             />
-            <Route path="/admin/config" element={<Config />} />
+            <Route path="/admin/config" element={<Config admin />} />
             {/* Multipliers live in sunset_code/helpers/hsv_score.json now; the old admin editor is gone. */}
             <Route path="/admin/scoring" element={<Navigate to="/ranking-explained" replace />} />
             <Route path="*" element={<div className="empty">Page not found.</div>} />

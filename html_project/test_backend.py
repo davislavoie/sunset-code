@@ -91,5 +91,31 @@ class Thumbs(unittest.TestCase):
         self.assertEqual(self.get("http://nuc:8080/sunset_images/cam/missing.jpg").status_code, 404)
 
 
+class CameraRequests(unittest.TestCase):
+    def setUp(self):
+        self.client = backend.app.test_client()
+        self.db = mock.patch.object(backend, "client").start()
+        self.addCleanup(mock.patch.stopall)
+        self.db.query.return_value.get_points.return_value = []
+
+    def test_request_is_saved_with_only_known_fields(self):
+        r = self.client.post("/api/camera-requests", json={"stream_url": "https://youtu.be/x", "name": "Pier cam",
+                                                            "mode": "weird", "is_admin": True})
+        self.assertEqual(r.status_code, 200)
+        fields = self.db.write_points.call_args[0][0][0]["fields"]
+        self.assertEqual((fields["name"], fields["mode"], fields["dismissed"]), ("Pier cam", "sunset", False))
+        self.assertNotIn("is_admin", fields)
+
+    def test_needs_a_link_and_caps_pending(self):
+        self.assertEqual(self.client.post("/api/camera-requests", json={"stream_url": "javascript:x"}).status_code, 400)
+        self.db.query.return_value.get_points.return_value = [{"time": str(i)} for i in range(backend.MAX_PENDING_REQUESTS)]
+        self.assertEqual(self.client.post("/api/camera-requests", json={"stream_url": "https://x"}).status_code, 429)
+
+    def test_dismissed_requests_drop_out(self):
+        self.db.query.return_value.get_points.return_value = [
+            {"time": "a", "stream_url": "https://x", "dismissed": False}, {"time": "b", "stream_url": "https://y", "dismissed": True}]
+        self.assertEqual([r["id"] for r in self.client.get("/api/admin/camera-requests").json], ["a"])
+
+
 if __name__ == "__main__":
     unittest.main()

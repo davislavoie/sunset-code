@@ -1,9 +1,12 @@
-// Camera configuration (admin only): list/edit/delete config/*.env, add cameras, rebuild.
+// Cameras page. Public (/cameras): the cameras we watch, a form to request a new one, and the map.
+// Admin (/admin/config, the same page): edit/delete the config/*.env files, add a camera (or turn a
+// request into one), rebuild. Requests are stored by the backend (camera_requests in InfluxDB).
 
-import { useEffect, useState } from "react";
+import { Suspense, lazy, useEffect, useState } from "react";
 import Dropdown from "../Dropdown.jsx";
 import { Skeleton } from "../Skeleton.jsx";
 
+const CameraMap = lazy(() => import("./CameraMap.jsx")); // Leaflet: only loaded with this page
 const COMPOSE_CMD = "docker compose -f docker-compose.existing-infra.yml up -d --build";
 
 async function sendJson(url, method, body) {
@@ -17,18 +20,20 @@ async function sendJson(url, method, body) {
 
 const formToObject = (form) => Object.fromEntries(new FormData(form).entries());
 
-export default function Config() {
+export default function Config({ admin = false }) {
   const [configs, setConfigs] = useState(null);
   const [loadError, setLoadError] = useState(null);
   const [editing, setEditing] = useState(null);
+  const [prefill, setPrefill] = useState(null); // a request being turned into a camera
 
   function loadConfigs() {
-    fetch("/api/admin/camera-configs")
+    // The public list never includes stream URLs.
+    fetch(admin ? "/api/admin/camera-configs" : "/api/camera-locations")
       .then((res) => res.json())
       .then(setConfigs)
       .catch((err) => setLoadError(err.message));
   }
-  useEffect(loadConfigs, []);
+  useEffect(loadConfigs, [admin]);
 
   async function deleteConfig(tag) {
     if (!confirm(`Delete camera "${tag}"? This cannot be undone.`)) return;
@@ -42,34 +47,53 @@ export default function Config() {
 
   return (
     <>
-      <h1>Camera configuration</h1>
-      <p>View and manage camera configurations.</p>
+      <h1>{admin ? "Camera configuration" : "Cameras"}</h1>
+      <p>{admin ? "Manage the cameras, review requests, and rebuild." : "The webcams we watch every day, and where they point."}</p>
       <hr />
 
       <section>
         <h3>Current cameras</h3>
         <div className="configs-grid">
           {loadError ? (
-            <div className="empty">Failed to load configs: {loadError}</div>
+            <div className="empty">Failed to load cameras: {loadError}</div>
           ) : !configs ? (
             [0, 1].map((i) => <Skeleton key={i} className="skeleton-card" />)
           ) : !configs.length ? (
-            <div className="empty">No camera configurations found in config/ directory.</div>
+            <div className="empty">No cameras yet.</div>
           ) : (
             configs.map((config) => (
               <ConfigCard
-                key={config._filename}
+                key={config._filename || config.CAMERA_TAG}
                 config={config}
-                onEdit={() => setEditing(config)}
-                onDelete={() => deleteConfig(config.CAMERA_TAG)}
+                onEdit={admin ? () => setEditing(config) : null}
+                onDelete={admin ? () => deleteConfig(config.CAMERA_TAG) : null}
               />
             ))
           )}
         </div>
       </section>
 
-      <AddCameraForm onAdded={loadConfigs} />
-      <RebuildSection />
+      {admin ? (
+        <>
+          <CameraRequests onUse={setPrefill} />
+          <AddCameraForm
+            key={prefill?.id || "blank"}
+            prefill={prefill}
+            onAdded={() => {
+              setPrefill(null);
+              loadConfigs();
+            }}
+          />
+          <RebuildSection />
+        </>
+      ) : (
+        <RequestCameraForm />
+      )}
+
+      <hr />
+      <Suspense fallback={<Skeleton style={{ height: 400 }} />}>
+        <CameraMap />
+      </Suspense>
 
       {editing && (
         <EditModal
@@ -100,7 +124,7 @@ function ConfigCard({ config, onEdit, onDelete }) {
 
   const mode = config.MODE || "sunset";
   const details = [
-    ["Location", `${config.LAT || "N/A"}, ${config.LON || "N/A"}`],
+    ["Location", config.LAT && config.LON ? `${(+config.LAT).toFixed(4)}, ${(+config.LON).toFixed(4)}` : "N/A"],
     ["Altitude", `${config.ALTITUDE || "N/A"}m`],
     ["Timezone", config.TIMEZONE || "N/A"],
     ["Mode", mode.charAt(0).toUpperCase() + mode.slice(1)],
@@ -110,15 +134,17 @@ function ConfigCard({ config, onEdit, onDelete }) {
     <div className="config-card">
       <div className="config-header">
         <span className="config-name">{config.CAMERA_TAG || "Unknown"}</span>
-        <span className="config-file">{config._filename}</span>
+        {config._filename && <span className="config-file">{config._filename}</span>}
       </div>
       <div className="config-details">
-        <div className="config-detail">
-          <span className="config-label">Stream URL</span>
-          <a href={config.YOUTUBE_URL || ""} target="_blank" rel="noreferrer" className="config-value config-url">
-            {config.YOUTUBE_URL || "N/A"}
-          </a>
-        </div>
+        {config.YOUTUBE_URL && (
+          <div className="config-detail">
+            <span className="config-label">Stream URL</span>
+            <a href={config.YOUTUBE_URL} target="_blank" rel="noreferrer" className="config-value config-url">
+              {config.YOUTUBE_URL}
+            </a>
+          </div>
+        )}
         {details.map(([label, value]) => (
           <div key={label} className="config-detail">
             <span className="config-label">{label}</span>
@@ -126,19 +152,152 @@ function ConfigCard({ config, onEdit, onDelete }) {
           </div>
         ))}
       </div>
-      <div className="config-actions">
-        <button className="btn btn-small btn-edit" onClick={onEdit}>
-          Edit
-        </button>
-        <button className="btn btn-small btn-delete" onClick={onDelete}>
-          Delete
-        </button>
-      </div>
+      {onEdit && (
+        <div className="config-actions">
+          <button className="btn btn-small btn-edit" onClick={onEdit}>
+            Edit
+          </button>
+          <button className="btn btn-small btn-delete" onClick={onDelete}>
+            Delete
+          </button>
+        </div>
+      )}
     </div>
   );
 }
 
-/** Shared fields for the add and edit forms. `config` pre-fills them when editing. */
+/** Public: ask for a camera to be added. Nothing changes until an admin adds it. */
+function RequestCameraForm() {
+  const [status, setStatus] = useState(null);
+
+  async function onSubmit(e) {
+    e.preventDefault();
+    const form = e.currentTarget;
+    setStatus({ text: "Sending..." });
+    try {
+      const { ok, result } = await sendJson("/api/camera-requests", "POST", formToObject(form));
+      if (!ok) return setStatus({ text: result.error || "Couldn't send the request", className: "status-error" });
+      setStatus({ text: "Thanks! We'll take a look.", className: "status-success" });
+      form.reset();
+    } catch (err) {
+      setStatus({ text: "Error: " + err.message, className: "status-error" });
+    }
+  }
+
+  return (
+    <section>
+      <h3>Request a new camera</h3>
+      <form className="add-camera-form" onSubmit={onSubmit}>
+        <div className="form-row">
+          <label>
+            <span>Camera name</span>
+            <input type="text" name="name" maxLength={80} placeholder="Burlington waterfront" />
+          </label>
+          <label>
+            <span>Stream or webcam link</span>
+            <input type="url" name="stream_url" maxLength={500} placeholder="https://www.youtube.com/watch?v=..." required />
+          </label>
+        </div>
+        <div className="form-row">
+          <label>
+            <span>Latitude (if you know it)</span>
+            <input type="number" name="lat" step="any" placeholder="44.4766" />
+          </label>
+          <label>
+            <span>Longitude (if you know it)</span>
+            <input type="number" name="lon" step="any" placeholder="-73.2212" />
+          </label>
+        </div>
+        <div className="form-row">
+          <label>
+            <span>Points at the</span>
+            <ModeDropdown name="mode" initial="sunset" />
+          </label>
+          <label>
+            <span>Your email (optional)</span>
+            <input type="email" name="contact" maxLength={200} />
+          </label>
+        </div>
+        <div className="form-row">
+          <label>
+            <span>Anything else</span>
+            <textarea name="notes" rows={3} maxLength={1000} />
+          </label>
+        </div>
+        <div className="form-actions">
+          <button type="submit" className="btn btn-primary">
+            Send request
+          </button>
+          <span className={status?.className}>{status?.text}</span>
+        </div>
+      </form>
+    </section>
+  );
+}
+
+/** Admin: requests waiting for review. Use fills in the Add form below; Dismiss hides the request. */
+function CameraRequests({ onUse }) {
+  const [requests, setRequests] = useState(null);
+  const load = () =>
+    fetch("/api/admin/camera-requests")
+      .then((r) => r.json())
+      .then(setRequests)
+      .catch(() => setRequests([]));
+  useEffect(() => {
+    load();
+  }, []);
+
+  async function dismiss(id) {
+    const { ok, result } = await sendJson("/api/admin/camera-requests/dismiss", "POST", { id });
+    ok ? load() : alert(result.error || "Couldn't dismiss");
+  }
+
+  if (!requests?.length) return null;
+  return (
+    <section>
+      <h3>Camera requests ({requests.length})</h3>
+      <div className="configs-grid">
+        {requests.map((r) => (
+          <div key={r.id} className="config-card">
+            <div className="config-header">
+              <span className="config-name">{r.name || "Unnamed"}</span>
+              <span className="config-file">{new Date(r.id).toLocaleDateString()}</span>
+            </div>
+            <div className="config-details">
+              <div className="config-detail">
+                <span className="config-label">Link</span>
+                <a href={r.stream_url} target="_blank" rel="noreferrer noopener" className="config-value config-url">
+                  {r.stream_url}
+                </a>
+              </div>
+              {[
+                ["Location", r.lat && r.lon ? `${r.lat}, ${r.lon}` : "—"],
+                ["Mode", r.mode],
+                ["From", r.contact || "—"],
+                ["Notes", r.notes || "—"],
+              ].map(([label, value]) => (
+                <div key={label} className="config-detail">
+                  <span className="config-label">{label}</span>
+                  <span className="config-value">{value}</span>
+                </div>
+              ))}
+            </div>
+            <div className="config-actions">
+              <button className="btn btn-small btn-edit" onClick={() => onUse(r)}>
+                Use
+              </button>
+              <button className="btn btn-small btn-delete" onClick={() => dismiss(r.id)}>
+                Dismiss
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/** Shared fields for the add and edit forms. `config` pre-fills them when editing (or from a request). */
 function CameraFields({ config = {}, includeTag = false }) {
   return (
     <>
@@ -146,7 +305,14 @@ function CameraFields({ config = {}, includeTag = false }) {
         {includeTag && (
           <label>
             <span>Camera Tag</span>
-            <input type="text" name="CAMERA_TAG" placeholder="my_new_cam" required pattern="^[a-zA-Z0-9_-]+$" />
+            <input
+              type="text"
+              name="CAMERA_TAG"
+              defaultValue={config.CAMERA_TAG}
+              placeholder="my_new_cam"
+              required
+              pattern="^[a-zA-Z0-9_-]+$"
+            />
           </label>
         )}
         <label>
@@ -190,7 +356,17 @@ function CameraFields({ config = {}, includeTag = false }) {
   );
 }
 
-function AddCameraForm({ onAdded }) {
+/** A request's answers as Add form defaults (the camera tag made from its name). */
+const fromRequest = (r) =>
+  r && {
+    CAMERA_TAG: (r.name || "").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, ""),
+    YOUTUBE_URL: r.stream_url,
+    LAT: r.lat,
+    LON: r.lon,
+    MODE: r.mode,
+  };
+
+function AddCameraForm({ onAdded, prefill }) {
   const [status, setStatus] = useState(null);
 
   async function onSubmit(e) {
@@ -222,9 +398,9 @@ function AddCameraForm({ onAdded }) {
 
   return (
     <section>
-      <h3>Add a camera</h3>
+      <h3>Add a camera{prefill ? ` (from ${prefill.name || "a request"})` : ""}</h3>
       <form className="add-camera-form" onSubmit={onSubmit}>
-        <CameraFields includeTag />
+        <CameraFields includeTag config={fromRequest(prefill) || undefined} />
         <div className="form-actions">
           <button type="submit" className="btn btn-primary">
             Add Camera
@@ -314,12 +490,12 @@ function EditModal({ config, onClose, onSaved }) {
   );
 }
 
-// Controlled so the form's hidden MODE input (from Base UI) always has a value.
-function ModeDropdown({ initial }) {
+// Controlled so the form's hidden input (from Base UI) always has a value.
+function ModeDropdown({ initial, name = "MODE" }) {
   const [mode, setMode] = useState(initial);
   return (
     <Dropdown
-      name="MODE"
+      name={name}
       label="Mode"
       value={mode}
       onChange={setMode}

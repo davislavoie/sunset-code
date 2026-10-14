@@ -1257,7 +1257,8 @@ a.btn { text-decoration: none; color: var(--text); }
   color: var(--text-muted);
 }
 
-.add-camera-form input {
+.add-camera-form input,
+.add-camera-form textarea {
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -1266,7 +1267,8 @@ a.btn { text-decoration: none; color: var(--text); }
   font-size: 0.95em;
 }
 
-.add-camera-form input:focus {
+.add-camera-form input:focus,
+.add-camera-form textarea:focus {
   outline: none;
   border-color: var(--ink);
 }
@@ -2154,10 +2156,12 @@ a.nav-btn { text-decoration: none; }
 /* width/height attributes reserve the aspect ratio; CSS still decides the size */
 :where(img[width][height]) { height: auto; }
 
-.img-fade { background: var(--border); }
-.img-fade:not(.is-loaded) { animation: img-pulse 1.4s ease-in-out infinite; }
-.img-fade.is-loaded { animation: fadeIn 300ms var(--ease-out); }
-@keyframes img-pulse { 50% { opacity: 0.5; } }
+/* One soft fade from transparent (the tile's own background shows meanwhile); no pulsing, which
+   flickered dark across a grid of loading tiles. Photos already in the cache skip the fade. */
+.img-fade { opacity: 0; transition: opacity 450ms var(--ease-out); }
+.img-fade.is-loaded { opacity: 1; }
+.img-fade.was-cached { transition: none; }
+@media (prefers-reduced-motion: reduce) { .img-fade { transition: none; } }
 
 /* Shimmer between two subtle greys at full opacity */
 .skeleton {
@@ -2679,3 +2683,5 @@ main#content.is-stale { opacity: 0.5; pointer-events: none; }
 @media (max-width: 560px) {
   .overlay-split-body { grid-template-columns: minmax(0, 1fr); }
 }
+
+.add-camera-form textarea { font: inherit; resize: vertical; }
