@@ -2353,6 +2353,7 @@ main#content.is-stale { opacity: 0.5; pointer-events: none; }
 .cp-value { font-size: 13px; font-weight: 600; fill: var(--text); }
 .cp-value.on-fill { fill: var(--ink-contrast); }
 .cp-axis { font-size: 12px; fill: var(--text-muted); }
+.cp-tops { font-size: 19px; font-weight: 600; fill: var(--text-secondary); font-variant-numeric: tabular-nums; }
 .cp-value.cp-big { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .cp-source { font-weight: 400; color: var(--text-muted); text-transform: none; letter-spacing: 0; }
 .cp-horizon { stroke: var(--border); stroke-width: 1; }
@@ -2538,6 +2539,8 @@ main#content.is-stale { opacity: 0.5; pointer-events: none; }
 .cloud-profile-fill > div { position: absolute; inset: 0; }
 .cloud-profile-fill .cloud-profile { width: 100%; height: 100%; max-width: none; }
 .ranking-row .cp-sun { display: none; }
+/* The chart is scaled down to fit the row: zone names under the bars need a bigger size to stay legible. */
+.ranking-row .cloud-profile text.cp-axis[text-anchor="middle"] { font-size: 15px; }
 .ranking-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
 @media (min-width: 901px) {
   .ranking-row .hsv-hist-plot { height: auto; aspect-ratio: 16 / 9; min-height: 0; overflow: hidden; }
@@ -2635,6 +2638,7 @@ main#content.is-stale { opacity: 0.5; pointer-events: none; }
 
 /* Ranked tab: one photo, plain until a color is checked in the picker beside it. */
 .overlay-split-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(128px, 30%); gap: 16px; margin-top: 8px; align-items: stretch; }
+.overlay-help { margin: 2px 0 0; padding: 6px 10px; border-radius: 8px; background: var(--tile); font-size: 12px; line-height: 1.4; color: var(--text-secondary); }
 .overlay-picker { min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 6px; }
 .overlay-pick {
   display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 5px 8px;

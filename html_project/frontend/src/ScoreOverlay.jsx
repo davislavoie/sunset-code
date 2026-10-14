@@ -109,7 +109,10 @@ export default function ScoreOverlay({ imageUrl, camera, interactive = false }) 
   if (interactive) {
     return (
       <div className="rank-media overlay-split" ref={ref}>
-        <div className="hsv-hist-title">Photo<span className="cp-source"> · hover a color to see it, click to pin</span></div>
+        <div className="hsv-hist-title">Photo</div>
+        <p className="overlay-help">
+          Share of the sky in each color the score counts. Hover a color to see it on the photo, click to pin it.
+        </p>
         <div className="overlay-split-body">
           {photo}
           <div className="overlay-picker" role="group" aria-label="Colors the score counts: hover to preview on the photo, click to pin">

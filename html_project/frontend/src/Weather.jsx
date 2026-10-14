@@ -93,8 +93,9 @@ const ZONES = [
   { key: "goes_far", top: "goes_top_far", label: "50–190 mi" },
 ];
 const KM_TO_KFT = 3.28084;
-/** "Tops 31k ft" from a cloud-top height in km. */
-const tops = (km) => `Tops ${Math.round(km * KM_TO_KFT)}k ft`;
+/** "31k ft" from a cloud-top height in km; "Tops 31k ft" where there's no "Tops" axis label beside it. */
+const topsFt = (km) => `${Math.round(km * KM_TO_KFT)}k ft`;
+const tops = (km) => `Tops ${topsFt(km)}`;
 const ZONE_COL = (SUN_X - 16 - LEFT - GAP * (ZONES.length - 1)) / ZONES.length;
 
 function SatelliteSvg({ w, ground }) {
@@ -126,8 +127,8 @@ function SatelliteSvg({ w, ground }) {
               {pct(v)}
             </text>
             {w[z.top] != null && v > 0 && (
-              <text className="cp-axis" x={x(i) + ZONE_COL / 2} y={top + cellH / 2 + 22} textAnchor="middle">
-                {tops(w[z.top])}
+              <text className="cp-tops" x={x(i) + ZONE_COL / 2} y={top + cellH / 2 + 32} textAnchor="middle">
+                {topsFt(w[z.top])}
               </text>
             )}
             <text x={x(i) + ZONE_COL / 2} y={ground + 18} textAnchor="middle" className="cp-axis">{z.label}</text>
@@ -135,6 +136,9 @@ function SatelliteSvg({ w, ground }) {
         );
       })}
       <text x={LEFT - 8} y={top + cellH / 2 + 4} textAnchor="end" className="cp-axis">Cloud</text>
+      {ZONES.some((z) => w[z.top] != null && w[z.key] > 0) && (
+        <text x={LEFT - 8} y={top + cellH / 2 + 30} textAnchor="end" className="cp-axis">Tops</text>
+      )}
       <text x={SUN_X} y={ground + 18} textAnchor="middle" className="cp-axis cp-sun">Sun</text>
     </svg>
   );
