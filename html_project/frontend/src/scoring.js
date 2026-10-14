@@ -6,11 +6,11 @@ export const COLORS = ["red", "orange", "yellow", "pink"];
 
 const OVERLAY_RGB = {
   red: [255, 0, 0],
-  orange: [140, 45, 0], // darker than the sky it marks, or it vanishes into an orange sunset
+  orange: [255, 140, 0],
   yellow: [255, 255, 0],
   pink: [255, 0, 255],
 };
-const OVERLAY_OPACITY = { red: 0.5, orange: 0.85, yellow: 0.5, pink: 0.5 };
+const OVERLAY_OPACITY = { red: 0.5, orange: 0.65, yellow: 0.5, pink: 0.5 };
 
 function rgbToHsv(r, g, b) {
   r /= 255; g /= 255; b /= 255;
