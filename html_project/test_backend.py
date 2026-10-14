@@ -134,6 +134,8 @@ class AdminPassword(unittest.TestCase):
             self.assertEqual(self.client.get("/api/admin/camera-requests", headers=basic("secret")).status_code, 200)
             self.assertEqual(self.client.get("/admin/config").status_code, 401)
             self.assertEqual(self.client.get("/api/camera-locations").status_code, 200)  # public stays open
+            self.assertEqual(self.client.get("/api/admin/status").json, {"admin": False})  # no login box
+            self.assertEqual(self.client.get("/api/admin/status", headers=basic("secret")).json, {"admin": True})
         with mock.patch.object(backend, "ADMIN_PASSWORD", ""):
             self.assertEqual(self.client.get("/api/admin/camera-requests", headers=basic("")).status_code, 503)
 

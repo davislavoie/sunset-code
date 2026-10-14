@@ -1,7 +1,7 @@
 from flask import Flask, jsonify, request, send_file, send_from_directory, Response
 from influxdb import InfluxDBClient
 from datetime import datetime
-from urllib.parse import unquote, urlsplit
+from urllib.parse import quote, unquote, urlsplit
 from pathlib import Path
 import os
 import pytz
@@ -22,7 +22,7 @@ ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
 
 @app.before_request
 def require_admin():
-    if not request.path.startswith(("/admin", "/api/admin")):
+    if not request.path.startswith(("/admin", "/api/admin")) or request.path == "/api/admin/status":
         return None
     if not ADMIN_PASSWORD:
         return jsonify({"error": "Admin is locked: set ADMIN_PASSWORD"}), 503
@@ -252,6 +252,21 @@ def fetch_camera_data_cached(camera_tag):
     return data
 
 
+@app.route("/api/admin/status")
+def admin_status():
+    """Whether this browser is logged in as admin, without asking: lets public pages hide admin-only buttons.
+    (Under /api/admin/ so the browser sends the saved password once it has logged in anywhere there.)"""
+    auth = request.authorization
+    ok = bool(ADMIN_PASSWORD and auth and hmac.compare_digest((auth.password or "").encode(), ADMIN_PASSWORD.encode()))
+    return jsonify({"admin": ok})
+
+
+@app.route("/api/admin/ping")
+def admin_ping():
+    """Asks for the admin password (the gate answers 401 first); admin pages call it when they open."""
+    return jsonify({"admin": True})
+
+
 @app.route("/api/cameras")
 def cameras():
     camera_query = client.query("SHOW TAG VALUES FROM sunset_images WITH KEY = camera")
@@ -376,7 +391,8 @@ def sunset_preview_tags(camera, date):
     tags = {
         "og:title": title,
         "og:description": f"Scored {entry['Score']:.1f}/100 by color analysis of the sky.",
-        "og:image": entry["Raw Image"] or entry["Ranked Image"],
+        # Through the dashboard: the image server itself is only reachable on Tailscale.
+        "og:image": f"{request.host_url}api/image-proxy?url={quote(entry['Raw Image'] or entry['Ranked Image'], safe='')}",
         "og:type": "website",
     }
     meta = "".join(f'<meta property="{k}" content="{html.escape(str(v))}" />\n' for k, v in tags.items())

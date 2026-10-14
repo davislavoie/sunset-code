@@ -6,7 +6,6 @@ import { fetchCameraData, getJson } from "./api.js";
 import Dropdown from "./Dropdown.jsx";
 import Calendar from "./pages/Calendar.jsx";
 import Archive from "./pages/Archive.jsx";
-import Compare from "./pages/Compare.jsx";
 import Config from "./pages/Config.jsx";
 import HsvTuner, { INITIAL_TUNER, loadGalleryCanvas } from "./pages/HsvTuner.jsx";
 import MyRanking from "./pages/MyRanking.jsx";
@@ -25,14 +24,13 @@ const PUBLIC_PAGES = [
   ["/calendar", "Sunset calendar"],
   ["/ranking", "Ranked images"],
   ["/score-tracker", "Score tracker"],
-  ["/hsv-tuner", "HSV tuner"],
   ["/ranking-explained", "Ranking explained"],
   ["/cameras", "Cameras"],
-  ["/compare", "Compare"],
 ];
 // Everything that writes lives under /admin so a reverse proxy can gate it.
 const ADMIN_PAGES = [
   ["/admin/my-ranking", "My ranking"],
+  ["/admin/hsv-tuner", "HSV tuner"],
   ["/admin/config", "Config"],
   ["/admin/archive", "Archive"],
 ];
@@ -48,6 +46,11 @@ export default function App() {
   const [dataCamera, setDataCamera] = useState(null);
   const [error, setError] = useState(null);
   const [tuner, setTuner] = useState(INITIAL_TUNER);
+  // Logged in as admin (the browser has the admin password): shows admin-only buttons like Load to HSV Tuner.
+  const [isAdmin, setIsAdmin] = useState(false);
+  useEffect(() => {
+    getJson("/api/admin/status").then((s) => setIsAdmin(!!s.admin)).catch(() => {});
+  }, []);
   // Only the explicit buttons collapse it; starts collapsed on mobile.
   const [collapsed, setCollapsed] = useState(isMobile);
   const collapseOnMobile = () => isMobile() && setCollapsed(true);
@@ -109,7 +112,7 @@ export default function App() {
     // plain http (Tailscale IP), where it threw inside the state update and blanked the whole app.
     const id = `${Date.now()}-${Math.random()}`;
     setTuner((t) => ({ ...t, loaded: [...t.loaded, { id, url, canvas }] }));
-    if (go) navigate("/hsv-tuner");
+    if (go) navigate("/admin/hsv-tuner");
   }
 
   // Pages that need the selected camera's data show a page-shaped skeleton until it arrives.
@@ -179,16 +182,20 @@ export default function App() {
         {/* Re-keyed per section, so pages fade in on navigation but stepping
             between days or views inside the calendar swaps in place. */}
         <div key={section} className="page-enter">
+          {section === "admin" && !isAdmin ? (
+            <AdminGate onOk={() => setIsAdmin(true)} />
+          ) : (
           <Routes>
             <Route path="/" element={<Navigate to="/calendar" replace />} />
             {/* The latest sunset lives in the calendar's Day tab now. /sunset/<camera>/<date>
                 stays as the shareable permalink (Flask adds link previews), then opens it here. */}
             <Route path="/sunset" element={<Navigate to="/calendar?view=day" replace />} />
             <Route path="/sunset/:camera/:date" element={<SunsetPermalink />} />
-            <Route path="/compare" element={<Compare cameras={cameras} defaultCamera={camera} />} />
+            <Route path="/compare" element={<Navigate to="/calendar" replace />} />
+            <Route path="/hsv-tuner" element={<Navigate to="/admin/hsv-tuner" replace />} />
             <Route
               path="/calendar"
-              element={withData((d) => <Calendar data={d} camera={dataCamera} onLoadToHsv={loadToHsv} />, "calendar")}
+              element={withData((d) => <Calendar data={d} camera={dataCamera} onLoadToHsv={isAdmin ? loadToHsv : undefined} />, "calendar")}
             />
             <Route
               path="/admin/archive"
@@ -196,7 +203,7 @@ export default function App() {
             />
             <Route
               path="/ranking"
-              element={withData((d) => <Ranking data={d} camera={dataCamera} onLoadToHsv={loadToHsv} />, "rows")}
+              element={withData((d) => <Ranking data={d} camera={dataCamera} onLoadToHsv={isAdmin ? loadToHsv : undefined} />, "rows")}
             />
             <Route
               path="/score-tracker"
@@ -210,7 +217,7 @@ export default function App() {
               )}
             />
             <Route
-              path="/hsv-tuner"
+              path="/admin/hsv-tuner"
               element={withData((d) => (
                 <HsvTuner allData={d.all_data} tuner={tuner} setTuner={setTuner} onLoadToHsv={loadToHsv} />
               ))}
@@ -228,6 +235,7 @@ export default function App() {
             <Route path="/admin/scoring" element={<Navigate to="/ranking-explained" replace />} />
             <Route path="*" element={<div className="empty">Page not found.</div>} />
           </Routes>
+          )}
         </div>
       </main>
     </div>
@@ -264,5 +272,23 @@ function ThemeToggle() {
       {dark ? <Sun size={16} /> : <Moon size={16} />}
       {dark ? "Light mode" : "Dark mode"}
     </button>
+  );
+}
+
+// Admin pages: moving to one inside the app never reaches the server, so ask for the password here
+// (the 401 from /api/admin/ping makes the browser show its login box).
+function AdminGate({ onOk }) {
+  const [state, setState] = useState("asking");
+  const ask = () => {
+    setState("asking");
+    fetch("/api/admin/ping").then((r) => (r.ok ? onOk() : setState("denied"))).catch(() => setState("denied"));
+  };
+  useEffect(ask, []);
+  if (state === "asking") return <PageSkeleton />;
+  return (
+    <div className="empty">
+      <p>This page is for the admin.</p>
+      <button className="btn" onClick={ask}>Log in</button>
+    </div>
   );
 }

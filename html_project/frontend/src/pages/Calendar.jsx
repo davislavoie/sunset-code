@@ -302,7 +302,8 @@ function WeekView({ date, goTo, allData }) {
                           {...sizeForLabel(img.Label)}
                           alt={img.Label}
                           className="week-day-thumb"
-                          src={img.Image}
+                          src={small(img.Image)}
+                          full={img.Image}
                           loading="lazy"
                         />
                       </Tip>

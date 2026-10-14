@@ -4,6 +4,7 @@
 // keeps showing the current image until the new one is ready, so it swaps in place.
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { photo } from "./api.js";
 
 // Every camera shoots 1920x1080; the generated ranked/histogram plots are close to fixed sizes.
 export const SIZES = {
@@ -34,7 +35,7 @@ export default function Img({ className = "", onLoad, placeholder, src, ...props
     if (!placeholder || !src) return;
     const full = new Image();
     full.onload = () => setReady(src);
-    full.src = src;
+    full.src = photo(src);
     return () => { full.onload = null; };
   }, [src, placeholder]);
 
@@ -42,7 +43,7 @@ export default function Img({ className = "", onLoad, placeholder, src, ...props
     <img
       decoding="async"
       {...props}
-      src={placeholder && ready !== src ? placeholder : src}
+      src={placeholder && ready !== src ? placeholder : photo(src)}
       ref={ref}
       className={`img-fade${loaded ? " is-loaded" : ""}${cached ? " was-cached" : ""} ${className}`.trim()}
       onLoad={(e) => {

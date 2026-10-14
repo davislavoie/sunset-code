@@ -40,6 +40,9 @@ export const dayPath = (date) => `/calendar?view=day&date=${date}`;
 
 /** Gallery images go through the same-origin proxy so canvas code can read their pixels. */
 export const proxied = (url) => `/api/image-proxy?url=${encodeURIComponent(url)}`;
+/** A photo's full-size url as the browser should load it: through the dashboard (read off the NUC's disk),
+ * since the image server is only reachable on Tailscale. Relative urls (thumbnails, data: urls) pass through. */
+export const photo = (url) => (/^https?:\/\//.test(url || "") ? proxied(url) : url);
 /** A small copy of one of our photos (480 px wide for tiles and filmstrips, 960 for mid-size); the full photo is url itself. */
 export const thumb = (url, w = 480) => (url ? `/api/thumb?w=${w}&url=${encodeURIComponent(url)}` : url);
 

@@ -1,8 +1,7 @@
-// One shot of a day: large photo, score, weather, color breakdown, Share and Compare.
+// One shot of a day: large photo, score, weather, color breakdown, Share.
 // Shown at the top of the calendar's Day tab; arrows (or ←/→) step through the day's shots.
 
 import { useEffect, useState } from "react";
-import { Link } from "react-router";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { sunsetPath, thumb } from "./api.js";
 import { sizeForLabel } from "./Img.jsx";
@@ -60,9 +59,6 @@ export default function SunsetHero({ shots, index, onSelect, best, camera, date 
           <div className="sunset-actions">
             {/* Share the /sunset/... permalink: Flask adds link-preview tags there. */}
             <ShareButton path={sunsetPath(camera, date)} title={`${camera} sunset · ${date}`} />
-            <Link className="btn" to={`/compare?a=${camera}:${date}`}>
-              Compare…
-            </Link>
           </div>
         </div>
         <div className="score-row">
