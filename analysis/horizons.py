@@ -35,6 +35,11 @@ SETS = {"base": BASE,
         "icon+goes zones": BASE + ["icon_weather", "goes_over", "goes_near", "goes_far"],
         "icon+goes+band": BASE + ["icon_weather", "goes_fan", "horizon_lift"]}
 FEATS = BASE
+# The vision model's sky read (ai_judge/sky.py) exists only on the 1h/45m/30m/15m shots, so these sets are
+# compared and fitted on those horizons alone, on the shots that also have every input of the chosen set above.
+SKY = ["sky_gap_thickness", "sky_cloud_cover", "sky_lit", "sky_quality"]
+SKY_HORIZONS = HORIZONS[1:5]
+SKY_SETS = {"+gap": ["sky_gap_thickness"], "+sky": SKY}
 # For the 15m and 5m shots the window target includes shots already seen, so also check against
 # only the shots still to come.
 AFTER = {"05_15m_pre": data.WINDOW[1:], "06_5m_pre": data.WINDOW[2:]}
@@ -138,7 +143,22 @@ def main():
             compare.append({"features": name, "horizon": h, **metrics(g)})
     compare = pd.DataFrame(compare)
     best = compare.groupby("features", sort=False)["AUC top-25%"].mean().idxmax()
+    sky_sets = {best: SETS[best], **{best + k: SETS[best] + v for k, v in SKY_SETS.items()}}
+    sky_full = t[t.horizon.isin(SKY_HORIZONS)].dropna(subset=SETS[best] + SKY).reset_index(drop=True)
+    sky_compare = []
+    for name, feats in sky_sets.items():
+        for h in SKY_HORIZONS:
+            g = sky_full[sky_full.horizon == h].copy()
+            g["p"] = lomo(g, feats)
+            g["call"] = [predict.call(p) for p in g.p]
+            sky_compare.append({"features": name, "horizon": h, **metrics(g)})
+    sky_compare = pd.DataFrame(sky_compare)
+    sky_best = sky_compare.groupby("features", sort=False)["AUC top-25%"].mean().idxmax()
     models, rows, per_cam = [], [], []
+    if sky_best != best:  # first in line on the sky horizons only; predict.forecast skips it elsewhere
+        models.append({"name": sky_best, "features": sky_sets[sky_best],
+                       "coefs": {h: [round(float(c), 4) for c in fit(sky_full[sky_full.horizon == h], feats=sky_sets[sky_best])]
+                                 for h in SKY_HORIZONS}})
     for name in dict.fromkeys([best, "icon+goes", "base"]):  # fallbacks for shots missing an input
         feats, src = SETS[name], (full if name != "base" else t)
         coefs = {}
@@ -164,6 +184,11 @@ def main():
             + "\n\n## Before (base) vs after (" + best + "), same shots\n\n"
             + compare[compare.features.isin(["base", best])].round(3).to_markdown(index=False)
             + f"\n\n## Chosen set ({best}): all metrics\n\n" + pd.DataFrame(rows).round(3).to_markdown(index=False)
+            + f"\n\n## Vision sky read on top of {best} (1h-15m shots that have it, "
+            f"{sky_full.groupby('horizon').size().min()}-{sky_full.groupby('horizon').size().max()} per horizon; "
+            + ", ".join(f"{c} {n}" for c, n in sky_full[sky_full.horizon == SKY_HORIZONS[0]].camera.value_counts().items())
+            + f"); {'using ' + sky_best if sky_best != best else 'not used: no gain'}\n\n"
+            + sky_compare.round(3).to_markdown(index=False)
             + "\n\n## Per camera\n\n" + pd.DataFrame(per_cam).round(3).to_markdown(index=False)
             + "\n\n## Coefficients (intercept, then the features in order)\n\n"
             + "\n".join(f"- {m['name']} {m['features']}: " + "; ".join(f"{h} {c}" for h, c in m["coefs"].items()) for m in models))

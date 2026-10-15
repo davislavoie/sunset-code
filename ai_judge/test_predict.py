@@ -33,8 +33,9 @@ class PieceTests(unittest.TestCase):
         clear = {"weather": 0.8, "icon_weather": 0.8, "cur_pct": .5, "max_pct": .5,
                  "goes_over": 0, "goes_near": 0, "goes_far": 0, "goes_fan": 0}
         grey = dict(clear, weather=-0.5, icon_weather=-0.5, goes_over=1, goes_near=1, goes_far=1, goes_fan=1)
-        for m in predict.MODELS:
-            self.assertEqual(set(m["coefs"]), set(predict.HORIZONS), m["name"])
+        for m in predict.MODELS:  # the vision sky read only exists on the 1h-15m shots
+            want = predict.HORIZONS[1:5] if any(f.startswith("sky_") for f in m["features"]) else predict.HORIZONS
+            self.assertEqual(set(m["coefs"]), set(want), m["name"])
         for h in predict.HORIZONS:
             for drop in ([], [k for k in clear if k.startswith(("goes", "icon"))]):  # best set, then the fallback
                 c, g = ({k: v for k, v in x.items() if k not in drop} for x in (clear, grey))
@@ -44,7 +45,10 @@ class PieceTests(unittest.TestCase):
         x = {"weather": 0.5, "cur_pct": .5, "max_pct": .5}
         self.assertEqual(predict.forecast("02_1h_pre", x)[1], "base")
         full = dict(x, icon_weather=0.5, goes_over=0.2, goes_near=0.2, goes_far=0.2, goes_fan=0.2, horizon_lift=0.05)
-        self.assertEqual(predict.forecast("02_1h_pre", full)[1], predict.MODELS[0]["name"])
+        sky = dict(full, sky_gap_thickness=20.0, sky_cloud_cover=50.0, sky_lit=1.0, sky_quality=70.0)
+        self.assertEqual(predict.forecast("02_1h_pre", sky)[1], predict.MODELS[0]["name"])
+        self.assertEqual(predict.forecast("01_2h_pre", sky)[1], "icon+goes+band")  # no sky coefficients at 2h
+        self.assertEqual(predict.forecast("02_1h_pre", full)[1], "icon+goes+band")  # sky not read yet: next set
         self.assertEqual(predict.forecast("02_1h_pre", dict(full, horizon_lift=None))[1], "icon+goes")  # band missing: next set
         self.assertEqual(predict.forecast("02_1h_pre", {"cur_pct": .5, "max_pct": .5}), (None, None))
 

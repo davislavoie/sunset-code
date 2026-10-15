@@ -9,7 +9,7 @@ Inputs are only what's known at that shot (analysis/REPORT.md, analysis/horizons
                  path points (13 / 40 / 80 km toward the sun) with low cloud < 20% and mid cloud < 30%
   icon_weather = the same from the ICON model's path cloud (path{km}_icon_cloud_cover_*)
   goes_*       = observed cloudy share toward the sun from the GOES-East satellite (goes.py)
-  sky_*        = the vision model's read of the 1h/45m/30m photo: band under the cloud deck, cloud, lit undersides (sky.py)
+  sky_*        = the vision model's read of the 1h/45m/30m/15m photo: band under the cloud deck, cloud, lit undersides (sky.py)
   horizon_lift = how much brighter the sky just above the horizon is than higher up, in this shot (band.py)
   cur_pct      = this shot's HSV score as a percentile of the camera's past daily-best scores
   max_pct      = the best shot so far today, on the same scale
@@ -68,7 +68,7 @@ def features(point, cur_pct, max_pct):
 def forecast(horizon, x):
     """(predicted percentile 0..1, feature set used), or (None, None) if no set's inputs are all there."""
     for m in MODELS:
-        if all(x.get(f) is not None for f in m["features"]):
+        if horizon in m["coefs"] and all(x.get(f) is not None for f in m["features"]):
             c = m["coefs"][horizon]
             return min(1.0, max(0.0, c[0] + sum(w * x[f] for w, f in zip(c[1:], m["features"])))), m["name"]
     return None, None

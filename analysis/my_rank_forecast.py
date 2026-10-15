@@ -39,7 +39,7 @@ def aod_at_sunset(days):
 
 
 def live(g, h):
-    m = next(m for m in predict.MODELS if all(g[f].notna().all() for f in m["features"]))
+    m = next(m for m in predict.MODELS if h in m["coefs"] and all(g[f].notna().all() for f in m["features"]))
     c = np.array(m["coefs"][h])
     return np.clip(np.c_[np.ones(len(g)), g[m["features"]].values] @ c, 0, 1), m["name"]
 
