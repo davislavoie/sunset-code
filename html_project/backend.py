@@ -99,6 +99,7 @@ def fetch_camera_data(camera_tag):
             "Excluded": exclusion(point),
             "Weather": weather_fields(point),
             "Forecast": forecast_fields(point),
+            "Sky": sky_fields(point),
         }
 
         all_data.append(data_item)
@@ -226,6 +227,14 @@ def forecast_fields(point):
         return None
     return {"pct": point["predicted_pct"], "score": point.get("predicted_score"), "call": point.get("predicted_call"),
             "with": point.get("predicted_with")}
+
+
+def sky_fields(point):
+    """The vision model's read of a 1h-15m pre shot (ai_judge/sky.py), or None if not read."""
+    if point.get("sky_quality") is None:
+        return None
+    return {"quality": point["sky_quality"], "gap": point.get("sky_gap"), "lit": point.get("sky_lit"),
+            "reason": point.get("sky_reason")}
 
 
 def ai_fields(point):

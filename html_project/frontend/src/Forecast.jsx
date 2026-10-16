@@ -39,6 +39,7 @@ export function ForecastCard({ date, dayImages, allData, event = "sunset" }) {
             <th>Predicted best</th>
             <th>Call</th>
             <th>Accuracy</th>
+            <th>AI sky read</th>
           </tr>
         </thead>
         <tbody>
@@ -66,6 +67,16 @@ export function ForecastCard({ date, dayImages, allData, event = "sunset" }) {
                     </Tip>
                   ) : (
                     <span className="muted">Waiting for sunset</span>
+                  )}
+                </td>
+                <td className="forecast-sky">
+                  {img.Sky ? (
+                    <>
+                      <span>{`${Math.round(img.Sky.quality)}/100`}</span>
+                      {img.Sky.reason && <div className="muted">{img.Sky.reason}</div>}
+                    </>
+                  ) : (
+                    <span className="muted">-</span>
                   )}
                 </td>
               </tr>
