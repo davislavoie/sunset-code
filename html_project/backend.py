@@ -189,7 +189,8 @@ def glass_bonus(point):
 # HSV score maxed out at 100 (102-192 uncapped, like the best wide-view days). Shown score gets this offset.
 ZOOMED_DAYS = {
     "btv_echo_cam": dict.fromkeys(["2026-01-30", "2026-01-31", "2026-02-01", "2026-02-26"], -40),
-    "wcax_tower_sunset": {"2026-09-14": -40},
+    # 09-23, 09-24 and 10-06 are only slightly zoomed (~1.2-1.3x), so they get a smaller offset.
+    "wcax_tower_sunset": {"2026-09-14": -40, "2026-09-23": -15, "2026-09-24": -15, "2026-10-06": -15},
 }
 
 
