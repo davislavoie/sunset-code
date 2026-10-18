@@ -33,7 +33,7 @@ export default function Archive({ data, camera }) {
           </h4>
           <div className="day-view-grid">
             {imgs.map((img) => (
-              <CaptureCard key={img.Image} img={img} camera={camera} />
+              <CaptureCard key={img.Image} img={img} camera={camera} admin />
             ))}
           </div>
         </section>

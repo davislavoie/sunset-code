@@ -55,7 +55,7 @@ function normalizeLabel(label) {
   return label.slice(3); // Remove "01_", "07_", etc.
 }
 
-export default function Calendar({ data, camera, onLoadToHsv }) {
+export default function Calendar({ data, camera, onLoadToHsv, admin = false }) {
   // Shots that don't count (thumbs down, bad view, dark) still show, scored 0% with a pill saying why.
   const { ranked_images: rankedImages, all_data: allData, sunset_data: sunsetData } = data;
   const [params, setParams] = useSearchParams();
@@ -108,7 +108,7 @@ export default function Calendar({ data, camera, onLoadToHsv }) {
         </button>
       </div>
 
-      {view === "day" && <DayView key={date} {...viewProps} camera={camera} best={rankedByDate.get(date)} />}
+      {view === "day" && <DayView key={date} {...viewProps} camera={camera} admin={admin} best={rankedByDate.get(date)} />}
       {view === "week" && <WeekView {...viewProps} />}
       {view === "year" && <YearView {...viewProps} />}
       {view === "month" && (
@@ -144,7 +144,7 @@ function CalendarHeader({ title, onPrev, onNext, prevDisabled, nextDisabled, pre
 // Day view -- the "latest sunset" page: the day's best shot, score and color
 // breakdown, then every capture from that day. Arrows jump between captured days.
 // ---------------------------------------------------------------------------
-function DayView({ date, goTo, allData, camera, best }) {
+function DayView({ date, goTo, allData, camera, admin, best }) {
   const dayImages = allData.filter((img) => img.Date === date).sort(byLabelOrder);
   const capturedDays = useMemo(() => [...new Set(allData.map((img) => img.Date))].sort(), [allData]);
   const prev = capturedDays.filter((d) => d < date).at(-1);
@@ -190,6 +190,7 @@ function DayView({ date, goTo, allData, camera, best }) {
                 key={img.Image}
                 img={img}
                 camera={camera}
+                admin={admin}
                 event={event}
                 selected={i === shown}
                 onSelect={() => {
@@ -206,7 +207,7 @@ function DayView({ date, goTo, allData, camera, best }) {
   );
 }
 
-export function CaptureCard({ img, camera, event = "sunset", selected = false, onSelect }) {
+export function CaptureCard({ img, camera, admin = false, event = "sunset", selected = false, onSelect }) {
   const [thumb, setThumb] = useState(img.Thumb ?? 0);
   const generated = /^(11_|12_)/.test(img.Label);
   const excluded = generated ? null : exclusionFor(img, thumb);
@@ -226,7 +227,7 @@ export function CaptureCard({ img, camera, event = "sunset", selected = false, o
         <FlagPill reason={excluded} />
         <GlassPill glass={img.Glass} hsv={img["HSV Score"]} />
         <AiVerdict ai={img.AI} compact />
-        {!generated && <Thumbs camera={camera} img={img} onChange={(s) => setThumb(s.thumb)} />}
+        {admin && !generated && <Thumbs camera={camera} img={img} onChange={(s) => setThumb(s.thumb)} />}
       </div>
     </div>
   );
@@ -348,6 +349,11 @@ function YearView({ date, goTo, byDate, allData, onLoadToHsv, permalinkFor }) {
 
 function YearMonthRow({ year, month, name, byDate, allData, onLoadToHsv, permalinkFor }) {
   const [openDate, setOpenDate] = useState(null);
+  const detailRef = useRef(null);
+  // The viewer opens below the whole month, which on a phone is often off-screen: bring it into view.
+  useEffect(() => {
+    if (openDate) detailRef.current?.scrollIntoView({ block: "start" });
+  }, [openDate]);
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const days = [];
   for (let day = 1; day <= daysInMonth; day++) {
@@ -374,6 +380,7 @@ function YearMonthRow({ year, month, name, byDate, allData, onLoadToHsv, permali
           ))}
         </div>
       </div>
+      <div ref={detailRef} className="year-detail-anchor" />
       <Reveal show={!!openDate}>
         {openDate && (
           <DayDetail

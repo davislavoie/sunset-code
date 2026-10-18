@@ -3,8 +3,12 @@
 
 import { Tooltip } from "@base-ui/react/tooltip";
 
+// Touch screens have no hover, and an iPhone treats a tooltip appearing on touch as a hover
+// and swallows the tap, so tooltips are off there.
+const canHover = typeof window !== "undefined" && window.matchMedia?.("(hover: hover)").matches;
+
 export default function Tip({ label, side = "top", children }) {
-  if (!label) return children;
+  if (!label || !canHover) return children;
   return (
     <Tooltip.Root>
       <Tooltip.Trigger render={children} />

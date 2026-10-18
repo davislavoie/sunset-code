@@ -525,6 +525,8 @@ main#content {
   border: 2px solid transparent;
 }
 .year-mini-cell.selected { border-color: var(--ink); }
+/* Leave room for the floating menu button when the viewer scrolls into view. */
+.year-detail-anchor { scroll-margin-top: 64px; }
 /* Month view: the open day's viewer spans the grid, right under its week. */
 .cal-inline-detail { grid-column: 1 / -1; margin: 4px 0 8px; }
 .calendar-cell.selected { outline: 2px solid var(--sun); outline-offset: 2px; overflow: visible; }
@@ -2604,7 +2606,20 @@ main#content.is-stale { opacity: 0.5; pointer-events: none; }
 .forecast-summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; margin-top: 12px; font-size: 0.9em; font-variant-numeric: tabular-nums; }
 .forecast-metric { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .forecast-metric .ranking-score-value { font-size: 1.4em; }
-@media (max-width: 700px) { .forecast-table th:nth-child(2), .forecast-table td:nth-child(2) { display: none; } }
+/* Phones: each forecast row becomes a small card (the six columns don't fit), labels from data-label. */
+@media (max-width: 700px) {
+  .forecast-table, .forecast-table tbody { display: block; }
+  .forecast-table thead { display: none; }
+  .forecast-table tr { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; padding: 14px 16px; }
+  .forecast-table tr + tr { border-top: 1px solid var(--border); }
+  .forecast-table td { padding: 0; border: 0; font-size: 0.95em; }
+  .forecast-table td.forecast-shot { grid-column: 1 / -1; font-weight: 600; }
+  .forecast-table td.forecast-sky { grid-column: 1 / -1; max-width: none; }
+  .forecast-table td[data-label]::before {
+    content: attr(data-label); display: block; margin-bottom: 4px;
+    font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted);
+  }
+}
 
 /* My ranking */
 /* Arrows scroll the moved card back under the pointer themselves, so the browser mustn't also adjust. */

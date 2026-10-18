@@ -48,16 +48,16 @@ export function ForecastCard({ date, dayImages, allData, event = "sunset" }) {
             const acc = accuracy(f.pct, actual);
             return (
               <tr key={img.Image}>
-                <td>{captureName(img.Label, event)}</td>
-                <td>{`${img.Score.toFixed(1)}%`}</td>
-                <td>
+                <td className="forecast-shot">{captureName(img.Label, event)}</td>
+                <td data-label="Shot score">{`${img.Score.toFixed(1)}%`}</td>
+                <td data-label="Predicted best">
                   {f.score != null && `${f.score.toFixed(1)}% · `}
                   <span className="muted">{pctText(f.pct)}</span>
                 </td>
-                <td>
+                <td data-label="Call">
                   <Bubble tone={CALL_TONE[f.call] ?? ""}>{f.call}</Bubble>
                 </td>
-                <td>
+                <td data-label="Accuracy">
                   {acc ? (
                     <Tip label={`Predicted ${pctText(f.pct)}, actual ${pctText(actual)}`}>
                       <span className="forecast-acc">
@@ -69,7 +69,7 @@ export function ForecastCard({ date, dayImages, allData, event = "sunset" }) {
                     <span className="muted">Waiting for sunset</span>
                   )}
                 </td>
-                <td className="forecast-sky">
+                <td className="forecast-sky" data-label="AI sky read">
                   {img.Sky ? (
                     <>
                       <span>{`${Math.round(img.Sky.quality)}/100`}</span>

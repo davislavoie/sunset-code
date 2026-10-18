@@ -205,7 +205,7 @@ export default function App() {
             <Route path="/hsv-tuner" element={<Navigate to="/admin/hsv-tuner" replace />} />
             <Route
               path="/calendar"
-              element={withData((d) => <Calendar data={d} camera={dataCamera} onLoadToHsv={isAdmin ? loadToHsv : undefined} />, "calendar")}
+              element={withData((d) => <Calendar data={d} camera={dataCamera} admin={isAdmin} onLoadToHsv={isAdmin ? loadToHsv : undefined} />, "calendar")}
             />
             <Route
               path="/admin/archive"
