@@ -2707,10 +2707,9 @@ main#content.is-stale { opacity: 0.5; pointer-events: none; }
 
 .add-camera-form textarea { font: inherit; resize: vertical; }
 
-/* Ranked images on phones: photo first, then the score and date, then the charts. */
+/* Ranked images on phones: the score and date first, then the photo, then the charts. */
 @media (max-width: 768px) {
   .ranking-card { display: flex; flex-direction: column; gap: 16px; }
   .ranking-card .ranking-title { margin-bottom: 0; }
   .ranking-row { display: contents; }
-  .ranking-card .overlay-split { order: -1; }
 }
