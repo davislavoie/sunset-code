@@ -194,16 +194,16 @@ function Vote({ camera, date, totals, onVoted }) {
 
   return (
     <div className="ranking-vote" role="group" aria-label="Is this ranked right?">
-      <Tip label="Should rank higher">
-        <button type="button" className="vote-up" aria-pressed={mine === 1} aria-label="Should rank higher" onClick={() => cast(1)}>
+      <Tip label="Rank higher">
+        <button type="button" className="vote-up" aria-pressed={mine === 1} aria-label="Rank higher" onClick={() => cast(1)}>
           <ChevronUp size={18} strokeWidth={2.5} />
         </button>
       </Tip>
       <Tip label={`${up} up · ${down} down`}>
         <span className="vote-count">{up - down}</span>
       </Tip>
-      <Tip label="Should rank lower">
-        <button type="button" className="vote-down" aria-pressed={mine === -1} aria-label="Should rank lower" onClick={() => cast(-1)}>
+      <Tip label="Rank lower">
+        <button type="button" className="vote-down" aria-pressed={mine === -1} aria-label="Rank lower" onClick={() => cast(-1)}>
           <ChevronDown size={18} strokeWidth={2.5} />
         </button>
       </Tip>

@@ -94,6 +94,11 @@ export default function RankingExplained() {
           A day&apos;s best shot is its highest score (plus the glass-lake bonus), leaving out thumbed-down, dark and
           no-signal shots; a thumbs up wins outright.
         </p>
+        <p>
+          The up and down arrows beside each day on Ranked images give feedback that the image is ranked too low (up)
+          or too high (down). Anyone can vote without logging in. Votes don&apos;t change the score; they show where
+          the color score is off, to guide tuning it.
+        </p>
       </section>
 
       <hr />
