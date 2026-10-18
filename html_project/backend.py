@@ -500,6 +500,40 @@ def set_my_rank():
     return jsonify({"ok": True})
 
 
+# Anonymous up/down votes from the Ranking page ("should rank higher / lower"): feedback for tuning the HSV
+# score later, never read into scores. One point per vote change (+1/-1 on up and down), summed per camera-day,
+# so votes landing at the same moment never overwrite each other. The browser remembers its own vote.
+# ponytail: no per-IP limit, so a script could stuff votes; add one if the counts ever look gamed.
+def vote_totals(camera=None, date=None):
+    where = " AND ".join(f"{k} = ${k}" for k, v in (("camera", camera), ("date", date)) if v)
+    result = client.query(f"SELECT SUM(up) AS up, SUM(down) AS down FROM sunset_votes{' WHERE ' + where if where else ''}"
+                          " GROUP BY camera, date", bind_params={k: v for k, v in (("camera", camera), ("date", date)) if v})
+    return [{**tags, "up": round(p["up"] or 0), "down": round(p["down"] or 0)}
+            for (_, tags), points in result.items() for p in points]
+
+
+@app.route("/api/votes")
+def votes():
+    """Every camera-day's vote counts, or one camera's with ?camera=: [{camera, date, up, down}]."""
+    return jsonify(vote_totals(request.args.get("camera")))
+
+
+@app.route("/api/vote", methods=["POST"])
+def vote():
+    """Change this browser's vote on a ranked day from `from` to `to` (1 up, -1 down, 0 none); returns the day's totals."""
+    body = request.json or {}
+    camera, date, frm, to = (body.get(k) for k in ("camera", "date", "from", "to"))
+    if frm not in (-1, 0, 1) or to not in (-1, 0, 1) or frm == to or not isinstance(camera, str) or not isinstance(date, str):
+        return jsonify({"error": "camera, date, and from/to (-1, 0 or 1, different) required"}), 400
+    if not any(r["Date"] == date for r in fetch_camera_data_cached(camera)["ranked_images"]):
+        return jsonify({"error": "no such ranked day"}), 404  # keeps junk camera/date tags out of the database
+    client.write_points([{"measurement": "sunset_votes", "tags": {"camera": camera, "date": date},
+                          "time": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+                          "fields": {"up": float((to == 1) - (frm == 1)), "down": float((to == -1) - (frm == -1))}}])
+    totals = vote_totals(camera, date)
+    return jsonify(totals[0] if totals else {"camera": camera, "date": date, "up": 0, "down": 0})
+
+
 @app.route("/api/admin/camera-configs")
 def camera_configs():
     """Return all camera configurations from config/*.env files."""

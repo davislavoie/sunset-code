@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
-import { ArrowRight, ChevronDown } from "lucide-react";
-import { dayPath } from "../api.js";
+import { ArrowRight, ChevronDown, ChevronUp } from "lucide-react";
+import { dayPath, getJson } from "../api.js";
 import DayDetail, { captureName } from "../DayDetail.jsx";
 import { ForecastMetric } from "../Forecast.jsx";
 import HsvHistogram from "../HsvHistogram.jsx";
@@ -12,6 +12,7 @@ import ScoreOverlay from "../ScoreOverlay.jsx";
 import { CloudProfile, WeatherStats, cloudSource } from "../Weather.jsx";
 import { GlassPill } from "../Thumbs.jsx";
 import Select from "../Select.jsx";
+import Tip from "../Tip.jsx";
 
 const PAGE_SIZE = 20;
 // Sort options: the row's own fields, then the weather at the best shot (Open-Meteo, stored with each capture).
@@ -29,6 +30,19 @@ export default function Ranking({ data, camera, onLoadToHsv }) {
   // Rows are full-size images, so render a page at a time and add more on scroll.
   const [visible, setVisible] = useState(PAGE_SIZE);
   const sentinel = useRef(null);
+  // Anonymous up/down votes per day (/api/votes): feedback for tuning the score later, not part of it.
+  const [votes, setVotes] = useState({});
+
+  useEffect(() => {
+    let live = true;
+    getJson(`/api/votes?camera=${encodeURIComponent(camera)}`).then(
+      (list) => live && setVotes(Object.fromEntries(list.map((v) => [v.date, v]))),
+      () => {}, // no counts: the arrows still work and show the totals once voted
+    );
+    return () => {
+      live = false;
+    };
+  }, [camera]);
 
   useEffect(() => {
     const el = sentinel.current;
@@ -73,7 +87,8 @@ export default function Ranking({ data, camera, onLoadToHsv }) {
       <hr />
       {!rows.length && <div className="empty">No data available.</div>}
       {rows.slice(0, visible).map((row) => (
-        <RankingRow key={row["Ranked Image"]} row={row} camera={camera} event={event} allData={data.all_data} onLoadToHsv={onLoadToHsv} />
+        <RankingRow key={row["Ranked Image"]} row={row} camera={camera} votes={votes[row.Date]}
+          onVoted={(v) => setVotes((all) => ({ ...all, [v.date]: v }))} event={event} allData={data.all_data} onLoadToHsv={onLoadToHsv} />
       ))}
       <div ref={sentinel} />
       {visible < rows.length && (
@@ -85,7 +100,7 @@ export default function Ranking({ data, camera, onLoadToHsv }) {
   );
 }
 
-function RankingRow({ row, camera, event, allData, onLoadToHsv }) {
+function RankingRow({ row, camera, votes, onVoted, event, allData, onLoadToHsv }) {
   const [showDay, setShowDay] = useState(false);
   const rawUrl = row["Raw Image"];
 
@@ -93,6 +108,7 @@ function RankingRow({ row, camera, event, allData, onLoadToHsv }) {
     <>
       <div className="ranking-card">
         <div className="ranking-title">
+          <Vote camera={camera} date={row.Date} totals={votes} onVoted={onVoted} />
           <div className="ranking-score">
             <div className="metric-label">Score</div>
             <div className="ranking-score-value">{row.Score.toFixed(1)}%</div>
@@ -136,6 +152,62 @@ function RankingRow({ row, camera, event, allData, onLoadToHsv }) {
         <DayDetail date={row.Date} start={rawUrl} allData={allData} onClose={() => setShowDay(false)} onLoadToHsv={onLoadToHsv} />
       </Reveal>
     </>
+  );
+}
+
+/** Up / down arrows with the net count between them. The browser remembers its vote (localStorage), so
+ * tapping again undoes it and the other arrow switches it; nothing ties a vote to a person. */
+function Vote({ camera, date, totals, onVoted }) {
+  const key = `vote:${camera}:${date}`;
+  const [mine, setMine] = useState(() => {
+    try {
+      return Number(localStorage.getItem(key)) || 0;
+    } catch {
+      return 0;
+    }
+  });
+  const up = totals?.up ?? 0, down = totals?.down ?? 0;
+
+  async function cast(dir) {
+    const to = mine === dir ? 0 : dir;
+    const previous = { mine, totals };
+    const shift = (d) => (to === d) - (mine === d);
+    setMine(to);
+    onVoted({ camera, date, up: up + shift(1), down: down + shift(-1) });
+    try {
+      const res = await fetch("/api/vote", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ camera, date, from: mine, to }),
+      });
+      if (!res.ok) throw new Error(res.status);
+      onVoted(await res.json());
+      try {
+        if (to) localStorage.setItem(key, String(to));
+        else localStorage.removeItem(key);
+      } catch {} // private window: the vote still counts, it just won't be remembered
+    } catch {
+      setMine(previous.mine);
+      onVoted(previous.totals ?? { camera, date, up: 0, down: 0 });
+    }
+  }
+
+  return (
+    <div className="ranking-vote" role="group" aria-label="Is this ranked right?">
+      <Tip label="Should rank higher">
+        <button type="button" className="vote-up" aria-pressed={mine === 1} aria-label="Should rank higher" onClick={() => cast(1)}>
+          <ChevronUp size={18} strokeWidth={2.5} />
+        </button>
+      </Tip>
+      <Tip label={`${up} up · ${down} down`}>
+        <span className="vote-count">{up - down}</span>
+      </Tip>
+      <Tip label="Should rank lower">
+        <button type="button" className="vote-down" aria-pressed={mine === -1} aria-label="Should rank lower" onClick={() => cast(-1)}>
+          <ChevronDown size={18} strokeWidth={2.5} />
+        </button>
+      </Tip>
+    </div>
   );
 }
 

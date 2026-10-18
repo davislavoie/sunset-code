@@ -140,5 +140,24 @@ class AdminPassword(unittest.TestCase):
             self.assertEqual(self.client.get("/api/admin/camera-requests", headers=basic("")).status_code, 503)
 
 
+
+class Votes(unittest.TestCase):
+    def test_switching_a_vote_moves_one_count_and_unknown_days_are_refused(self):
+        fake = mock.Mock()
+        fake.query.return_value.items.return_value = [(("sunset_votes", {"camera": "cam", "date": "2025-05-16"}),
+                                                       iter([{"up": 0.0, "down": 1.0}]))]
+        app = backend.app.test_client()
+        with mock.patch.object(backend, "client", fake), mock.patch.object(
+                backend, "fetch_camera_data_cached", return_value={"ranked_images": [{"Date": "2025-05-16"}]}):
+            res = app.post("/api/vote", json={"camera": "cam", "date": "2025-05-16", "from": 1, "to": -1})
+            self.assertEqual(res.json, {"camera": "cam", "date": "2025-05-16", "up": 0, "down": 1})
+            [[point]] = fake.write_points.call_args.args
+            self.assertEqual(point["fields"], {"up": -1.0, "down": 1.0})
+            self.assertEqual(app.post("/api/vote", json={"camera": "cam", "date": "2025-01-01", "from": 0, "to": 1}).status_code, 404)
+            self.assertEqual(app.post("/api/vote", json={"camera": "cam", "date": "2025-05-16", "from": 1, "to": 1}).status_code, 400)
+            self.assertEqual(app.post("/api/vote", json={"camera": "cam", "date": "2025-05-16", "from": 0, "to": 5}).status_code, 400)
+            self.assertEqual(fake.write_points.call_count, 1)
+
+
 if __name__ == "__main__":
     unittest.main()

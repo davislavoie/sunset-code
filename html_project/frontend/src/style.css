@@ -2548,8 +2548,24 @@ main#content.is-stale { opacity: 0.5; pointer-events: none; }
   .ranking-row .hsv-hist-plot { height: auto; aspect-ratio: 16 / 9; min-height: 0; overflow: hidden; }
   .ranking-row .ranked-img-cell, .ranking-row .hsv-hist-plot { margin-top: auto; }
 }
+/* Up / down vote pill at the left of each ranked day (pages/Ranking.jsx) */
+.ranking-vote {
+  display: flex; flex-direction: column; align-items: center; width: 34px; padding: 2px 0;
+  background: var(--tile); border: 1px solid var(--border); border-radius: 17px;
+}
+.ranking-vote button {
+  display: flex; align-items: center; justify-content: center; width: 30px; height: 24px; padding: 0;
+  background: none; border: none; border-radius: 12px; color: var(--text-muted); cursor: pointer;
+  transition: transform 150ms var(--ease-out), background-color 150ms ease, color 150ms ease;
+}
+@media (hover: hover) and (pointer: fine) { .ranking-vote button:hover { background: var(--hover); color: var(--text); } }
+.ranking-vote button:active { transform: scale(0.92); }
+.ranking-vote .vote-up[aria-pressed="true"] { color: var(--success); }
+.ranking-vote .vote-down[aria-pressed="true"] { color: var(--destructive); }
+.vote-count { font-size: 0.85em; font-weight: 600; line-height: 1.2; color: var(--text); font-variant-numeric: tabular-nums; }
 @media (max-width: 768px) {
-  .ranking-score { border-right: none; padding-right: 0; flex-basis: 100%; }
+  /* the score keeps its own line, beside the vote pill */
+  .ranking-score { border-right: none; padding-right: 0; flex-basis: calc(100% - 56px); }
   .rank-media .hsv-hist-legend:empty { display: none; }
 }
 .ranking-actions .btn { text-decoration: none; color: var(--text); display: inline-flex; align-items: center; gap: 6px; }
