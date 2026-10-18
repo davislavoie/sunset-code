@@ -113,7 +113,7 @@ export default function ScoreOverlay({ imageUrl, camera, interactive = false }) 
         <div className="overlay-split-body">
           {photo}
           <div className="overlay-picker" role="group" aria-label="Colors the score counts: hover to preview on the photo, click to pin">
-            <p className="overlay-help">Hover to overlay color</p>
+            <p className="overlay-help">{matchMedia("(hover: hover)").matches ? "Hover" : "Tap"} to overlay color</p>
             {COLORS.map((c) => (
               <button key={c} type="button" className={`overlay-pick${shown.has(c) ? " pinned" : ""}`}
                 style={{ "--swatch": COLOR_META[c].swatch }} aria-pressed={shown.has(c)} disabled={!sky}

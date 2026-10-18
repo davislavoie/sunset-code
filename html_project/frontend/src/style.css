@@ -346,15 +346,6 @@ main#content {
   overflow: hidden;
 }
 
-.cal-size-control {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-bottom: 12px;
-}
-.cal-size-control label { color: var(--text-muted); font-size: 0.85em; white-space: nowrap; }
-.cal-size-control input[type="range"] { width: 160px; }
 .calendar-cell.empty-cell { background: transparent; box-shadow: none; }
 .calendar-cell.has-image { cursor: pointer; transition: box-shadow 150ms var(--ease-out), transform 150ms var(--ease-out); touch-action: manipulation; }
 @media (hover: hover) and (pointer: fine) {
@@ -526,7 +517,6 @@ main#content {
   gap: 6px;
   flex: 1;
 }
-.year-month-row-empty { color: var(--text-muted); font-size: 0.85em; }
 
 .year-mini-cell {
   border-radius: 6px;
@@ -947,17 +937,10 @@ a.btn { text-decoration: none; color: var(--text); }
     min-width: 44px;
   }
 
-  /* View tabs wrap on mobile */
-  .view-tabs {
-    flex-wrap: wrap;
-    gap: 10px;
-  }
-
-  .view-tab-group {
-    flex-wrap: wrap;
-    width: 100%;
-    justify-content: center;
-  }
+  /* View tabs and Today share one row on phones */
+  .view-tabs { gap: 6px; }
+  .view-tab-group { gap: 6px; }
+  .view-tabs .btn { padding-inline: 10px; }
 
   /* Calendar header stacks */
   .calendar-header {
@@ -2342,6 +2325,10 @@ main#content.is-stale { opacity: 0.5; pointer-events: none; }
 .sidebar h3:not(:first-of-type) { margin-top: 20px; }
 .brand-tile { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 6px; background: var(--ink); color: var(--ink-contrast); }
 .theme-toggle { display: flex; align-items: center; gap: 10px; margin-top: 20px; border-top: 1px solid var(--border); border-radius: 0; padding-top: 14px; }
+/* Light mode and Admin log in sit at the bottom left of the sidebar. */
+.sidebar-inner { display: flex; flex-direction: column; }
+.sidebar-inner > .theme-toggle { margin-top: auto; }
+.login-btn { display: flex; align-items: center; gap: 10px; color: var(--text-muted); }
 
 /* ---- Local AI judge verdicts (SunsetHero.jsx AiVerdict) ---- */
 .ai-verdict { font-size: 0.85em; color: var(--text-secondary); }
@@ -2692,3 +2679,11 @@ main#content.is-stale { opacity: 0.5; pointer-events: none; }
 }
 
 .add-camera-form textarea { font: inherit; resize: vertical; }
+
+/* Ranked images on phones: photo first, then the score and date, then the charts. */
+@media (max-width: 768px) {
+  .ranking-card { display: flex; flex-direction: column; gap: 16px; }
+  .ranking-card .ranking-title { margin-bottom: 0; }
+  .ranking-row { display: contents; }
+  .ranking-card .overlay-split { order: -1; }
+}

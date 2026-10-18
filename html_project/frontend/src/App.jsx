@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { NavLink, Navigate, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
-import { Moon, PanelLeftClose, PanelLeftOpen, Sun, Sunset } from "lucide-react";
+import { LogIn, Moon, PanelLeftClose, PanelLeftOpen, Sun, Sunset } from "lucide-react";
 import Tip from "./Tip.jsx";
 import { fetchCameraData, getJson } from "./api.js";
 import Dropdown from "./Dropdown.jsx";
@@ -157,10 +157,20 @@ export default function App() {
           <hr />
           {PUBLIC_PAGES.map(navLink)}
 
-          <h3>Admin</h3>
-          {ADMIN_PAGES.map(navLink)}
+          {/* Admin pages only show once logged in; the button asks for the password (the browser's own box). */}
+          {isAdmin && (
+            <>
+              <h3>Admin</h3>
+              {ADMIN_PAGES.map(navLink)}
+            </>
+          )}
 
           <ThemeToggle />
+          {!isAdmin && (
+            <button className="nav-btn login-btn" onClick={() => adminLogin().then((ok) => ok && setIsAdmin(true))}>
+              <LogIn size={16} /> Admin log in
+            </button>
+          )}
         </div>
       </aside>
 
@@ -275,13 +285,15 @@ function ThemeToggle() {
   );
 }
 
-// Admin pages: moving to one inside the app never reaches the server, so ask for the password here
-// (the 401 from /api/admin/ping makes the browser show its login box).
+// The 401 from /api/admin/ping makes the browser show its login box; true once the password is right.
+const adminLogin = () => fetch("/api/admin/ping").then((r) => r.ok).catch(() => false);
+
+// Admin pages: moving to one inside the app never reaches the server, so ask for the password here.
 function AdminGate({ onOk }) {
   const [state, setState] = useState("asking");
   const ask = () => {
     setState("asking");
-    fetch("/api/admin/ping").then((r) => (r.ok ? onOk() : setState("denied"))).catch(() => setState("denied"));
+    adminLogin().then((ok) => (ok ? onOk() : setState("denied")));
   };
   useEffect(ask, []);
   if (state === "asking") return <PageSkeleton />;

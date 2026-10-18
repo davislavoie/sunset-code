@@ -59,7 +59,6 @@ export default function Calendar({ data, camera, onLoadToHsv }) {
   // Shots that don't count (thumbs down, bad view, dark) still show, scored 0% with a pill saying why.
   const { ranked_images: rankedImages, all_data: allData, sunset_data: sunsetData } = data;
   const [params, setParams] = useSearchParams();
-  const [cellHeight, setCellHeight] = useState(110);
 
   // One entry per captured day, keyed by "YYYY-MM-DD"
   const byDate = useMemo(() => new Map(sunsetData.map((item) => [item.Date, item])), [sunsetData]);
@@ -115,8 +114,6 @@ export default function Calendar({ data, camera, onLoadToHsv }) {
       {view === "month" && (
         <MonthView
           {...viewProps}
-          cellHeight={cellHeight}
-          setCellHeight={setCellHeight}
           expanded={expanded}
           setExpanded={(d) => update({ open: d })}
         />
@@ -323,10 +320,13 @@ function WeekView({ date, goTo, allData }) {
 
 // ---------------------------------------------------------------------------
 // Year view -- one row per month, month name on the left, then only the days
-// that actually have a capture, laid out left-to-right (missing days skipped).
+// that actually have a capture, laid out left-to-right (missing days and months skipped).
 // ---------------------------------------------------------------------------
 function YearView({ date, goTo, byDate, allData, onLoadToHsv, permalinkFor }) {
   const year = fromISODate(date).getFullYear();
+  const captured = [...byDate.keys()];
+  const months = MONTH_NAMES.map((name, m) => [name, m])
+    .filter(([, m]) => captured.some((iso) => iso.startsWith(isoFor(year, m, 1).slice(0, 7))));
 
   return (
     <div>
@@ -337,7 +337,8 @@ function YearView({ date, goTo, byDate, allData, onLoadToHsv, permalinkFor }) {
         nextDisabled={year >= new Date().getFullYear()}
       />
       <div className="year-view-list">
-        {MONTH_NAMES.map((name, m) => (
+        {!months.length && <div className="empty">No captures this year.</div>}
+        {months.map(([name, m]) => (
           <YearMonthRow key={`${year}-${m}`} {...{ year, month: m, name, byDate, allData, onLoadToHsv, permalinkFor }} />
         ))}
       </div>
@@ -360,7 +361,6 @@ function YearMonthRow({ year, month, name, byDate, allData, onLoadToHsv, permali
       <div className="year-month-row">
         <div className="year-month-row-label">{name}</div>
         <div className="year-month-row-strip">
-          {!days.length && <div className="year-month-row-empty">No captures</div>}
           {days.map(({ iso, entry }) => (
             <div
               key={iso}
@@ -403,7 +403,7 @@ function expandedWeek(expanded, year, month, startWeekday, day) {
 // ---------------------------------------------------------------------------
 // Month view (the original calendar grid)
 // ---------------------------------------------------------------------------
-function MonthView({ date, goTo, byDate, allData, onLoadToHsv, permalinkFor, cellHeight, setCellHeight, expanded, setExpanded }) {
+function MonthView({ date, goTo, byDate, allData, onLoadToHsv, permalinkFor, expanded, setExpanded }) {
   const focus = fromISODate(date);
   const year = focus.getFullYear();
   const month = focus.getMonth();
@@ -416,7 +416,7 @@ function MonthView({ date, goTo, byDate, allData, onLoadToHsv, permalinkFor, cel
   const trailingBlanks = (7 - ((startWeekday + daysInMonth) % 7)) % 7;
 
   return (
-    <div style={{ "--cal-row-height": `${cellHeight}px` }}>
+    <div>
       <CalendarHeader
         title={`${MONTH_NAMES[month]} ${year}`}
         onPrev={() => goTo(shiftDate(date, { months: -1 }))}
@@ -425,17 +425,6 @@ function MonthView({ date, goTo, byDate, allData, onLoadToHsv, permalinkFor, cel
         prevTitle="Previous month"
         nextTitle="Next month"
       />
-
-      <div className="cal-size-control">
-        <label>{`Size: ${cellHeight}px`}</label>
-        <input
-          type="range"
-          min={50}
-          max={220}
-          value={cellHeight}
-          onChange={(e) => setCellHeight(Number(e.target.value))}
-        />
-      </div>
 
       <div>
         <div className="calendar-grid weekday-row">
