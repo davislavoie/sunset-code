@@ -1,12 +1,12 @@
 """Forecast at every pre shot (2h, 1h, 45m, 30m, 15m, 5m): weather + the HSV scores seen so far.
 
 At each horizon the features are what's known then:
-  weather  = clear-path share - 0.5 * RH/100 (ai_judge.predict's simple score, from that capture)
+  weather  = clear-path share - 0.5 * RH/100 (ai_analysis.predict's simple score, from that capture)
   cur_pct  = this shot's HSV score as a percentile of the camera's past daily-best scores
   max_pct  = the best shot so far today, same scale
 Target = the day's best score in the sunset window (15m pre .. 30m post), as a percentile within
 the camera. A per-horizon least-squares line (numpy only) maps features -> percentile; the
-coefficients go to ai_judge/predict_coefs.json so the NUC needs no sklearn.
+coefficients go to ai_analysis/predict_coefs.json so the NUC needs no sklearn.
 
     python analysis/horizons.py      # fit, leave-one-month-out backtest, write coefs + horizons.md
 """
@@ -22,7 +22,7 @@ from sklearn.metrics import roc_auc_score
 import data
 
 sys.path.insert(0, str(data.ROOT))
-from ai_judge import predict  # noqa: E402
+from ai_analysis import predict  # noqa: E402
 
 HORIZONS = ["01_2h_pre", "02_1h_pre", "03_45m_pre", "04_30m_pre", "05_15m_pre", "06_5m_pre"]
 BASE = ["weather", "cur_pct", "max_pct"]
@@ -35,7 +35,7 @@ SETS = {"base": BASE,
         "icon+goes zones": BASE + ["icon_weather", "goes_over", "goes_near", "goes_far"],
         "icon+goes+band": BASE + ["icon_weather", "goes_fan", "horizon_lift"]}
 FEATS = BASE
-# The vision model's sky read (ai_judge/sky.py) exists only on the 1h/45m/30m/15m shots, so these sets are
+# The vision model's sky read (ai_analysis/sky.py) exists only on the 1h/45m/30m/15m shots, so these sets are
 # compared and fitted on those horizons alone, on the shots that also have every input of the chosen set above.
 SKY = ["sky_gap_thickness", "sky_cloud_cover", "sky_lit", "sky_quality"]
 SKY_HORIZONS = HORIZONS[1:5]
@@ -174,7 +174,7 @@ def main():
                 for cam, gg in g.groupby("camera"):
                     per_cam.append({"horizon": h, "camera": cam, **metrics(gg)})
         models.append({"name": name, "features": feats, "coefs": coefs})
-    (data.ROOT / "ai_judge" / "predict_coefs.json").write_text(json.dumps({"models": models}, indent=1) + "\n")
+    (data.ROOT / "ai_analysis" / "predict_coefs.json").write_text(json.dumps({"models": models}, indent=1) + "\n")
     side = compare.pivot_table(index="horizon", columns="features", values="AUC top-25%", sort=False)[list(SETS)]
     text = (f"# Forecast at each pre shot (sunset cameras, leave-one-month-out)\n\n"
             "Target: the day's best score from 15m pre to 30m post, as a percentile within the camera.\n\n"

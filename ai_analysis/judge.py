@@ -91,7 +91,7 @@ def judge_image(image_bytes, model, ollama_url, timeout=600):
         resp.raise_for_status()
         return normalize(json.loads(resp.json()["message"]["content"]))
     except (requests.RequestException, ValueError, KeyError, TypeError) as e:
-        log.warning("AI judge failed (%s): %s", model, e)
+        log.warning("AI analysis failed (%s): %s", model, e)
         return None
 
 

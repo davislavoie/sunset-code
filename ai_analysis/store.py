@@ -21,7 +21,7 @@ LOCAL_TZ = ZoneInfo(os.environ.get("TIMEZONE", "America/New_York"))
 
 def is_raw_capture(point):
     """Photos from the camera, as opposed to the 11_ranked / 12_histogram images the pipeline used to make
-    (`python -m ai_judge drop-ranked` removes those)."""
+    (`python -m ai_analysis drop-ranked` removes those)."""
     return not point.get("label", "").startswith(("11_", "12_"))
 
 
@@ -96,7 +96,7 @@ def exclusion(point):
     return AI_EXCLUSIONS.get(point.get("ai_view"))
 
 
-# Glass lake (ai_judge/reflect.py): a mirror-calm lake earns a small bump in the displayed score and when
+# Glass lake (ai_analysis/reflect.py): a mirror-calm lake earns a small bump in the displayed score and when
 # the dashboard picks the day's best shot (html_project/backend.py applies it); the HSV score is untouched.
 # Here only for reflect.py's badge threshold. Same numbers as backend.py (which also skips grey (HSV < 10) and rainy shots).
 GLASS_BONUS = ((0.45, 8), (0.35, 5))  # (mirror_score at least, points)

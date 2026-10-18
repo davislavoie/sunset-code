@@ -1,5 +1,5 @@
-"""Checks for the AI judge against a fake Ollama server (no model needed).
-Run: python -m unittest ai_judge.test_ai_judge
+"""Checks for the AI analysis against a fake Ollama server (no model needed).
+Run: python -m unittest ai_analysis.test_ai_analysis
 """
 
 import base64
@@ -12,8 +12,8 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 from PIL import Image
 
-from ai_judge import store
-from ai_judge.judge import ensure_model, judge_image
+from ai_analysis import store
+from ai_analysis.judge import ensure_model, judge_image
 
 
 def jpeg(width=1920, height=1080, color=(240, 120, 60)):
@@ -159,7 +159,7 @@ class EnsureModelTests(unittest.TestCase):
 
         server = FakeServer(respond)
         try:
-            with self.assertLogs("ai_judge.judge", level="INFO") as logs:
+            with self.assertLogs("ai_analysis.judge", level="INFO") as logs:
                 ensure_model("new:model", server.url)
             ensure_model("already:here", server.url)  # no pull for an installed model
         finally:

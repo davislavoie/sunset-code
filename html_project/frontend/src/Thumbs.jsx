@@ -1,6 +1,6 @@
 // Thumbs up / down on one capture. Down = it never counts as the day's best shot (and,
 // with "all shots like this", neither does any near-identical shot from this camera);
-// up = it's the day's pick. ai_judge re-picks the ranked image within ~10 minutes.
+// up = it's the day's pick. ai_analysis re-picks the ranked image within ~10 minutes.
 
 import { useState } from "react";
 import { ThumbsDown, ThumbsUp } from "lucide-react";
@@ -24,7 +24,7 @@ export function FlagPill({ reason, className = "" }) {
   );
 }
 
-/** "Glass lake +5" on btv shots where the lake mirrors the sky (ai_judge/reflect.py); the bump is in Score, HSV unchanged. */
+/** "Glass lake +5" on btv shots where the lake mirrors the sky (ai_analysis/reflect.py); the bump is in Score, HSV unchanged. */
 export function GlassPill({ glass, hsv, className = "" }) {
   if (!glass) return null;
   const base = hsv != null ? ` on the ${hsv.toFixed(1)} HSV score` : "";

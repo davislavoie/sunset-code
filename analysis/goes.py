@@ -1,7 +1,7 @@
 """Observed cloud from GOES-East (GOES-19) over the fan toward the sun, plus KBTV METAR cloud layers.
 
 GOES: NOAA's public bucket noaa-goes19, product ABI-L2-ACMC (CONUS clear-sky mask, 2 km, every 5 min).
-Reading (HTTP range requests, projection, zones) is ai_judge/goes.py, which the live forecast uses.
+Reading (HTTP range requests, projection, zones) is ai_analysis/goes.py, which the live forecast uses.
 For each sunset camera-day, the scan nearest 1 h before sunset (and nearest sunset) gives cloud
 fractions (BCM: 0 clear / 1 cloudy) over: overhead (within 10 km), near fan (sun bearing +/-30 deg,
 5-40 km), far fan (80-300 km), whole fan (5-300 km). Cached per camera-day in analysis_export/goes/.
@@ -27,7 +27,7 @@ import requests
 import data
 
 sys.path.insert(0, str(data.ROOT))
-from ai_judge import goes as G  # noqa: E402
+from ai_analysis import goes as G  # noqa: E402
 
 CACHE = data.EXPORT / "goes"
 CACHE.mkdir(parents=True, exist_ok=True)
@@ -36,7 +36,7 @@ session = requests.Session()
 
 
 def zones(url, lat0, lon0, az):
-    """Cloud fractions over the camera's zones from one scan (ai_judge.goes, plus a narrow path)."""
+    """Cloud fractions over the camera's zones from one scan (ai_analysis.goes, plus a narrow path)."""
     bcm, lat, lon = G.cloud_window(url, lat0, lon0, session)
     out = {k.replace("goes_", ""): v for k, v in G.zones(bcm, lat, lon, lat0, lon0, az).items()}
     dy, dx = (lat - lat0) * 111.2, (lon - lon0) * 111.2 * math.cos(math.radians(lat0))

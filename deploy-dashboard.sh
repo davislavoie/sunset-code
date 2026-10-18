@@ -7,7 +7,7 @@ set -u
 HOST=${DEPLOY_HOST:-nuc12}
 LIMIT=${DEPLOY_TIMEOUT:-600}
 DIR=/home/dlavoie/Documents/sunset-code
-COMPOSE="docker compose -f docker-compose.existing-infra.yml -f docker-compose.ai.yml"
+COMPOSE="docker compose -f docker-compose.existing-infra.yml"
 
 timeout --kill-after=10 "$LIMIT" ssh -o BatchMode=yes -o ConnectTimeout=15 \
   -o ServerAliveInterval=15 -o ServerAliveCountMax=4 "$HOST" \

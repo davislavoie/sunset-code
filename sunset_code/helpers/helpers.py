@@ -55,7 +55,7 @@ def influxdb_push(photo_file, time_epoch, label, camera_tag, score=0.0, fields=N
     timestamp_iso = datetime.fromtimestamp(time_epoch, tz=timezone.utc).isoformat()
 
     # Weather for the capture (not the generated 11_/12_ images). Best effort: if Open-Meteo
-    # is down the capture is still saved, and ai_judge fills the weather in later.
+    # is down the capture is still saved, and ai_analysis fills the weather in later.
     weather_fields = {}
     if not label.startswith(("11_", "12_")):
         try:

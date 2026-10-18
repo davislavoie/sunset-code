@@ -1,4 +1,4 @@
-"""Checks for the glass-lake detector. Run: python -m unittest ai_judge.test_reflect"""
+"""Checks for the glass-lake detector. Run: python -m unittest ai_analysis.test_reflect"""
 
 import io
 import unittest
@@ -7,7 +7,7 @@ from unittest import mock
 import numpy as np
 from PIL import Image
 
-from ai_judge import reflect
+from ai_analysis import reflect
 
 
 def jpeg(a):

@@ -8,9 +8,9 @@ Cameras (one `config/<tag>.env` each): `bolton_summit_cam`, `btv_echo_cam`, `wca
 
 1. **Capture** (`sunset_code/`). `__main__.py` reads one camera's config from env vars, computes that day's sunset or sunrise (`MODE`) with `astral`, and sleeps until each interval (2h, 1h, 45m, 30m, 15m, 5m before, at the event, then 5m, 15m, 30m after). At each one `helpers/get_photo.py` grabs a frame with `yt_dlp` + OpenCV.
 2. **Score**. `helpers/sunset_process.py` (`rank_sunset`) converts the sky (top half) to HSV and scores it 0 to 100 from saturation-weighted red, orange, yellow and pink coverage times a cloud-contrast factor, soft-capped. Every number is in `helpers/hsv_score.json` (the dashboard reads it too). It returns the score's breakdown and the sky's HSV histograms with it.
-3. **Store**. `helpers/helpers.py` (`influxdb_push`) writes each capture's URL, score, score breakdown and label to InfluxDB (histograms go in `sunset_hist`) (database and measurement `sunset_images`, tagged by `camera`), along with Open-Meteo weather (`helpers/open_metro_weater_api.py`): overhead cloud, temperature, visibility, and low/mid/high cloud at 8, 25 and 50 miles toward the sun. If the weather call fails the capture is still saved and `ai_judge` fills it in later.
+3. **Store**. `helpers/helpers.py` (`influxdb_push`) writes each capture's URL, score, score breakdown and label to InfluxDB (histograms go in `sunset_hist`) (database and measurement `sunset_images`, tagged by `camera`), along with Open-Meteo weather (`helpers/open_metro_weater_api.py`): overhead cloud, temperature, visibility, and low/mid/high cloud at 8, 25 and 50 miles toward the sun. If the weather call fails the capture is still saved and `ai_analysis` fills it in later.
 4. **Rank**. Nothing to do: the dashboard takes each day's highest-scoring capture as its best shot (thumbs and exclusions applied). The old ranked-image PNGs (`helpers/generate_ranked_image.py`) are turned off.
-5. **Judge** (`ai_judge/`, optional sidecar). Backfills weather and view fingerprints, applies the dashboard's thumbs up/down (a 👎 can rule out every shot with the same camera view), optionally asks a local Ollama vision model to rule out dark or "no signal" frames, and rescores stored captures after a score change (`python -m ai_judge rescore`). See [`ai_judge/README.md`](ai_judge/README.md).
+5. **AI analysis** (`ai_analysis/`, optional sidecar). Backfills weather and view fingerprints, applies the dashboard's thumbs up/down (a 👎 can rule out every shot with the same camera view), optionally asks a local Ollama vision model to rule out dark or "no signal" frames, and rescores stored captures after a score change (`python -m ai_analysis rescore`). See [`ai_analysis/README.md`](ai_analysis/README.md).
 6. **Dashboard** (`html_project/`). Flask API (`backend.py`) plus a Vite + React app (`frontend/`).
 
 ## Dashboard pages
@@ -32,7 +32,7 @@ Every write goes through `/admin/*` in the UI and `/api/admin/*` in the API, so 
 sunset_code/            capture + scoring pipeline (one container per camera)
   helpers/              get_photo, sunset_process (+ hsv_score.json), helpers, open_metro_weater_api
   entrypoint.sh         loops __main__ daily so the container stays up
-ai_judge/               optional sidecar: weather backfill, fingerprints, thumbs, local AI, rescoring
+ai_analysis/               optional sidecar: weather backfill, fingerprints, thumbs, local AI, rescoring
 html_project/
   backend.py            Flask: JSON API, image proxy, serves frontend/dist
   frontend/src/         React app: App.jsx (nav, routes), pages/, components/charts (bklit), scoring.js, hsv.js
@@ -43,8 +43,8 @@ tests/                  sunset_process_testing.py (score + debug overlay for a f
 skills/                 vendored UI/animation design skills for Claude Code (not part of the app)
 
 docker-compose.yml                  self-contained stack: InfluxDB + image server + 2 cameras + dashboard
-docker-compose.existing-infra.yml   the NUC deployment: all 4 cameras, ~/Pictures, rebuild webhook
-docker-compose.ai.yml               adds Ollama + ai_judge on top of existing-infra
+docker-compose.existing-infra.yml   the NUC deployment: all 4 cameras, ai-analysis + Ollama, ~/Pictures, rebuild webhook
+Dockerfile                          the one image every Python service runs (capture, ai-analysis, dashboard)
 ```
 
 ## Running it
@@ -58,7 +58,7 @@ cp .env.example .env    # set IMAGE_BASE_URL to an address browsers can reach (T
 docker compose -f docker-compose.existing-infra.yml up -d --build
 ```
 
-Add the AI judge with `-f docker-compose.ai.yml` on the same command. The local model stays off unless `AI_MODEL` is set in `.env` (e.g. `AI_MODEL=qwen3-vl:4b`). Set `REBUILD_TOKEN` in `.env` too; it defaults to `changeme`.
+That starts everything, ai-analysis and Ollama included (add `--remove-orphans` after renaming a service). The local AI photo score stays off unless `AI_MODEL` is set in `.env` (e.g. `AI_MODEL=qwen3-vl:4b`). Set `REBUILD_TOKEN` in `.env` too; it defaults to `changeme`.
 
 Dashboard: `http://<host>:8502/`. Images: `http://<host>:8080/`.
 
@@ -108,7 +108,7 @@ On Windows PowerShell set `$env:IMAGE_BASE_URL = "http://<image-host>:8080"` fir
 
 ```bash
 cd html_project/frontend && npm test          # in-browser scorer (scoring.test.js)
-python -m unittest ai_judge.test_ai_judge ai_judge.test_rescore html_project.test_backend   # judge, rescore, best-shot pick (no model or database needed)
+python -m unittest ai_analysis.test_ai_analysis ai_analysis.test_rescore html_project.test_backend   # AI analysis, rescore, best-shot pick (no model or database needed)
 ```
 
 ## Known rough edges

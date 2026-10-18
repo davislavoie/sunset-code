@@ -1,10 +1,10 @@
-// Sunset forecast helpers (ai_judge/predict.py writes the forecast on each pre shot).
+// Sunset forecast helpers (ai_analysis/predict.py writes the forecast on each pre shot).
 // A day's actual result is its best score from 15 min before to 30 min after sunset, as a
 // percentile of the earlier days' bests: the same scale the forecast predicts.
 
 const WINDOW = /^(05|06|07|08|09|10)_/;
 const MIN_DAYS = 10;
-// Same cut points as ai_judge/predict.py (percentile 0-100).
+// Same cut points as ai_analysis/predict.py (percentile 0-100).
 export const CALLS = [
   [80, "banger"],
   [60, "good"],

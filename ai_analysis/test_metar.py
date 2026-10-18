@@ -1,9 +1,9 @@
-"""Checks for the METAR observations. Run: python -m unittest ai_judge.test_metar"""
+"""Checks for the METAR observations. Run: python -m unittest ai_analysis.test_metar"""
 
 import unittest
 from datetime import datetime, timedelta, timezone
 
-from ai_judge import metar
+from ai_analysis import metar
 
 
 def row(valid, **kw):

@@ -1,5 +1,5 @@
 """Checks for rescoring, the view rules and weather with a fake InfluxDB and a fake scorer
-(no OpenCV, model or database needed). Run: python -m unittest ai_judge.test_rescore
+(no OpenCV, model or database needed). Run: python -m unittest ai_analysis.test_rescore
 """
 
 import os
@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from datetime import date
 
-from ai_judge import rescore, store, views, weather
+from ai_analysis import rescore, store, views, weather
 
 BASE = "http://100.107.153.41:8080"
 

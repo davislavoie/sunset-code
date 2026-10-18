@@ -1,5 +1,5 @@
 // Weather at the time of a capture, saved with it in InfluxDB: observed cloud toward the sun from
-// the GOES-East satellite (ai_judge/goes.py), and Open-Meteo for the rest (temperature, humidity...).
+// the GOES-East satellite (ai_analysis/goes.py), and Open-Meteo for the rest (temperature, humidity...).
 
 import { ParentSize } from "@visx/responsive";
 

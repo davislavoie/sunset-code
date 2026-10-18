@@ -1,7 +1,7 @@
 """Glass-lake reflections on btv_echo_cam vs wind.
 
 btv_echo_cam cycles through PTZ presets, so there is no fixed sky / lake region. Instead every thumb is
-searched for the row that best acts as a mirror (ai_judge/reflect.py, which shows the result as a badge).
+searched for the row that best acts as a mirror (ai_analysis/reflect.py, which shows the result as a badge).
 A calm lake mirroring the sky scores high; ripples, docks, boats and trees score low. Wind (10 m, km/h) at sunset comes from Open-Meteo's historical-forecast API
 at the camera and 10 km out over the lake toward the sun, cached in analysis_export/openmeteo/.
 
@@ -18,7 +18,7 @@ import requests
 import data
 
 sys.path.insert(0, str(data.ROOT))
-from ai_judge import reflect  # noqa: E402
+from ai_analysis import reflect  # noqa: E402
 
 CAM = "btv_echo_cam"
 THUMBS = data.EXPORT / "thumbs" / CAM
@@ -26,7 +26,7 @@ LABELS = ["05_15m_pre", "07_sunset"]
 
 
 def mirror_score(path):
-    """(best correlation, mirror row as a fraction of height) for one thumb: ai_judge.reflect's detector."""
+    """(best correlation, mirror row as a fraction of height) for one thumb: ai_analysis.reflect's detector."""
     return reflect.mirror_score(open(path, "rb").read())
 
 

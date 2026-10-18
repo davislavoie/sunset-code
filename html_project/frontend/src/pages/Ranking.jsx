@@ -214,7 +214,7 @@ function Vote({ camera, date, totals, onVoted }) {
 const longDate = (iso) =>
   iso ? new Date(`${iso}T12:00`).toLocaleDateString(undefined, { weekday: "short", month: "long", day: "numeric", year: "numeric" }) : "Unknown date";
 
-/** True when the day's best shot doesn't count (until ai_judge re-picks the day). */
+/** True when the day's best shot doesn't count (until ai_analysis re-picks the day). */
 function ruledOut(row) {
   return !!row.Excluded;
 }

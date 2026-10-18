@@ -1,7 +1,7 @@
-# ai_judge: sidecar that fills in captures and rescores them
+# ai_analysis: sidecar that fills in captures and rescores them
 
 An optional sidecar to the capture pipeline. The **HSV color score decides** which
-capture is a day's best shot; ai_judge adds what the score can't know:
+capture is a day's best shot; ai_analysis adds what the score can't know:
 
 - **Thumbs up / down** (Calendar → Day tab, under each capture). 👎 = this shot never
   counts; tick **all shots like this** and every near-identical shot from that camera is
@@ -15,21 +15,21 @@ capture is a day's best shot; ai_judge adds what the score can't know:
   there blocks the light: on ~480 ranked days, days with >=70% low cloud 50-300 km along that
   line (the earlier `path50_`/`path150_`/`path300_` readings) had a median best score of 7,
   vs 31 with it clear. Groundwork for predicting sunsets from the early shots + weather. New captures get
-  it at capture time (`helpers.influxdb_push` → `weather_fetch`); ai_judge backfills
-  history (`judge weather --camera all`) and fills any capture that missed it. Shown on
+  it at capture time (`helpers.influxdb_push` → `weather_fetch`); ai_analysis backfills
+  history (`ai weather --camera all`) and fills any capture that missed it. Shown on
   the Calendar Day tab.
 - **Sunset forecast** on every pre shot (`predicted_pct/score/call`, and `predicted_with`: which
   input set was used). Inputs: the stored weather, the **ICON** model's path cloud
   (`path{13,40,80}_icon_cloud_cover_*`, fetched next to best_match), **GOES-East** observed cloud
   toward the sun (`goes_over/near/far/fan`, from NOAA's public satellite bucket, ~0.7 MB and ~1 s per
   shot), and the HSV scores so far. A shot missing ICON or GOES falls back to the plain weather line.
-  `watch` fills recent shots; `judge goes --camera all --since YYYY-MM-DD` backfills history.
+  `watch` fills recent shots; `ai goes --camera all --since YYYY-MM-DD` backfills history.
 - **View fingerprints** (`view_fp`), used by "all shots like this".
 - **Glass lake** (btv_echo_cam only): `mirror_score` (how well the frame's lower part mirrors
   the sky above some horizon row) and `glass_lake` (score >= 0.35, about 4 % of days). Such
   shots show a green "Glass lake +5" bubble and get +5 (+8 at >= 0.45) when picking the day's
   best and in the displayed score; the HSV `score` itself is unchanged. `watch` fills it;
-  `judge reflect --camera all` does history by hand.
+  `ai reflect --camera all` does history by hand.
 - **Optional local AI** (Ollama, off unless `AI_MODEL` is set). It only rules out frames
   it calls dark or "no signal"; its 0-100 score is shown for information.
 
@@ -40,12 +40,12 @@ Everything is merged onto the capture's own InfluxDB point; the pipeline's code 
 ## Run it on the NUC
 
 ```bash
-# Start the judge alongside the existing stack. The first pass fills in weather and
-# fingerprints for all of history (a few minutes), then it checks every 10 minutes.
-docker compose -f docker-compose.existing-infra.yml -f docker-compose.ai.yml up -d --build
+# ai-analysis starts with the rest of the stack (one compose file, one shared image). The first
+# pass fills in weather and fingerprints for all of history (a few minutes), then it checks every 10 minutes.
+docker compose -f docker-compose.existing-infra.yml up -d --build --remove-orphans
 
 # Follow along
-docker compose -f docker-compose.existing-infra.yml -f docker-compose.ai.yml logs -f ai-judge
+docker compose -f docker-compose.existing-infra.yml logs -f ai-analysis
 ```
 
 To also run the local AI, add `AI_MODEL=qwen3-vl:4b` to `.env` (first run downloads
@@ -57,7 +57,7 @@ reads the photos, `drop-ranked --delete` removes the old ranked PNGs.
 For the commands below, an alias saves typing:
 
 ```bash
-alias judge='docker compose -f docker-compose.existing-infra.yml -f docker-compose.ai.yml run --rm ai-judge python -m ai_judge'
+alias ai='docker compose -f docker-compose.existing-infra.yml run --rm ai-analysis python -m ai_analysis'
 ```
 
 Every command takes `--camera <tag>` or `--camera all`, and `backfill`/`rescore` take
@@ -70,9 +70,9 @@ local dates. Cameras: `bolton_summit_cam`, `btv_echo_cam`, `wcax_tower_sunrise`,
 `watch` does both automatically; these are for a specific range or a redo.
 
 ```bash
-judge weather --camera all                                   # all of history: one request per camera
-judge weather --camera all --since 2026-09-01 --refill       # fetch again
-judge views --camera all                                     # fingerprint + apply "all shots like this" now
+ai weather --camera all                                   # all of history: one request per camera
+ai weather --camera all --since 2026-09-01 --refill       # fetch again
+ai views --camera all                                     # fingerprint + apply "all shots like this" now
 ```
 
 ### 1. Pick an AI model (only if you turn the AI on)
@@ -82,9 +82,9 @@ contact sheet. Without `--dates` it samples the highest-, lowest- and random-sco
 captures (where the color score is most often fooled):
 
 ```bash
-docker compose -f docker-compose.existing-infra.yml -f docker-compose.ai.yml run --rm \
-  -v "$PWD/bakeoff:/app/bakeoff" ai-judge \
-  python -m ai_judge bakeoff --camera btv_echo_cam --models qwen3-vl:4b,gemma3:4b --sample 12
+docker compose -f docker-compose.existing-infra.yml run --rm \
+  -v "$PWD/bakeoff:/app/bakeoff" ai-analysis \
+  python -m ai_analysis bakeoff --camera btv_echo_cam --models qwen3-vl:4b,gemma3:4b --sample 12
 ```
 
 Better still, add real days you know the camera was pointed at a wall or tree (spot
@@ -100,9 +100,9 @@ seconds-per-photo in the log. To use the other model, set `AI_MODEL=gemma3:4b` i
 Resumable: stop it any time, and re-running skips what's already judged.
 
 ```bash
-judge backfill --camera all --best-only                                        # each day's best shot: a few hours
-judge backfill --camera all --since 2026-09-01 --before 2026-09-08            # one week, every capture (all 4 cameras)
-judge backfill --camera all                                                    # everything (~6,000 captures): days
+ai backfill --camera all --best-only                                        # each day's best shot: a few hours
+ai backfill --camera all --since 2026-09-01 --before 2026-09-08            # one week, every capture (all 4 cameras)
+ai backfill --camera all                                                    # everything (~6,000 captures): days
 ```
 
 `--best-only` judges each day's highest-scoring shot, enough to catch dark / no-signal best shots;
@@ -116,17 +116,17 @@ every capture's HSV score, its breakdown and its histograms, and writes them ont
 images are made: the dashboard picks each day's best shot from the scores. About 40 ms a photo.
 
 ```bash
-judge rescore --camera all --dry-run                                  # how much scores would move
-judge rescore --camera all --since 2026-09-01 --before 2026-09-08
-judge rescore --camera all
+ai rescore --camera all --dry-run                                  # how much scores would move
+ai rescore --camera all --since 2026-09-01 --before 2026-09-08
+ai rescore --camera all
 ```
 
 The pipeline used to save a ranked image and histogram PNG for each day's best shot (11_ranked /
 12_histogram points). The dashboard no longer uses them; list or remove them with:
 
 ```bash
-judge drop-ranked --camera all             # how many
-judge drop-ranked --camera all --delete    # remove the points and their PNGs
+ai drop-ranked --camera all             # how many
+ai drop-ranked --camera all --delete    # remove the points and their PNGs
 ```
 
 ## In the dashboard
@@ -141,11 +141,11 @@ The thumbs buttons call `/api/admin/thumb`; if the dashboard goes public, keep
 
 ## Resource use
 
-Ollama is capped at 6 GB RAM (`mem_limit` in `docker-compose.ai.yml`), judges one photo
+Ollama is capped at 6 GB RAM (`mem_limit` in `docker-compose.existing-infra.yml`), judges one photo
 at a time, and unloads the model 10 minutes after the last photo. Turn it all off with
-`docker compose -f docker-compose.existing-infra.yml -f docker-compose.ai.yml stop ollama ai-judge`.
+`docker compose -f docker-compose.existing-infra.yml stop ollama ai-analysis`.
 
 ## Tests
 
-`python -m unittest ai_judge.test_ai_judge ai_judge.test_rescore` (a fake Ollama server, a
+`python -m unittest ai_analysis.test_ai_analysis ai_analysis.test_rescore` (a fake Ollama server, a
 fake InfluxDB and a fake scorer; no model or database needed).

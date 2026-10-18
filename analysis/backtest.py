@@ -1,4 +1,4 @@
-"""Backtest the weather-only simple forecast (ai_judge/predict.py's weather_raw, before the HSV
+"""Backtest the weather-only simple forecast (ai_analysis/predict.py's weather_raw, before the HSV
 scores of the pre shots were added; horizons.py backtests that full forecast) on all history, against the day's actual best
 HSV score in the sunset window (15 min before to 30 min after). Writes backtest.md.
 
@@ -15,7 +15,7 @@ from sklearn.metrics import roc_auc_score
 import data
 
 sys.path.insert(0, str(data.ROOT))
-from ai_judge.predict import weather_raw  # noqa: E402
+from ai_analysis.predict import weather_raw  # noqa: E402
 
 CLASSES = ["poor", "maybe", "good"]
 

@@ -1,10 +1,10 @@
-"""Checks for the sunset forecast. Run: python -m unittest ai_judge.test_predict"""
+"""Checks for the sunset forecast. Run: python -m unittest ai_analysis.test_predict"""
 
 import unittest
 from datetime import date, timedelta
 from unittest import mock
 
-from ai_judge import predict
+from ai_analysis import predict
 
 
 def capture(day, label, score=5.0, low=(0, 0, 0), mid=(0, 0, 0), rh=50, **extra):

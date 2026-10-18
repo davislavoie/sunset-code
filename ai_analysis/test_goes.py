@@ -1,4 +1,4 @@
-"""Checks for the GOES-East reader and the ICON path fetch (no network). Run: python -m unittest ai_judge.test_goes"""
+"""Checks for the GOES-East reader and the ICON path fetch (no network). Run: python -m unittest ai_analysis.test_goes"""
 
 import sys
 import types
@@ -8,7 +8,7 @@ from unittest import mock
 
 import numpy as np
 
-from ai_judge import goes, weather
+from ai_analysis import goes, weather
 
 
 def key(start):

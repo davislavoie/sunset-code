@@ -2,7 +2,7 @@
 
 The clear-sky mask (analysis/goes.md) says cloud or no cloud. Cloud-top height adds how high the top layer
 is: high cloud (tops 6 km+, cirrus) is what lights up after sunset; low cloud far toward the sun blocks it.
-Reading and zones are ai_judge/goes.py (heights), as the live pipeline stores them. For each sunset
+Reading and zones are ai_analysis/goes.py (heights), as the live pipeline stores them. For each sunset
 camera-day: the scan landed 1 h before sunset (h1) and at sunset (h0), cached in analysis_export/goes/heights/.
 
 A higher layer hides any cloud under it, so the KBTV METAR (cloud layers seen from below, up to 12,000 ft;

@@ -71,7 +71,7 @@ def fetch_camera_data(camera_tag):
 
     for point in results.get_points():
         # 11_ranked / 12_histogram points are the pipeline's old ranked images; the best shot is worked
-        # out below instead (`python -m ai_judge drop-ranked` removes them).
+        # out below instead (`python -m ai_analysis drop-ranked` removes them).
         if point.get("label", "").startswith(("11_", "12_")):
             continue
         dt_utc = datetime.strptime(point["time"], "%Y-%m-%dT%H:%M:%SZ")
@@ -151,7 +151,7 @@ BREAKDOWN_FIELDS = [f"{c}_{k}" for c in ("red", "orange", "yellow", "pink") for 
 
 def breakdown_fields(point):
     """The score's pieces stored by sunset_process.rank_sunset, or None for captures scored before they were
-    stored (run `python -m ai_judge rescore`)."""
+    stored (run `python -m ai_analysis rescore`)."""
     return {k: point[k] for k in BREAKDOWN_FIELDS if point.get(k) is not None} if point.get("contrast") is not None else None
 
 
@@ -159,7 +159,7 @@ AI_EXCLUSIONS = {"dark": "too dark", "no_signal": "no camera signal"}
 
 
 def exclusion(point):
-    """Why a capture can't be a day's best shot, or None. Keep in sync with ai_judge/store.py.
+    """Why a capture can't be a day's best shot, or None. Keep in sync with ai_analysis/store.py.
     The HSV score decides everything else; a thumbs up overrides all of it."""
     thumb = point.get("thumb") or 0
     if thumb > 0:
@@ -171,7 +171,7 @@ def exclusion(point):
     return AI_EXCLUSIONS.get(point.get("ai_view"))
 
 
-# Glass lake (ai_judge/reflect.py): mirror-calm lake shots get a small bump. Keep in sync with ai_judge/store.py.
+# Glass lake (ai_analysis/reflect.py): mirror-calm lake shots get a small bump. Keep in sync with ai_analysis/store.py.
 GLASS_BONUS = ((0.45, 8), (0.35, 5))  # (mirror_score at least, points)
 
 
@@ -209,7 +209,7 @@ WEATHER_FIELDS = ["temperature_2m", "relative_humidity_2m", "dew_point_2m", "pre
                   "precipitation", "rain", "showers", "snowfall", "cloud_cover_low", "cloud_cover_mid",
                   "cloud_cover_high", "cloud_cover_total", "visibility", "wind_speed_10m", "wind_gusts_10m", "wind_direction_10m",
                   "obs_station", "obs_time", "obs_visibility_mi", "obs_temp_f", "obs_rh", "obs_wind_mph", "obs_gust_mph",
-                  "obs_sky", "obs_wx"] + [  # observed at the airport (ai_judge/metar.py)
+                  "obs_sky", "obs_wx"] + [  # observed at the airport (ai_analysis/metar.py)
     f"path{km}_{model}cloud_cover_{layer}" for model in ("", "icon_") for km in (13, 40, 80)
     for layer in ("low", "mid", "high")] + [  # toward the sun, 8/25/50 mi (best_match, and the ICON model)
     "goes_over", "goes_near", "goes_far", "goes_fan"] + [  # observed by GOES-East: cloudy share overhead / toward the sun
@@ -223,7 +223,7 @@ def weather_fields(point):
 
 
 def forecast_fields(point):
-    """Sunset forecast ai_judge/predict.py writes on each pre shot, or None."""
+    """Sunset forecast ai_analysis/predict.py writes on each pre shot, or None."""
     if point.get("predicted_pct") is None:
         return None
     return {"pct": point["predicted_pct"], "score": point.get("predicted_score"), "call": point.get("predicted_call"),
@@ -231,7 +231,7 @@ def forecast_fields(point):
 
 
 def sky_fields(point):
-    """The vision model's read of a 1h-15m pre shot (ai_judge/sky.py), or None if not read."""
+    """The vision model's read of a 1h-15m pre shot (ai_analysis/sky.py), or None if not read."""
     if point.get("sky_quality") is None:
         return None
     return {"quality": point["sky_quality"], "gap": point.get("sky_gap"), "lit": point.get("sky_lit"),
@@ -239,7 +239,7 @@ def sky_fields(point):
 
 
 def ai_fields(point):
-    """ai_* fields written by the optional ai_judge service, or None if not judged (or not running)."""
+    """ai_* fields written by the optional ai_analysis service, or None if not judged (or not running)."""
     if point.get("ai_model") is None:
         return None
     return {
@@ -441,7 +441,7 @@ def parse_env_file(filepath):
 @app.route("/api/admin/thumb", methods=["POST"])
 def set_thumb():
     """Thumbs up (1), down (-1) or clear (0) one capture. bad_view with a thumbs down also
-    rules out every near-identical shot from that camera (ai_judge applies it within ~10 min,
+    rules out every near-identical shot from that camera (ai_analysis applies it within ~10 min,
     and re-picks affected days' best shots)."""
     body = request.json or {}
     camera, label, ts, thumb = (body.get(k) for k in ("camera", "label", "ts", "thumb"))
@@ -710,10 +710,7 @@ def add_compose_service():
             return jsonify({"error": f"Service {service_name} already exists"}), 409
 
         new_service = {
-            "build": {
-                "context": ".",
-                "dockerfile": "sunset_code/Dockerfile"
-            },
+            "build": ".",  # the one shared image; its default command is the capture loop
             "restart": "unless-stopped",
             "depends_on": ["influxdb"],
             "env_file": [f"config/{camera_tag}.env"],
@@ -741,7 +738,7 @@ SCORE_CONFIG = Path(__file__).parent.parent / "sunset_code" / "helpers" / "hsv_s
 
 @app.route("/api/scoring-config")
 def get_scoring_config():
-    """Every number in the HSV score (sunset_code/helpers/hsv_score.json, mounted at /sunset_code)."""
+    """Every number in the HSV score (sunset_code/helpers/hsv_score.json, mounted live at /app/sunset_code)."""
     try:
         return Response(SCORE_CONFIG.read_text(), mimetype="application/json")
     except OSError as e:

@@ -3,20 +3,20 @@ them (weather, a simple sunset forecast, view fingerprints, glass-lake badge, th
 The dashboard picks each day's best shot from the scores itself; `rescore` rewrites the scores in place
 after a change to sunset_process.py / hsv_score.json.
 
-  python -m ai_judge watch      # keep new captures filled in
-  python -m ai_judge weather  --camera all [--since ...] [--before ...] [--refill]
-  python -m ai_judge goes     --camera all [--since ...] [--before ...]   # GOES-East observed cloud on captures (history; watch does recent ones)
-  python -m ai_judge predict  --camera all [--since ...] [--before ...] [--refill]   # sunset forecast on the pre shots
-  python -m ai_judge views    --camera all   # fingerprint captures for "all shots like this"
-  python -m ai_judge metar    --camera all   # observed airport weather (KBTV METAR) on captures
-  python -m ai_judge sky      --camera all   # vision model reads the band of light on the 1h/45m/30m/15m shots
-  python -m ai_judge band     --camera all   # horizon light band (horizon_lift) on the pre shots, for the forecast
-  python -m ai_judge reflect  --camera all   # "Glass lake" badge: mirror score on btv_echo_cam captures
-  python -m ai_judge cleanup  --camera all [--delete]   # list (or remove) entries whose photo you deleted
-  python -m ai_judge backfill --camera btv_echo_cam [--since 2025-07-01] [--before 2025-08-01] [--best-only] [--limit N] [--rejudge]
-  python -m ai_judge rescore  --camera all [--since ...] [--before ...] [--dry-run]   # new HSV scores, in place
-  python -m ai_judge drop-ranked --camera all [--delete]   # list (or remove) the old 11_ranked / 12_histogram points + PNGs
-  python -m ai_judge bakeoff  --camera btv_echo_cam --models qwen3-vl:4b,gemma3:4b [--sample 12] [--dates 2025-05-26,...]
+  python -m ai_analysis watch      # keep new captures filled in
+  python -m ai_analysis weather  --camera all [--since ...] [--before ...] [--refill]
+  python -m ai_analysis goes     --camera all [--since ...] [--before ...]   # GOES-East observed cloud on captures (history; watch does recent ones)
+  python -m ai_analysis predict  --camera all [--since ...] [--before ...] [--refill]   # sunset forecast on the pre shots
+  python -m ai_analysis views    --camera all   # fingerprint captures for "all shots like this"
+  python -m ai_analysis metar    --camera all   # observed airport weather (KBTV METAR) on captures
+  python -m ai_analysis sky      --camera all   # vision model reads the band of light on the 1h/45m/30m/15m shots
+  python -m ai_analysis band     --camera all   # horizon light band (horizon_lift) on the pre shots, for the forecast
+  python -m ai_analysis reflect  --camera all   # "Glass lake" badge: mirror score on btv_echo_cam captures
+  python -m ai_analysis cleanup  --camera all [--delete]   # list (or remove) entries whose photo you deleted
+  python -m ai_analysis backfill --camera btv_echo_cam [--since 2025-07-01] [--before 2025-08-01] [--best-only] [--limit N] [--rejudge]
+  python -m ai_analysis rescore  --camera all [--since ...] [--before ...] [--dry-run]   # new HSV scores, in place
+  python -m ai_analysis drop-ranked --camera all [--delete]   # list (or remove) the old 11_ranked / 12_histogram points + PNGs
+  python -m ai_analysis bakeoff  --camera btv_echo_cam --models qwen3-vl:4b,gemma3:4b [--sample 12] [--dates 2025-05-26,...]
 
 Dates are the cameras' local dates (TIMEZONE, default America/New_York): --since is
 inclusive, --before is exclusive. --camera all runs every camera.
@@ -41,7 +41,7 @@ from . import band, goes, metar, predict, reflect, sky, store, views, weather
 from .judge import ensure_model, judge_image
 from .rescore import drop_ranked, rescore
 
-log = logging.getLogger("ai_judge")
+log = logging.getLogger("ai_analysis")
 
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
 AI_MODEL = os.environ.get("AI_MODEL", "qwen3-vl:4b")
@@ -268,7 +268,7 @@ def render_report(rows, models):
             f"{html.escape(point['time'])} · color score {point.get('score', 0):.1f}</td>{''.join(cells)}</tr>"
         )
     return (
-        "<!doctype html><meta charset='utf-8'><title>AI judge bake-off</title>"
+        "<!doctype html><meta charset='utf-8'><title>AI analysis bake-off</title>"
         "<style>body{font-family:sans-serif;background:#0e1117;color:#eee}td{vertical-align:top;padding:8px;"
         "border-bottom:1px solid #333}img{border-radius:6px}</style>"
         f"<table><tr><th>Capture</th>{head}</tr>{''.join(body)}</table>"
@@ -277,7 +277,7 @@ def render_report(rows, models):
 
 def main():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-    parser = argparse.ArgumentParser(prog="ai_judge", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(prog="ai_analysis", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="command")
     sub.add_parser("watch")
     b = sub.add_parser("backfill", help="judge past captures")

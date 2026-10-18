@@ -3,7 +3,7 @@
 Same shots and inputs as horizons.py (as live), on the btv_echo_cam days you've ranked. Target: your score
 as a percentile among your ranked days. Leave-one-month-out throughout.
 
-  live      the coefficients in ai_judge/predict_coefs.json (fitted on the HSV score, all cameras)
+  live      the coefficients in ai_analysis/predict_coefs.json (fitted on the HSV score, all cameras)
   hsv-fit   the same features refitted on these days' HSV percentile
   mine-fit  the same features refitted on your percentile
   +aod      mine-fit plus Open-Meteo aerosol optical depth at sunset (air-quality API; haze/smoke)

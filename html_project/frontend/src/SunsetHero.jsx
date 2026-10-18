@@ -104,7 +104,7 @@ function ShareButton({ path, title }) {
 
 const VIEW_LABELS = { dark: "too dark", no_signal: "no camera signal" };
 
-/** The local AI judge's take on a photo (only shown once ai_judge has judged it). */
+/** The local AI analysis's take on a photo (only shown once ai_analysis has judged it). */
 export function AiVerdict({ ai, compact = false }) {
   if (!ai) return null;
   // Only dark / no-signal verdicts rule a frame out; the HSV score decides the rest.

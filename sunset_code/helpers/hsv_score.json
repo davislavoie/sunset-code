@@ -1,5 +1,5 @@
 {
-  "_comment": "Every number in the HSV score. Read by sunset_process.py (the score) and the dashboard (overlay colours, Ranking explained). OpenCV scale: hue 0-179, saturation/value 0-255. Hue ranges are inclusive. Changing a number here changes new scores; rescore stored ones with: python -m ai_judge rescore --camera all",
+  "_comment": "Every number in the HSV score. Read by sunset_process.py (the score) and the dashboard (overlay colours, Ranking explained). OpenCV scale: hue 0-179, saturation/value 0-255. Hue ranges are inclusive. Changing a number here changes new scores; rescore stored ones with: python -m ai_analysis rescore --camera all",
   "bands": {
     "red": {"hue": [0, 7], "sat_min": 20, "val_min": 38, "weight": 4},
     "orange": {"hue": [8, 24], "sat_min": 20, "val_min": 38, "weight": 3},

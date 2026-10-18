@@ -1,8 +1,8 @@
-"""Checks for the vision model's sky read. Run: python -m unittest ai_judge.test_sky"""
+"""Checks for the vision model's sky read. Run: python -m unittest ai_analysis.test_sky"""
 
 import unittest
 
-from ai_judge import predict, sky
+from ai_analysis import predict, sky
 
 
 class Sky(unittest.TestCase):

@@ -139,7 +139,7 @@ def latlon_grid(x, y, proj):
 
 def cloud_window(url, lat0, lon0, session=requests):
     """(BCM cloud mask 0/1/nan, lat, lon) for a ~400 km window around the camera, from one scan."""
-    import h5py  # only needed here; keeps the rest of ai_judge importable without it
+    import h5py  # only needed here; keeps the rest of ai_analysis importable without it
 
     with h5py.File(RangeFile(url, session), "r") as h:
         scale = lambda v: h[v][:] * h[v].attrs["scale_factor"][0] + h[v].attrs["add_offset"][0]

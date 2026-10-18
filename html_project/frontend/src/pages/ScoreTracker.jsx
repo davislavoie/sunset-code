@@ -22,7 +22,7 @@ export default function ScoreTracker({ data, camera }) {
   const rows = data.ranked_images;
   const [tab, setTab] = useState("chart");
   const [selected, setSelected] = useState(null);
-  // "color" = the HSV score from sunset_process.py; "ai" = the optional local AI judge's score.
+  // "color" = the HSV score from sunset_process.py; "ai" = the optional local AI analysis's score.
   const [metric, setMetric] = useState("color");
 
   const points = useMemo(
@@ -237,7 +237,7 @@ function Stat({ label, value }) {
   );
 }
 
-/** The AI judge's sky-only score for a ranked day, or null if not judged. */
+/** The AI analysis's sky-only score for a ranked day, or null if not judged. */
 function aiScore(row) {
   return row.AI ? row.AI.score : null;
 }

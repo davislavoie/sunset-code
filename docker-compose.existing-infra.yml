@@ -1,5 +1,5 @@
 # Use this file if you have an existing InfluxDB and photos folder.
-# Run with: docker-compose -f docker-compose.existing-infra.yml up -d --build
+# Run with: docker compose -f docker-compose.existing-infra.yml up -d --build --remove-orphans
 
 services:
   influxdb:
@@ -21,9 +21,7 @@ services:
       - "8080:8080"
 
   capture-bolton_summit_cam:
-    build:
-      context: .
-      dockerfile: sunset_code/Dockerfile
+    build: .   # the one shared image (Dockerfile); its default command is the capture loop
     restart: unless-stopped
     depends_on:
       - influxdb
@@ -38,9 +36,7 @@ services:
       - ${HOME}/Pictures:/pictures
 
   capture-btv_echo_cam:
-    build:
-      context: .
-      dockerfile: sunset_code/Dockerfile
+    build: .   # the one shared image (Dockerfile); its default command is the capture loop
     restart: unless-stopped
     depends_on:
       - influxdb
@@ -55,9 +51,7 @@ services:
       - ${HOME}/Pictures:/pictures
 
   capture-wcax_tower_sunrise:
-    build:
-      context: .
-      dockerfile: sunset_code/Dockerfile
+    build: .   # the one shared image (Dockerfile); its default command is the capture loop
     restart: unless-stopped
     depends_on:
       - influxdb
@@ -72,9 +66,7 @@ services:
       - ${HOME}/Pictures:/pictures
 
   capture-wcax_tower_sunset:
-    build:
-      context: .
-      dockerfile: sunset_code/Dockerfile
+    build: .   # the one shared image (Dockerfile); its default command is the capture loop
     restart: unless-stopped
     depends_on:
       - influxdb
@@ -89,7 +81,9 @@ services:
       - ${HOME}/Pictures:/pictures
 
   dashboard:
-    build: ./html_project
+    build: .
+    working_dir: /app/html_project
+    command: ["python", "backend.py"]
     restart: unless-stopped
     depends_on:
       - influxdb
@@ -104,11 +98,53 @@ services:
     volumes:
       - ./config:/app/config
       - ./docker-compose.existing-infra.yml:/app/docker-compose.yml
-      - ./sunset_code:/sunset_code   # hsv_score.json: the score's numbers, read by the dashboard
+      - ./sunset_code:/app/sunset_code:ro   # hsv_score.json: the score's numbers, read live by the dashboard
       - ${HOME}/Pictures:/pictures:ro   # photos read straight off disk for thumbnails / the image proxy
       - thumb-cache:/cache              # thumbnails made from them (/api/thumb)
     ports:
       - "8502:8502"
+
+  # ai-analysis adds weather, the sunset forecast and sky read, view fingerprints and the glass-lake
+  # check to each capture in InfluxDB, applies thumbs up/down, and rescores after a score change.
+  # Ollama serves the local vision model for the sky read.
+  ollama:
+    image: ollama/ollama:latest   # needs >= 0.12.7 for qwen3-vl
+    restart: unless-stopped
+    volumes:
+      - ollama-models:/root/.ollama
+    environment:
+      OLLAMA_NUM_PARALLEL: "1"        # one photo at a time
+      OLLAMA_MAX_LOADED_MODELS: "1"
+      OLLAMA_KEEP_ALIVE: "10m"        # unload the model between batches to free RAM
+    mem_limit: 6g                     # leave headroom on the 16GB NUC for capture + InfluxDB
+    expose:
+      - "11434"
+
+  ai-analysis:
+    build: .
+    command: ["python", "-m", "ai_analysis", "watch"]
+    restart: unless-stopped
+    depends_on:
+      - ollama
+      - influxdb
+      - imageserver
+    environment:
+      OLLAMA_URL: http://ollama:11434
+      # Empty = AI off. When on, it only rules out frames it calls dark or "no signal";
+      # its 0-100 score is shown in the dashboard for information.
+      AI_MODEL: ${AI_MODEL:-}
+      INFLUXDB_HOST: influxdb
+      INFLUXDB_PORT: "8086"
+      # Stored image urls use the public IMAGE_BASE_URL; fetch them via the compose network instead.
+      IMAGE_BASE_URL: ${IMAGE_BASE_URL:-http://localhost:8080}
+      IMAGE_FETCH_URL: http://imageserver:8080
+      # Rescoring reads the photos; drop-ranked --delete removes the old ranked PNGs.
+      PICTURES_DIR: /pictures
+      TIMEZONE: ${TIMEZONE:-America/New_York}
+      CONFIG_DIR: /app/config        # camera LAT/LON for weather
+    volumes:
+      - ${HOME}/Pictures:/pictures   # same folder the capture containers use
+      - ./config:/app/config:ro
 
   rebuild-webhook:
     image: docker:cli
@@ -128,3 +164,4 @@ volumes:
   influxdb-storage:
     external: true
   thumb-cache:
+  ollama-models:

@@ -20,9 +20,7 @@ services:
       - "8080:8080"
 
   capture-bolton_summit_cam:
-    build:
-      context: .
-      dockerfile: sunset_code/Dockerfile
+    build: .   # the one shared image (Dockerfile); its default command is the capture loop
     restart: unless-stopped
     depends_on:
       - influxdb
@@ -38,9 +36,7 @@ services:
       - pictures_data:/pictures
 
   capture-btv_echo_cam:
-    build:
-      context: .
-      dockerfile: sunset_code/Dockerfile
+    build: .   # the one shared image (Dockerfile); its default command is the capture loop
     restart: unless-stopped
     depends_on:
       - influxdb
@@ -56,7 +52,9 @@ services:
       - pictures_data:/pictures
 
   dashboard:
-    build: ./html_project
+    build: .
+    working_dir: /app/html_project
+    command: ["python", "backend.py"]
     restart: unless-stopped
     depends_on:
       - influxdb
@@ -66,7 +64,7 @@ services:
       IMAGE_BASE_URL: ${IMAGE_BASE_URL:-http://localhost:8080}
     volumes:
       - ./config:/app/config:ro
-      - ./sunset_code:/sunset_code   # hsv_score.json: the score's numbers, read by the dashboard
+      - ./sunset_code:/app/sunset_code:ro   # hsv_score.json: the score's numbers, read live by the dashboard
     ports:
       - "8502:8502"
 

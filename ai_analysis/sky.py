@@ -5,7 +5,7 @@ strongest single sign found. 30 min before is the last shot with plenty of time 
 15 min is a last check. At 5 min the photo's own colour already says it.
 
 Stored as sky_* fields on the shot; predict.py uses them once predict_coefs.json has a set with them
-(analysis/horizons.py, after the history is filled: python -m ai_judge sky --camera all).
+(analysis/horizons.py, after the history is filled: python -m ai_analysis sky --camera all).
 About 10-20 s per photo on the NUC's CPU, with the photo at 320 px as in the analysis.
 """
 

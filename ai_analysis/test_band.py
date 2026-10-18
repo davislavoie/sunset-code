@@ -1,4 +1,4 @@
-"""Checks for the horizon light band. Run: python -m unittest ai_judge.test_band"""
+"""Checks for the horizon light band. Run: python -m unittest ai_analysis.test_band"""
 
 import io
 import unittest
@@ -6,7 +6,7 @@ import unittest
 import numpy as np
 from PIL import Image
 
-from ai_judge import band, predict
+from ai_analysis import band, predict
 
 
 def jpeg(a):

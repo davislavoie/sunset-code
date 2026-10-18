@@ -2332,7 +2332,7 @@ main#content.is-stale { opacity: 0.5; pointer-events: none; }
 .sidebar-inner > .theme-toggle { margin-top: auto; }
 .login-btn { display: flex; align-items: center; gap: 10px; color: var(--text-muted); }
 
-/* ---- Local AI judge verdicts (SunsetHero.jsx AiVerdict) ---- */
+/* ---- Local AI analysis verdicts (SunsetHero.jsx AiVerdict) ---- */
 .ai-verdict { font-size: 0.85em; color: var(--text-secondary); }
 .ai-score { color: var(--text); font-weight: 600; }
 /* Captures that don't count: dimmed so they don't read as candidates */

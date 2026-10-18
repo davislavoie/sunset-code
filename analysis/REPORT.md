@@ -135,7 +135,7 @@ Breakdown of which shot holds each camera-day's best score:
 
 ## Forecast at every pre shot, wired in (follow-up)
 
-**What's wired in:** `ai_judge/predict.py` writes a forecast onto each pre shot: 2h, 1h, 45m, 30m,
+**What's wired in:** `ai_analysis/predict.py` writes a forecast onto each pre shot: 2h, 1h, 45m, 30m,
 15m and 5m before sunset. There is no 10-minute capture; adding one would mean changing
 sunset_code's intervals, which I didn't touch. The forecast fields:
 - `predicted_pct`: 0–100, where the day's best sunset-window score should rank among this
@@ -151,13 +151,13 @@ Inputs are only what is known at that shot:
     max_pct = best shot so far today, same scale  (flagged shots count as 0, as on the dashboard)
     predicted_pct = a + b*weather + c*cur_pct + d*max_pct     (one line per horizon)
 
-The coefficients are in `ai_judge/predict_coefs.json`, fitted by `horizons.py`, so the NUC needs
+The coefficients are in `ai_analysis/predict_coefs.json`, fitted by `horizons.py`, so the NUC needs
 plain Python only. As sunset nears, the weight moves from the weather to what the camera is
 already seeing: at 2h, weather 0.27 and shot 0.15; at 5m, weather 0.04 and shots 0.88.
 
 How it runs:
-- As a step in `python -m ai_judge watch`, after the weather fill.
-- On demand: `python -m ai_judge predict --camera all [--since/--before] [--refill]`.
+- As a step in `python -m ai_analysis watch`, after the weather fill.
+- On demand: `python -m ai_analysis predict --camera all [--since/--before] [--refill]`.
 - It only uses earlier days as history, so a backfill is honest.
 - **It has not been backfilled or run against the NUC's InfluxDB.**
 
@@ -417,7 +417,7 @@ report at each shot, IEM ASOS archive).
 - `blanket.py`: the Open-Meteo fan fetch (cached, resumable).
 - `images.py`: thumbnail features.
 - `analyze.py`: everything above, written to `results.md`.
-- `horizons.py`: the per-shot forecast fit and backtest (writes `ai_judge/predict_coefs.json`).
+- `horizons.py`: the per-shot forecast fit and backtest (writes `ai_analysis/predict_coefs.json`).
 - `backtest.py`: the weather-only backtest.
 - `vision.py`, `vision_eval.py`, `vision_compare.py`: the Ollama vision-model test and its comparison with Open-Meteo.
 - `horizon_gap.py`: image-based horizon light gap (`horizon_gap.md`, `horizon_gap_examples.jpg`).

@@ -1,0 +1,12 @@
+# Only sunset_code/, ai_analysis/ and html_project/ go into the image (see Dockerfile).
+.git
+.claude
+**/__pycache__
+**/node_modules
+html_project/frontend/dist
+analysis
+analysis_export
+docs
+skills
+streamlit_project
+tests
