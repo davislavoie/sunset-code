@@ -30,8 +30,8 @@ capture is a day's best shot; ai_analysis adds what the score can't know:
   shots show a green "Glass lake +5" bubble and get +5 (+8 at >= 0.45) when picking the day's
   best and in the displayed score; the HSV `score` itself is unchanged. `watch` fills it;
   `ai reflect --camera all` does history by hand.
-- **Optional local AI** (Ollama, off unless `AI_MODEL` is set). It only rules out frames
-  it calls dark or "no signal"; its 0-100 score is shown for information.
+- **Sky read** (Ollama, `SKY_MODEL`, default qwen3-vl:4b): the vision model reads the band of light
+  and cloud on the 1h, 45m, 30m and 15m shots, for the forecast. `ai sky --camera all` does history.
 
 Everything is merged onto the capture's own InfluxDB point; the pipeline's code and its
 `url`/`score` fields are untouched. The rule for what can't win lives in
@@ -48,9 +48,6 @@ docker compose -f docker-compose.existing-infra.yml up -d --build --remove-orpha
 docker compose -f docker-compose.existing-infra.yml logs -f ai-analysis
 ```
 
-To also run the local AI, add `AI_MODEL=qwen3-vl:4b` to `.env` (first run downloads
-~3.3 GB) and `up -d` again.
-
 It uses the same photos folder as the capture containers (`${HOME}/Pictures`): `rescore`
 reads the photos, `drop-ranked --delete` removes the old ranked PNGs.
 
@@ -60,7 +57,7 @@ For the commands below, an alias saves typing:
 alias ai='docker compose -f docker-compose.existing-infra.yml run --rm ai-analysis python -m ai_analysis'
 ```
 
-Every command takes `--camera <tag>` or `--camera all`, and `backfill`/`rescore` take
+Every command takes `--camera <tag>` or `--camera all`, and `rescore` takes
 `--since YYYY-MM-DD` (inclusive) and `--before YYYY-MM-DD` (exclusive), in the cameras'
 local dates. Cameras: `bolton_summit_cam`, `btv_echo_cam`, `wcax_tower_sunrise`,
 `wcax_tower_sunset`.
@@ -75,44 +72,11 @@ ai weather --camera all --since 2026-09-01 --refill       # fetch again
 ai views --camera all                                     # fingerprint + apply "all shots like this" now
 ```
 
-### 1. Pick an AI model (only if you turn the AI on)
-
-Compare two models on a sample. Nothing is written to InfluxDB; it saves an HTML
-contact sheet. Without `--dates` it samples the highest-, lowest- and random-scoring
-captures (where the color score is most often fooled):
-
-```bash
-docker compose -f docker-compose.existing-infra.yml run --rm \
-  -v "$PWD/bakeoff:/app/bakeoff" ai-analysis \
-  python -m ai_analysis bakeoff --camera btv_echo_cam --models qwen3-vl:4b,gemma3:4b --sample 12
-```
-
-Better still, add real days you know the camera was pointed at a wall or tree (spot
-them in the dashboard's Calendar → Month view) with `--dates YYYY-MM-DD,YYYY-MM-DD`.
-It warns about any date with no captures for that camera.
-
-Open `bakeoff/bakeoff.html`, check which model's verdicts look right, and note its
-seconds-per-photo in the log. To use the other model, set `AI_MODEL=gemma3:4b` in
-`.env` (next to `IMAGE_BASE_URL`) and run `up -d` again.
-
-### 2. Backfill history
-
-Resumable: stop it any time, and re-running skips what's already judged.
-
-```bash
-ai backfill --camera all --best-only                                        # each day's best shot: a few hours
-ai backfill --camera all --since 2026-09-01 --before 2026-09-08            # one week, every capture (all 4 cameras)
-ai backfill --camera all                                                    # everything (~6,000 captures): days
-```
-
-`--best-only` judges each day's highest-scoring shot, enough to catch dark / no-signal best shots;
-the dashboard then skips those.
-
-### 3. Rescore after changing the score
+### Rescore after changing the score
 
 After a change to `sunset_code/helpers/sunset_process.py` or `hsv_score.json`, `rescore` recomputes
 every capture's HSV score, its breakdown and its histograms, and writes them onto the same points
-(InfluxDB merges fields), so thumbs, weather and AI fields are kept and nothing is deleted. No
+(InfluxDB merges fields), so thumbs, weather and forecast fields are kept and nothing is deleted. No
 images are made: the dashboard picks each day's best shot from the scores. About 40 ms a photo.
 
 ```bash
@@ -134,14 +98,13 @@ ai drop-ranked --camera all --delete    # remove the points and their PNGs
 - **Calendar → Day tab:** 👍 / 👎 (and "all shots like this") under each capture; shots
   that don't count are dimmed, labeled with why, and score 0.
 - **Admin → Archive:** every shot that doesn't count, by day and reason, with 👍/👎 to undo.
-- **Score Tracker:** a Color score / AI score toggle when the AI is on.
 
 The thumbs buttons call `/api/admin/thumb`; if the dashboard goes public, keep
 `/api/admin/*` behind auth like the other admin routes.
 
 ## Resource use
 
-Ollama is capped at 6 GB RAM (`mem_limit` in `docker-compose.existing-infra.yml`), judges one photo
+Ollama is capped at 6 GB RAM (`mem_limit` in `docker-compose.existing-infra.yml`), reads one photo
 at a time, and unloads the model 10 minutes after the last photo. Turn it all off with
 `docker compose -f docker-compose.existing-infra.yml stop ollama ai-analysis`.
 

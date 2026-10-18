@@ -97,9 +97,6 @@ class RescoreTests(unittest.TestCase):
                          [f"DELETE FROM {store.MEASUREMENT} WHERE camera = $camera AND label =~ /^1[12]_/"])
         self.assertFalse(os.path.exists(png))
 
-    def test_best_shot_times_is_each_days_highest_score(self):
-        self.assertEqual(store.best_shot_times(FakeClient([WALL, SKY_A, SKY_B, *RANKED_WALL]), "cam"), {WALL["time"]})
-
     def test_cleanup_lists_entries_whose_photo_is_gone_and_refuses_when_most_are(self):
         for p in (SKY_A, SKY_B):
             open(store.local_path(p), "w").close()

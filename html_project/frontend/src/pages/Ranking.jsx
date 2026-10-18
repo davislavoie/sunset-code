@@ -58,7 +58,7 @@ export default function Ranking({ data, camera, onLoadToHsv }) {
   // Sunrise cameras label the moment itself "sunrise"; captures before/after are relative to it.
   const event = data.ranked_images.some((r) => /^\d+_sunrise/.test(r["Raw Image"]?.split("/").pop())) ? "sunrise" : "sunset";
   const ascending = order === "Lowest to Highest";
-  // Days whose best shot doesn't count (thumbs down, bad view, dark) would skew the
+  // Days whose best shot doesn't count (thumbs down, bad view) would skew the
   // ranking, so they're left out unless shown with the toggle.
   const hiddenCount = data.ranked_images.filter(ruledOut).length;
   const rows = data.ranked_images.filter((r) => showHidden || !ruledOut(r)).sort((a, b) => {

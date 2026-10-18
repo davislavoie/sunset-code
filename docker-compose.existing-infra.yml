@@ -130,9 +130,6 @@ services:
       - imageserver
     environment:
       OLLAMA_URL: http://ollama:11434
-      # Empty = AI off. When on, it only rules out frames it calls dark or "no signal";
-      # its 0-100 score is shown in the dashboard for information.
-      AI_MODEL: ${AI_MODEL:-}
       INFLUXDB_HOST: influxdb
       INFLUXDB_PORT: "8086"
       # Stored image urls use the public IMAGE_BASE_URL; fetch them via the compose network instead.

@@ -14,7 +14,6 @@ class BestShot(unittest.TestCase):
     def test_highest_score_wins_and_excluded_shots_cant(self):
         self.assertEqual(backend.best_shot([shot("a", 40.0), shot("b", 60.0)])["time"], "b")
         self.assertEqual(backend.best_shot([shot("a", 40.0), shot("b", 90.0, thumb=-1)])["time"], "a")
-        self.assertEqual(backend.best_shot([shot("a", 40.0), shot("b", 90.0, ai_view="dark")])["time"], "a")
         self.assertIsNone(backend.best_shot([shot("b", 90.0, thumb=-1)]))
 
     def test_glass_bonus_steps_and_wins_within_the_bump_but_not_beyond(self):

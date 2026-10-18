@@ -22,22 +22,12 @@ export default function ScoreTracker({ data, camera }) {
   const rows = data.ranked_images;
   const [tab, setTab] = useState("chart");
   const [selected, setSelected] = useState(null);
-  // "color" = the HSV score from sunset_process.py; "ai" = the optional local AI analysis's score.
-  const [metric, setMetric] = useState("color");
-
   const points = useMemo(
     () =>
       rows
-        .map((row) => ({ date: new Date(row.dt_local), score: row.Score, ai: aiScore(row), row }))
+        .map((row) => ({ date: new Date(row.dt_local), score: row.Score, value: row.Score, row }))
         .sort((a, b) => a.date - b.date),
     [rows],
-  );
-  const hasAi = points.some((p) => p.ai != null);
-  const showAi = metric === "ai" && hasAi;
-  // One line at a time: AI scores only exist for judged days, and bklit would draw gaps as zeros.
-  const chartData = useMemo(
-    () => (showAi ? points.filter((p) => p.ai != null) : points).map((p) => ({ ...p, value: showAi ? p.ai : p.score })),
-    [points, showAi],
   );
 
   const xTicks = useMemo(() => (points.length ? monthTicks(points[0].date, points.at(-1).date) : {}), [points]);
@@ -82,26 +72,14 @@ export default function ScoreTracker({ data, camera }) {
           </>
         ) : tab === "chart" ? (
           <>
-            {hasAi && (
-              <div className="rank-chips metric-toggle" role="group" aria-label="Score shown">
-                {[["color", "Color score"], ["ai", "AI score"]].map(([key, label]) => (
-                  <button key={key} className={`rank-chip${metric === key ? " active" : ""}`} aria-pressed={metric === key} onClick={() => setMetric(key)}>
-                    {label}
-                  </button>
-                ))}
-              </div>
-            )}
-            <p className="chart-hint">
-              Click a point to see that day's images.
-              {showAi && ` Showing the ${chartData.length} days the AI has judged.`}
-            </p>
+            <p className="chart-hint">Click a point to see that day's images.</p>
             <div className="score-chart">
-              <LineChart key={metric} data={chartData} aspectRatio="" className="h-full" margin={{ left: 40, right: 16 }} yDomain={[0, 100]}>
+              <LineChart data={points} aspectRatio="" className="h-full" margin={{ left: 40, right: 16 }} yDomain={[0, 100]}>
                 <Grid {...GRID_STYLE} horizontal rowTickValues={SCORE_TICKS} vertical numTicksColumns={12} />
                 {/* Straight segments between days (no smoothing) with every day drawn as a point */}
                 <Line
                   dataKey="value"
-                  stroke={showAi ? "var(--chart-4)" : "var(--chart-2)"}
+                  stroke="var(--chart-2)"
                   strokeWidth={1.5}
                   curve={curveLinear}
                   showMarkers
@@ -113,9 +91,6 @@ export default function ScoreTracker({ data, camera }) {
                   {...INSTANT_TOOLTIP}
                   rows={(point) => [
                     { color: "var(--chart-2)", label: "Color score", value: `${point.score.toFixed(1)}%` },
-                    ...(point.row.AI
-                      ? [{ color: "var(--chart-4)", label: "AI score", value: `${point.ai ?? 0}` }]
-                      : []),
                     { color: "var(--chart-3)", label: "Best shot", value: point.row.Time },
                   ]}
                 />
@@ -235,9 +210,4 @@ function Stat({ label, value }) {
       <span className="metric-value">{value}</span>
     </div>
   );
-}
-
-/** The AI analysis's sky-only score for a ranked day, or null if not judged. */
-function aiScore(row) {
-  return row.AI ? row.AI.score : null;
 }

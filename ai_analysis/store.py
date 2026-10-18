@@ -12,7 +12,6 @@ import requests
 
 MEASUREMENT = "sunset_images"
 HIST_MEASUREMENT = "sunset_hist"  # each capture's sky histograms (same tags and time), kept out of the main measurement
-AI_FIELDS = ("ai_view", "ai_is_sunset", "ai_sky_percent", "ai_score", "ai_reason", "ai_model")
 
 # Days are grouped by the cameras' local date: an evening sunset in Vermont is after
 # midnight UTC, so UTC dates would split or shift it.
@@ -70,19 +69,6 @@ def by_day(day_points):
     return days
 
 
-def best_shot_times(client, camera):
-    """Timestamps of each day's highest-scoring capture (for judging only those)."""
-    best = {}
-    for p in captures(client, camera):
-        day = local_date(p)
-        if (p.get("score") or 0) > (best.get(day, {}).get("score") or -1):
-            best[day] = p
-    return {p["time"] for p in best.values()}
-
-
-AI_EXCLUSIONS = {"dark": "too dark", "no_signal": "no camera signal"}
-
-
 def exclusion(point):
     """Why a capture can't be a day's best shot, or None. Same rule as html_project/backend.py.
     The HSV score decides everything else; a thumbs up overrides all of it."""
@@ -93,17 +79,13 @@ def exclusion(point):
         return "thumbs down"
     if point.get("view_blocked"):
         return "same view as a thumbed-down shot"
-    return AI_EXCLUSIONS.get(point.get("ai_view"))
+    return None
 
 
 # Glass lake (ai_analysis/reflect.py): a mirror-calm lake earns a small bump in the displayed score and when
 # the dashboard picks the day's best shot (html_project/backend.py applies it); the HSV score is untouched.
 # Here only for reflect.py's badge threshold. Same numbers as backend.py (which also skips grey (HSV < 10) and rainy shots).
 GLASS_BONUS = ((0.45, 8), (0.35, 5))  # (mirror_score at least, points)
-
-
-def needs_judging(point, model, rejudge=False):
-    return rejudge or point.get("ai_model") != model
 
 
 def image_bytes(point):
@@ -127,18 +109,6 @@ def local_path(point):
     if not url.startswith(base + "/"):
         raise ValueError(f"url {url} doesn't start with IMAGE_BASE_URL {base}")
     return os.path.join(pictures, *url[len(base) + 1:].split("/"))
-
-
-def save_judgment(client, point, result, model):
-    """Merge the AI fields into the existing capture point."""
-    save_fields(client, point, {
-        "ai_view": result["view"],
-        "ai_is_sunset": result["is_sunset"],
-        "ai_sky_percent": float(result["sky_percent"]),
-        "ai_score": float(result["score"]),
-        "ai_reason": result["reason"],
-        "ai_model": model,
-    })
 
 
 def save_fields(client, point, fields):

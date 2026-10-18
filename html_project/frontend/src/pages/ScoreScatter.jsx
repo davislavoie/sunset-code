@@ -26,7 +26,6 @@ const CLOUD_FIELDS = [["", "overhead"], ["path13_", "8 mi toward sun"], ["path40
 
 export const FIELDS = [
   { key: "score", label: "Color score (%)", get: (r) => r.Score },
-  { key: "ai", label: "AI score", get: (r) => r.AI?.score },
   { key: "date", label: "Date", get: (r) => new Date(r.dt_local).getTime(), fmt: fmtDate },
   {
     key: "doy", label: "Day of year",

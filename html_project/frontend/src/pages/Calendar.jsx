@@ -11,7 +11,7 @@ import DayDetail, { captureName } from "../DayDetail.jsx";
 import { ForecastCard } from "../Forecast.jsx";
 import Img, { SIZES, sizeForLabel } from "../Img.jsx";
 import Reveal from "../Reveal.jsx";
-import SunsetHero, { AiVerdict } from "../SunsetHero.jsx";
+import SunsetHero from "../SunsetHero.jsx";
 import Thumbs, { exclusionFor, FlagPill, GlassPill } from "../Thumbs.jsx";
 import Tip from "../Tip.jsx";
 import { Zoomable } from "../lightbox.jsx";
@@ -56,7 +56,7 @@ function normalizeLabel(label) {
 }
 
 export default function Calendar({ data, camera, onLoadToHsv, admin = false }) {
-  // Shots that don't count (thumbs down, bad view, dark) still show, scored 0% with a pill saying why.
+  // Shots that don't count (thumbs down, bad view) still show, scored 0% with a pill saying why.
   const { ranked_images: rankedImages, all_data: allData, sunset_data: sunsetData } = data;
   const [params, setParams] = useSearchParams();
 
@@ -212,7 +212,7 @@ export function CaptureCard({ img, camera, admin = false, event = "sunset", sele
   const generated = /^(11_|12_)/.test(img.Label);
   const excluded = generated ? null : exclusionFor(img, thumb);
   return (
-    <div className={`day-view-card${excluded ? " ai-not-sky" : ""}${selected ? " selected" : ""}`}>
+    <div className={`day-view-card${excluded ? " not-counted" : ""}${selected ? " selected" : ""}`}>
       {onSelect ? (
         <Img src={small(img.Image)} alt={img.Label} loading="lazy" onClick={onSelect} {...sizeForLabel(img.Label)} />
       ) : (
@@ -226,7 +226,6 @@ export function CaptureCard({ img, camera, admin = false, event = "sunset", sele
         </span>
         <FlagPill reason={excluded} />
         <GlassPill glass={img.Glass} hsv={img["HSV Score"]} />
-        <AiVerdict ai={img.AI} compact />
         {admin && !generated && <Thumbs camera={camera} img={img} onChange={(s) => setThumb(s.thumb)} />}
       </div>
     </div>

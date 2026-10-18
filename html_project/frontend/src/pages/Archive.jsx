@@ -1,5 +1,5 @@
 // Admin archive: every capture that doesn't count (thumbs down, same view as a thumbed-down
-// shot, dark / no signal), newest day first. Clearing a thumbs down here brings it back.
+// shot), newest day first. Clearing a thumbs down here brings it back.
 
 import { useState } from "react";
 import { CaptureCard } from "./Calendar.jsx";

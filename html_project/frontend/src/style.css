@@ -2332,11 +2332,8 @@ main#content.is-stale { opacity: 0.5; pointer-events: none; }
 .sidebar-inner > .theme-toggle { margin-top: auto; }
 .login-btn { display: flex; align-items: center; gap: 10px; color: var(--text-muted); }
 
-/* ---- Local AI analysis verdicts (SunsetHero.jsx AiVerdict) ---- */
-.ai-verdict { font-size: 0.85em; color: var(--text-secondary); }
-.ai-score { color: var(--text); font-weight: 600; }
 /* Captures that don't count: dimmed so they don't read as candidates */
-.day-view-card.ai-not-sky img { opacity: 0.45; filter: grayscale(0.6); }
+.day-view-card.not-counted img { opacity: 0.45; filter: grayscale(0.6); }
 .archive-intro { color: var(--text-muted); }
 
 /* ---- Weather.jsx ---- */
@@ -2376,7 +2373,6 @@ main#content.is-stale { opacity: 0.5; pointer-events: none; }
 .thumbs .thumb-down[aria-pressed="true"] { background: var(--destructive-tint); border-color: transparent; color: var(--destructive); }
 .thumbs label { display: flex; align-items: center; gap: 4px; color: var(--text-secondary); cursor: pointer; }
 .thumbs-error { color: var(--destructive); }
-.metric-toggle { margin-bottom: 8px; }
 
 /* Active nav item wears the sunset colour. */
 .nav-btn.active { background: color-mix(in srgb, var(--sun) 14%, transparent); color: var(--sun); }

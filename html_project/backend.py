@@ -86,13 +86,12 @@ def fetch_camera_data(camera_tag):
             "Time": time_str,
             "Label": point["label"],
             "Image": point["url"],
-            # A capture that can't be a day's best shot (thumbs down, dark...) counts as 0.
+            # A capture that can't be a day's best shot (thumbs down, a thumbed-down view) counts as 0.
             "Score": 0 if exclusion(point) else shown_score(hsv_score, point, zoom),
             "HSV Score": hsv_score,
             "Breakdown": breakdown_fields(point),
             "Glass": glass_fields(point),
             "Zoom": zoom,
-            "AI": ai_fields(point),
             "ts": point["time"],
             "Thumb": point.get("thumb") or 0,
             "BadView": bool(point.get("bad_view")),
@@ -112,7 +111,7 @@ def fetch_camera_data(camera_tag):
     for date_str, shots in days.items():
         best = best_shot([p for p, _ in shots])
         if best is None:
-            continue  # nothing that day can be the best shot (all thumbed down / dark)
+            continue  # nothing that day can be the best shot (all thumbed down)
         point, item = next(s for s in shots if s[0] is best)
         ranked_images.append({
             # The pipeline's annotated 11_ranked PNG is gone; the dashboard draws the overlay itself.
@@ -129,7 +128,6 @@ def fetch_camera_data(camera_tag):
             "dt_local": datetime.strptime(point["time"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=pytz.utc).astimezone(local_tz).isoformat(),
             "Label": point["label"],
             "ts": point["time"],
-            "AI": item["AI"],
             "Excluded": item["Excluded"],
             "Weather": item["Weather"],
         })
@@ -155,9 +153,6 @@ def breakdown_fields(point):
     return {k: point[k] for k in BREAKDOWN_FIELDS if point.get(k) is not None} if point.get("contrast") is not None else None
 
 
-AI_EXCLUSIONS = {"dark": "too dark", "no_signal": "no camera signal"}
-
-
 def exclusion(point):
     """Why a capture can't be a day's best shot, or None. Keep in sync with ai_analysis/store.py.
     The HSV score decides everything else; a thumbs up overrides all of it."""
@@ -168,7 +163,7 @@ def exclusion(point):
         return "thumbs down"
     if point.get("view_blocked"):
         return "same view as a thumbed-down shot"
-    return AI_EXCLUSIONS.get(point.get("ai_view"))
+    return None
 
 
 # Glass lake (ai_analysis/reflect.py): mirror-calm lake shots get a small bump. Keep in sync with ai_analysis/store.py.
@@ -236,20 +231,6 @@ def sky_fields(point):
         return None
     return {"quality": point["sky_quality"], "gap": point.get("sky_gap"), "lit": point.get("sky_lit"),
             "reason": point.get("sky_reason")}
-
-
-def ai_fields(point):
-    """ai_* fields written by the optional ai_analysis service, or None if not judged (or not running)."""
-    if point.get("ai_model") is None:
-        return None
-    return {
-        "view": point.get("ai_view"),
-        "is_sunset": point.get("ai_is_sunset"),
-        "sky_percent": point.get("ai_sky_percent"),
-        "score": point.get("ai_score"),
-        "reason": point.get("ai_reason"),
-        "model": point.get("ai_model"),
-    }
 
 
 def fetch_camera_data_cached(camera_tag):

@@ -1,5 +1,5 @@
 """Sidecar to the capture pipeline: reads captures from InfluxDB and adds fields to
-them (weather, a simple sunset forecast, view fingerprints, glass-lake badge, thumbs rules, optional local AI verdicts).
+them (weather, a simple sunset forecast, view fingerprints, glass-lake badge, thumbs rules, the vision model's sky read).
 The dashboard picks each day's best shot from the scores itself; `rescore` rewrites the scores in place
 after a change to sunset_process.py / hsv_score.json.
 
@@ -13,38 +13,32 @@ after a change to sunset_process.py / hsv_score.json.
   python -m ai_analysis band     --camera all   # horizon light band (horizon_lift) on the pre shots, for the forecast
   python -m ai_analysis reflect  --camera all   # "Glass lake" badge: mirror score on btv_echo_cam captures
   python -m ai_analysis cleanup  --camera all [--delete]   # list (or remove) entries whose photo you deleted
-  python -m ai_analysis backfill --camera btv_echo_cam [--since 2025-07-01] [--before 2025-08-01] [--best-only] [--limit N] [--rejudge]
   python -m ai_analysis rescore  --camera all [--since ...] [--before ...] [--dry-run]   # new HSV scores, in place
   python -m ai_analysis drop-ranked --camera all [--delete]   # list (or remove) the old 11_ranked / 12_histogram points + PNGs
-  python -m ai_analysis bakeoff  --camera btv_echo_cam --models qwen3-vl:4b,gemma3:4b [--sample 12] [--dates 2025-05-26,...]
 
 Dates are the cameras' local dates (TIMEZONE, default America/New_York): --since is
 inclusive, --before is exclusive. --camera all runs every camera.
 
-Config (env): OLLAMA_URL, AI_MODEL (empty turns the AI off), CONFIG_DIR, INFLUXDB_HOST, INFLUXDB_PORT, IMAGE_BASE_URL,
+Config (env): OLLAMA_URL, SKY_MODEL, CONFIG_DIR, INFLUXDB_HOST, INFLUXDB_PORT, IMAGE_BASE_URL,
 IMAGE_FETCH_URL, PICTURES_DIR, TIMEZONE.
 """
 
 import argparse
-import html
 import logging
 import os
-import random
 import time
 from datetime import date
-from pathlib import Path
 
 import requests
 from influxdb import InfluxDBClient
 
 from . import band, goes, metar, predict, reflect, sky, store, views, weather
-from .judge import ensure_model, judge_image
+from .ollama import ensure_model
 from .rescore import drop_ranked, rescore
 
 log = logging.getLogger("ai_analysis")
 
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
-AI_MODEL = os.environ.get("AI_MODEL", "qwen3-vl:4b")
 WATCH_INTERVAL_S = int(os.environ.get("WATCH_INTERVAL_S", 600))
 
 
@@ -56,31 +50,13 @@ def influx():
     )
 
 
-def judge_and_save(client, point, model):
-    """Judge one capture and store the result. Returns the result, or None to retry later."""
-    try:
-        image = store.image_bytes(point)
-    except Exception as e:  # missing file, image server down: try again next pass
-        log.warning("Can't fetch %s: %s", point.get("url"), e)
-        return None
-    started = time.monotonic()
-    result = judge_image(image, model, OLLAMA_URL)
-    if result:
-        store.save_judgment(client, point, result, model)
-        log.info("%s %s %s: %s %d (%.0fs) %s", point["camera"], point["time"], point["label"],
-                 result["view"], result["score"], time.monotonic() - started, result["reason"])
-    return result
-
-
 def watch(_args):
     client = influx()
-    if AI_MODEL:
-        ensure_model(AI_MODEL, OLLAMA_URL)
     try:
         ensure_model(sky.MODEL, OLLAMA_URL)
     except requests.RequestException as e:  # Ollama down: everything else still runs; sky retries each pass
         log.warning("Can't reach Ollama for %s: %s", sky.MODEL, e)
-    log.info("Watching for new captures every %ds (AI: %s)", WATCH_INTERVAL_S, AI_MODEL or "off")
+    log.info("Watching for new captures every %ds", WATCH_INTERVAL_S)
     while True:
         for camera in store.cameras(client):
             # Each step on its own, so e.g. Open-Meteo being down doesn't stop thumbs from applying.
@@ -88,9 +64,6 @@ def watch(_args):
                      lambda: sky.fill(client, camera, OLLAMA_URL, recent="2d"),
                      lambda: predict.fill(client, camera),
                      lambda: views.fill_fingerprints(client, camera), lambda: reflect.fill(client, camera)]
-            if AI_MODEL:
-                steps.append(lambda: [judge_and_save(client, p, AI_MODEL) for p in store.captures(client, camera, recent="2d")
-                                      if store.needs_judging(p, AI_MODEL)])
             steps.append(lambda: views.apply_bad_views(client, camera))
             for step in steps:
                 try:
@@ -107,23 +80,6 @@ def camera_list(client, camera):
     if camera not in known:
         raise SystemExit(f"Unknown camera {camera!r}. Cameras: {', '.join(known)} (or 'all')")
     return [camera]
-
-
-def backfill(args):
-    client = influx()
-    ensure_model(AI_MODEL, OLLAMA_URL)
-    for camera in camera_list(client, args.camera):
-        points = store.captures(client, camera, since=args.since, before=args.before)
-        if args.best_only:
-            best = store.best_shot_times(client, camera)
-            points = [p for p in points if p["time"] in best]
-        todo = [p for p in points if store.needs_judging(p, AI_MODEL, args.rejudge)]
-        if args.limit:
-            todo = todo[: args.limit]
-        log.info("%s: %d of %d captures to judge with %s", camera, len(todo), len(points), AI_MODEL)
-        for i, point in enumerate(todo, 1):
-            log.info("[%d/%d]", i, len(todo))
-            judge_and_save(client, point, AI_MODEL)
 
 
 def rescore_cmd(args):
@@ -205,87 +161,11 @@ def reflect_cmd(args):
         reflect.fill(client, camera)
 
 
-def bakeoff(args):
-    """Compare models on a sample without writing anything to InfluxDB. Writes an HTML
-    contact sheet (photo + each model's verdict and time) to --out."""
-    client = influx()
-    models = [m.strip() for m in args.models.split(",") if m.strip()]
-    log.info("Loading %s captures from InfluxDB...", args.camera)
-    points = store.captures(client, args.camera)
-    if args.dates:
-        wanted = {date.fromisoformat(d.strip()) for d in args.dates.split(",") if d.strip()}
-        sample = [p for p in points if store.local_date(p) in wanted]
-        for missing in sorted(wanted - {store.local_date(p) for p in sample}):
-            log.warning("%s has no captures on %s; it isn't in the sample", args.camera, missing)
-    else:
-        sample = []
-    # Top it up with the highest- and lowest-scoring captures (where the color score is most
-    # likely to be fooled by walls/trees or miss a good sky) plus a few random ones.
-    by_score = sorted((p for p in points if p not in sample), key=lambda p: p.get("score") or 0)
-    n = max(0, args.sample - len(sample))
-    k = n // 3
-    top, bottom = by_score[len(by_score) - k:], by_score[:k]
-    middle = [p for p in by_score if p not in top and p not in bottom]
-    sample += top + bottom + random.Random(0).sample(middle, min(len(middle), n - 2 * k))
-
-    log.info("Sample: %d captures. Making sure both models are downloaded...", len(sample))
-    rows = []
-    for model in models:
-        ensure_model(model, OLLAMA_URL)
-    for i, point in enumerate(sample, 1):
-        log.info("[%d/%d] judging %s %s (the first one is slowest: models load into memory)",
-                 i, len(sample), point["time"], point["label"])
-        image = store.image_bytes(point)
-        verdicts = []
-        for model in models:
-            started = time.monotonic()
-            result = judge_image(image, model, OLLAMA_URL)
-            verdicts.append((model, result, time.monotonic() - started))
-            log.info("%s %s: %s (%.0fs)", point["time"], model, result, verdicts[-1][2])
-        rows.append((point, verdicts))
-
-    out = Path(args.out)
-    out.mkdir(parents=True, exist_ok=True)
-    report = out / "bakeoff.html"
-    report.write_text(render_report(rows, models), encoding="utf-8")
-    for model in models:
-        times = [t for _, verdicts in rows for m, _, t in verdicts if m == model]
-        log.info("%s: %.1fs per photo on average", model, sum(times) / max(1, len(times)))
-    log.info("Report: %s", report.resolve())
-
-
-def render_report(rows, models):
-    head = "".join(f"<th>{html.escape(m)}</th>" for m in models)
-    body = []
-    for point, verdicts in rows:
-        cells = []
-        for _, r, secs in verdicts:
-            text = ("failed" if not r else
-                    f"<b>{r['view']}</b> · score {r['score']} · sky {r['sky_percent']}%<br>{html.escape(r['reason'])}")
-            cells.append(f"<td>{text}<br><small>{secs:.0f}s</small></td>")
-        body.append(
-            f"<tr><td><img src='{html.escape(point['url'])}' width='320'><br>"
-            f"{html.escape(point['time'])} · color score {point.get('score', 0):.1f}</td>{''.join(cells)}</tr>"
-        )
-    return (
-        "<!doctype html><meta charset='utf-8'><title>AI analysis bake-off</title>"
-        "<style>body{font-family:sans-serif;background:#0e1117;color:#eee}td{vertical-align:top;padding:8px;"
-        "border-bottom:1px solid #333}img{border-radius:6px}</style>"
-        f"<table><tr><th>Capture</th>{head}</tr>{''.join(body)}</table>"
-    )
-
-
 def main():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     parser = argparse.ArgumentParser(prog="ai_analysis", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="command")
     sub.add_parser("watch")
-    b = sub.add_parser("backfill", help="judge past captures")
-    b.add_argument("--camera", required=True, help="camera tag, or 'all'")
-    add_date_range(b)
-    b.add_argument("--best-only", action="store_true", help="only each day's best shot (much faster)")
-    b.add_argument("--limit", type=int)
-    b.add_argument("--rejudge", action="store_true", help="judge again even if already judged by this model")
     r = sub.add_parser("rescore", help="recompute every capture's HSV score (and breakdown) in place with the current sunset_process.py")
     r.add_argument("--camera", required=True, help="camera tag, or 'all'")
     add_date_range(r)
@@ -293,12 +173,6 @@ def main():
     d = sub.add_parser("drop-ranked", help="list (or --delete) the old 11_ranked / 12_histogram points and their PNGs")
     d.add_argument("--camera", required=True, help="camera tag, or 'all'")
     d.add_argument("--delete", action="store_true", help="actually remove them (default: just list)")
-    k = sub.add_parser("bakeoff", help="compare models on a sample (writes nothing)")
-    k.add_argument("--camera", required=True)
-    k.add_argument("--models", default="qwen3-vl:4b,gemma3:4b")
-    k.add_argument("--sample", type=int, default=12)
-    k.add_argument("--dates", help="comma-separated YYYY-MM-DD days to include (e.g. ones you know were obstructed)")
-    k.add_argument("--out", default="bakeoff")
     w = sub.add_parser("weather", help="add Open-Meteo hourly weather to captures")
     w.add_argument("--camera", required=True, help="camera tag, or 'all'")
     add_date_range(w)
@@ -325,7 +199,7 @@ def main():
     x.add_argument("--camera", required=True, help="camera tag, or 'all'")
     x.add_argument("--delete", action="store_true", help="actually remove them (default: just list)")
     args = parser.parse_args()
-    commands = {"backfill": backfill, "rescore": rescore_cmd, "drop-ranked": drop_ranked_cmd, "bakeoff": bakeoff, "weather": weather_cmd, "predict": predict_cmd,
+    commands = {"rescore": rescore_cmd, "drop-ranked": drop_ranked_cmd, "weather": weather_cmd, "predict": predict_cmd,
                 "views": views_cmd, "reflect": reflect_cmd, "band": band_cmd, "sky": sky_cmd, "metar": metar_cmd, "goes": goes_cmd, "cleanup": cleanup_cmd}
     commands.get(args.command, watch)(args)
 

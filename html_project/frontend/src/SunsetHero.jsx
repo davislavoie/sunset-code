@@ -69,7 +69,6 @@ export default function SunsetHero({ shots, index, onSelect, best, camera, date 
             <div className="sunset-meta">{`${shot.Label.slice(3).replaceAll("_", " ")} · ${shot.Time}`}</div>
           </div>
         </div>
-        <AiVerdict ai={shot.AI} />
         <Weather w={shot.Weather} fill />
         <ScoreBreakdown breakdown={shot.Breakdown} score={shot["HSV Score"]} />
       </aside>
@@ -99,28 +98,5 @@ function ShareButton({ path, title }) {
     <button className="btn btn-primary" onClick={share}>
       {copied ? "Link copied" : "Share"}
     </button>
-  );
-}
-
-const VIEW_LABELS = { dark: "too dark", no_signal: "no camera signal" };
-
-/** The local AI analysis's take on a photo (only shown once ai_analysis has judged it). */
-export function AiVerdict({ ai, compact = false }) {
-  if (!ai) return null;
-  // Only dark / no-signal verdicts rule a frame out; the HSV score decides the rest.
-  if (VIEW_LABELS[ai.view]) {
-    return (
-      <Tip label={ai.reason}>
-        <span className="bubble destructive">Ruled out: {VIEW_LABELS[ai.view]}</span>
-      </Tip>
-    );
-  }
-  return (
-    <Tip label={`Judged by ${ai.model}`}>
-      <div className="ai-verdict">
-        <span className="ai-score">AI {Math.round(ai.score)}</span>
-        {!compact && ai.reason && <> · {ai.reason}</>}
-      </div>
-    </Tip>
   );
 }

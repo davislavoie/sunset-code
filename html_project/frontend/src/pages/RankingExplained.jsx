@@ -91,8 +91,8 @@ export default function RankingExplained() {
           <code>score = 100 × (1 − e^(−total / {cap}))</code>
         </div>
         <p>
-          A day&apos;s best shot is its highest score (plus the glass-lake bonus), leaving out thumbed-down, dark and
-          no-signal shots; a thumbs up wins outright.
+          A day&apos;s best shot is its highest score (plus the glass-lake bonus), leaving out thumbed-down shots
+          (and shots with the same view as one); a thumbs up wins outright.
         </p>
         <p>
           The up and down arrows beside each day on Ranked images give feedback that the image is ranked too low (up)
