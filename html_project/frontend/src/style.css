@@ -933,6 +933,9 @@ a.btn { text-decoration: none; color: var(--text); }
     opacity: 0.8;
   }
 
+  /* Page title starts right of the floating menu button instead of under it */
+  main#content h1 { padding-left: 40px; }
+
   /* Larger touch targets */
   .nav-btn {
     padding: 12px 14px;
@@ -962,9 +965,10 @@ a.btn { text-decoration: none; color: var(--text); }
     gap: 10px;
   }
 
+  /* Arrows stay on either side of the title instead of wrapping above and below it. */
   .calendar-title {
     min-width: unset;
-    width: 100%;
+    flex: 1;
     font-size: 1.1em;
   }
 
@@ -2439,7 +2443,8 @@ main#content.is-stale { opacity: 0.5; pointer-events: none; }
 .hero-side-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .hero-side-head .sunset-actions { margin: 0; padding: 0; }
 .hero-side-head .btn { padding: 4px 10px; font-size: 0.9em; }
-.sunset-hero { grid-template-columns: minmax(0, 2.6fr) minmax(300px, 1fr); }
+/* Desktop only: phones keep the single stacked column (photo on top, panel below). */
+@media (min-width: 769px) { .sunset-hero { grid-template-columns: minmax(0, 2.6fr) minmax(300px, 1fr); } }
 .sunset-hero-side { padding: 16px 18px; gap: 6px; }
 .sunset-hero-side .weather-stats { gap: 4px 12px; }
 .score-row-meta { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
