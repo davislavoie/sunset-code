@@ -1,5 +1,4 @@
-// Sunset Calendar with Day / Week / Month / Year views (mirrors
-// streamlit_project/sunset_gallery.py). The Day tab is the "latest sunset" view:
+// Sunset Calendar with Day / Week / Month / Year views. The Day tab is the "latest sunset" view:
 // the day's best shot and score, then every capture. View, date and the expanded
 // day live in the URL so any view can be shared: /calendar?view=month&date=2025-05-16
 

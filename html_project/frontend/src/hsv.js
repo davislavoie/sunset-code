@@ -1,6 +1,5 @@
 // Per-pixel HSV masking on canvas ImageData, mirrors sunset_code's cv2-based
-// masking (apply_hsv_mask in streamlit_project/hsv_tuner.py). Uses OpenCV's
-// HSV scale: H 0-179, S/V 0-255.
+// masking. Uses OpenCV's HSV scale: H 0-179, S/V 0-255.
 
 export function rgbToOpenCvHsv(r, g, b) {
   const rf = r / 255, gf = g / 255, bf = b / 255;
@@ -33,8 +32,7 @@ export function applyHsvMask(imageData, { h_min, h_max, s_min, s_max, v_min, v_m
   return imageData;
 }
 
-/** Draws `img` onto a new canvas, downscaling to maxWidth if wider (mirrors the
- * cv2.resize calls in hsv_tuner.py for gallery/uploaded images). */
+/** Draws `img` onto a new canvas, downscaling to maxWidth if wider. */
 export function toResizedCanvas(img, maxWidth) {
   let w = img.naturalWidth || img.width;
   let h = img.naturalHeight || img.height;

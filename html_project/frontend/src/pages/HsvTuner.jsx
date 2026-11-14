@@ -1,4 +1,4 @@
-// HSV Mask Tuner (mirrors streamlit_project/hsv_tuner.py). Its state lives in
+// HSV Mask Tuner. Its state lives in
 // App so "Load to HSV Tuner" on other pages can add images before navigating here.
 
 import { useEffect, useMemo, useRef, useState } from "react";

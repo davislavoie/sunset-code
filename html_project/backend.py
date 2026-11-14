@@ -57,12 +57,12 @@ local_tz = pytz.timezone("America/New_York")
 
 IMAGE_BASE_URL = os.environ.get("IMAGE_BASE_URL", "")
 
-CACHE_TTL = 300  # seconds, mirrors @st.cache_data(ttl=300) in streamlit_project/app.py
+CACHE_TTL = 300  # seconds
 _cache = {}
 
 
 def fetch_camera_data(camera_tag):
-    """Fetch and process all data for a camera (mirrors app.py's fetch_camera_data)."""
+    """Fetch and process all data for a camera."""
     results = client.query("SELECT * FROM sunset_images WHERE camera = $camera", bind_params={"camera": camera_tag})
 
     sunset_data = []
@@ -344,8 +344,7 @@ def warm_thumbs():
 @app.route("/api/image-proxy")
 def image_proxy():
     """Fetch a gallery image server-side so the browser can read its pixels
-    (getImageData) without hitting cross-origin canvas tainting). Mirrors
-    hsv_tuner.py's load_image_from_url, which does the same fetch in Python."""
+    (getImageData) without hitting cross-origin canvas tainting)."""
     url = request.args.get("url")
     if not url:
         return jsonify({"error": "url query param required"}), 400

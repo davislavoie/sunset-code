@@ -1,4 +1,4 @@
-// Ranked Images (mirrors streamlit_project/ranking_tab.py)
+// Ranked Images
 
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
