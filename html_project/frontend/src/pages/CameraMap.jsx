@@ -1,5 +1,5 @@
 // The lower half of the Cameras page: camera map with sun direction lines + yearly sunrise/sunset chart.
-// Public: reads /api/camera-locations, which never includes stream URLs.
+// Public: reads /api/camera-locations.
 
 import { useEffect, useRef, useState } from "react";
 import L from "leaflet";

@@ -435,62 +435,54 @@ main#content {
 .day-view-caption { margin-top: 8px; font-size: 0.85em; color: var(--text-muted); display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
 .day-view-caption strong { color: var(--text); }
 
-/* ---- Week view (table layout) ---- */
-.week-view-table {
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 4px;
-}
-.week-view-table th,
-.week-view-table td {
-  padding: 6px;
-  text-align: center;
-  vertical-align: middle;
-  background: var(--panel);
+/* ---- Week view: one card per day, a cut-down Day view ---- */
+.week-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 12px; }
+.week-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px;
   border-radius: 8px;
+  background: var(--panel);
+  box-shadow: var(--shadow-card);
 }
-.week-view-table th {
+.week-card.has-image { cursor: pointer; transition: box-shadow 150ms var(--ease-out); touch-action: manipulation; }
+@media (hover: hover) and (pointer: fine) {
+  .week-card.has-image:hover { box-shadow: 0 0 0 2px var(--ink), var(--shadow-card); }
+}
+.week-card.has-image:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.week-card.selected { outline: 2px solid var(--sun); outline-offset: 2px; }
+.week-card:not(.has-image) { background: transparent; box-shadow: none; border: 1px dashed var(--border); }
+.week-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
   font-size: 0.8em;
   font-weight: 600;
   color: var(--text-muted);
   text-transform: uppercase;
 }
-.week-view-table .week-label-col {
-  text-align: left;
-  font-size: 0.75em;
-  font-weight: 500;
-  color: var(--text);
-  white-space: nowrap;
-  min-width: 100px;
-  max-width: 140px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.week-view-table thead .week-label-col {
-  color: var(--text-muted);
-}
-.week-day-thumb-wrap {
-  position: relative;
-}
-.week-day-thumb { width: 100%; border-radius: 6px; cursor: zoom-in; display: block; }
-.week-thumb-score {
-  position: absolute;
-  bottom: 4px;
-  right: 4px;
-  font-size: 0.65em;
-  font-weight: 600;
-  padding: 2px 5px;
-  border-radius: 4px;
-  background: rgba(0, 0, 0, 0.6);
-  color: #f8faff;
-}
-.week-day-empty { color: var(--text-muted); text-align: center; font-size: 0.85em; }
+.week-card-head strong { font-size: 1.3em; color: var(--text); }
+.week-card.today .week-card-head strong { color: var(--sun); }
+.week-photo { position: relative; }
+.week-photo img { display: block; width: 100%; height: auto; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 6px; }
+.week-score { font-size: 1.6em; font-weight: 600; letter-spacing: -0.02em; line-height: 1; color: var(--sun); }
+.week-meta, .week-empty { font-size: 0.8em; color: var(--text-muted); }
+.week-card .bubble { align-self: flex-start; text-transform: capitalize; }
+.week-stats { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; margin: 0; font-size: 0.8em; }
+.week-stats dt { color: var(--text-muted); }
+.week-stats dd { margin: 0; text-align: right; color: var(--text); font-variant-numeric: tabular-nums; }
+.week-grid + .cal-inline-detail { margin-top: 16px; }
 
-@media (max-width: 900px) {
-  .week-view-table { border-spacing: 2px; }
-  .week-view-table th,
-  .week-view-table td { padding: 4px; font-size: 0.7em; }
-  .week-view-table .week-label-col { min-width: 60px; max-width: 80px; font-size: 0.6em; }
+/* Too narrow for seven columns: one day per row, photo on the left. */
+@media (max-width: 1100px) {
+  .week-grid { grid-template-columns: 1fr; }
+  .week-card.has-image { display: grid; grid-template-columns: 40% 1fr; gap: 6px 12px; align-content: start; }
+  .week-card.has-image > * { grid-column: 2; }
+  .week-card.has-image > .week-card-head { grid-column: 1 / -1; }
+  .week-card.has-image > .week-photo { grid-column: 1; grid-row: 2 / span 4; }
+  .week-card:not(.has-image) { flex-direction: row; align-items: baseline; gap: 12px; }
 }
 
 /* ---- Year view ---- */
@@ -770,6 +762,17 @@ table th, table td {
   text-align: left;
   font-size: 0.9em;
 }
+
+/* Score tracker Data tab: date range + CSV download over a wide table that scrolls sideways */
+.data-controls { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 16px; margin-bottom: 12px; }
+.data-controls label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 600; color: var(--text-muted); }
+.data-controls input[type=date] {
+  background: var(--card); color: var(--text); border: 1px solid var(--border);
+  border-radius: 6px; padding: 6px 10px; font: inherit;
+}
+.data-controls .muted { color: var(--text-muted); font-size: 0.85em; padding-bottom: 8px; }
+.table-scroll { overflow-x: auto; }
+.table-scroll th, .table-scroll td { white-space: nowrap; font-variant-numeric: tabular-nums; }
 
 .stats-row { display: flex; gap: 24px; margin-top: 20px; }
 .stat {
@@ -1171,7 +1174,7 @@ a.btn { text-decoration: none; color: var(--text); }
 .config-name {
   font-weight: 600;
   font-size: 1.15em;
-  color: var(--text);
+  color: var(--sun);
 }
 
 .config-file {
@@ -2604,7 +2607,7 @@ main#content.is-stale { opacity: 0.5; pointer-events: none; }
 /* Shots that don't count: still shown, 0%, with a red "Flagged" bubble. On photos the tint sits on the
    card colour so it stays readable over the image. */
 .flag-pill.on-photo { position: absolute; bottom: 8px; left: 8px; z-index: 2; font-size: 0.7em; padding: 2px 7px; background: color-mix(in srgb, var(--destructive) 15%, var(--card)); }
-.week-day-thumb-wrap .flag-pill.on-photo { bottom: 4px; left: 4px; font-size: 0.6em; }
+.week-photo .flag-pill.on-photo { bottom: 4px; left: 4px; font-size: 0.6em; }
 .year-mini-cell.flagged img { opacity: 0.45; filter: grayscale(0.6); }
 @media (max-width: 900px) { .calendar-cell .flag-pill.on-photo { font-size: 0.6em; bottom: 4px; left: 4px; } }
 

@@ -27,7 +27,7 @@ export function WeatherStats({ w }) {
     ["Humidity", pct(w.relative_humidity_2m)],
     ["Dew point", w.dew_point_2m != null && `${Math.round(w.dew_point_2m)}°F`],
     ["Chance of rain", pct(w.precipitation_probability)],
-    ["Precipitation", w.precipitation != null && `${w.precipitation} mm`],
+    ["Precipitation", w.precipitation != null && `${+w.precipitation.toFixed(1)} mm`],
     // Wind and sky as observed at the airport (METAR) when there's a report, else Open-Meteo's model.
     // Visibility left out: the model's misfires, and the airport's tops out at 10 mi.
     ["Wind", wind(w.obs_wind_mph ?? w.wind_speed_10m, w.obs_station ? w.obs_gust_mph : w.wind_gusts_10m)],

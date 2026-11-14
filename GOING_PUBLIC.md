@@ -21,7 +21,7 @@ From the audit of `claude/sunset-prediction` on 2026-11-14. Tick items off as th
 
 ## Should fix
 
-- [ ] **`/api/data` returns a camera's whole history in one response**: every capture with every weather field, uncompressed, growing daily. Measure it on the NUC first. Gzip (free with Cloudflare) is the cheap fix; splitting ranked days from all captures is the later one.
+- [ ] **`/api/data` returns a camera's whole history in one response**: every capture with every weather field, uncompressed, growing daily. Measured on the NUC on 2026-11-14: 10.8 MB for `btv_echo_cam` (3,881 captures, about 2-2.5 KB each), sent without gzip. Every visitor downloads it before any page shows. Gzip (free with Cloudflare) is the cheap fix; splitting ranked days from all captures is the later one.
 - [ ] **Cache stampede.** When the 5-minute cache expires, every concurrent request re-queries InfluxDB. One lock around `fetch_camera_data_cached` fixes it.
 - [ ] **Long-lived cache headers for the built JS/CSS.** The filenames are hashed, so `/assets/*` can be `immutable`.
 - [ ] **Validate admin config writes.** A newline in a field injects extra lines into the camera's `.env` file, and the tag in the PUT/DELETE URL isn't checked against the tag pattern. Admin-only, so low risk.

@@ -11,6 +11,9 @@ import { XAxis } from "@/components/charts/x-axis";
 import { YAxis } from "@/components/charts/y-axis";
 import { GRID_STYLE, INSTANT_TOOLTIP, monthTicks } from "../chartTheme.js";
 import { thumb } from "../api.js";
+import { toCsv } from "../csv.js";
+import { captureName } from "../DayDetail.jsx";
+import { horizonOf } from "../forecast.js";
 import Img, { SIZES } from "../Img.jsx";
 import ScoreOverlay from "../ScoreOverlay.jsx";
 import ScoreHistogram from "./ScoreHistogram.jsx";
@@ -100,7 +103,7 @@ export default function ScoreTracker({ data, camera }) {
             {selected && <PointDetail row={selected} camera={camera} />}
           </>
         ) : (
-          <DataTable rows={rows} />
+          <DataTable rows={rows} allData={data.all_data} camera={camera} />
         )}
       </div>
 
@@ -175,31 +178,103 @@ function PointDetail({ row, camera }) {
   );
 }
 
-function DataTable({ rows }) {
-  const sorted = [...rows].sort((a, b) => new Date(b.dt_local) - new Date(a.dt_local));
+const num = (v, digits = 0) => (v == null ? null : +v.toFixed(digits));
+
+// The Data tab and its CSV: one row per day (the best shot) with what was logged at that shot.
+// Each column is [heading, (row, { forecast, event }) => value]; forecast is the day's 1 hr-before one.
+const COLUMNS = [
+  ["Date", (r) => r.Date],
+  ["Time", (r) => r.Time],
+  ["Best shot", (r, c) => captureName(r.Label, c.event)],
+  ["Score", (r) => num(r.Score, 1)],
+  ["Color score", (r) => num(r["HSV Score"], 1)],
+  ["Glass bonus", (r) => r.Glass?.bonus],
+  ["Zoom offset", (r) => r.Zoom || null],
+  ["Flagged", (r) => r.Excluded],
+  ["1 hr forecast", (r, c) => num(c.forecast?.score, 1)],
+  ["Forecast call", (r, c) => c.forecast?.call],
+  ["Temp (°F)", (r) => num(r.Weather?.temperature_2m)],
+  ["Humidity (%)", (r) => num(r.Weather?.relative_humidity_2m)],
+  ["Dew point (°F)", (r) => num(r.Weather?.dew_point_2m)],
+  ["Chance of rain (%)", (r) => num(r.Weather?.precipitation_probability)],
+  ["Precipitation (mm)", (r) => num(r.Weather?.precipitation, 1)],
+  ["Wind (mph)", (r) => num(r.Weather?.obs_wind_mph ?? r.Weather?.wind_speed_10m)],
+  ["Gust (mph)", (r) => num(r.Weather?.obs_station ? r.Weather.obs_gust_mph : r.Weather?.wind_gusts_10m)],
+  ["Cloud low (%)", (r) => num(r.Weather?.cloud_cover_low)],
+  ["Cloud mid (%)", (r) => num(r.Weather?.cloud_cover_mid)],
+  ["Cloud high (%)", (r) => num(r.Weather?.cloud_cover_high)],
+  ["Cloud total (%)", (r) => num(r.Weather?.cloud_cover_total)],
+  ["Satellite cloud overhead (%)", (r) => num(r.Weather?.goes_over != null ? 100 * r.Weather.goes_over : null)],
+  ["Satellite cloud 3-25 mi (%)", (r) => num(r.Weather?.goes_near != null ? 100 * r.Weather.goes_near : null)],
+  ["Satellite cloud 50-190 mi (%)", (r) => num(r.Weather?.goes_far != null ? 100 * r.Weather.goes_far : null)],
+  ["Airport sky", (r) => r.Weather?.obs_sky],
+  ["Airport weather", (r) => r.Weather?.obs_wx],
+];
+
+function download(name, text) {
+  const url = URL.createObjectURL(new Blob([text], { type: "text/csv" }));
+  Object.assign(document.createElement("a"), { href: url, download: name }).click();
+  URL.revokeObjectURL(url);
+}
+
+function DataTable({ rows, allData, camera }) {
+  const dates = useMemo(() => rows.map((r) => r.Date).sort(), [rows]);
+  const [start, setStart] = useState(dates[0]);
+  const [end, setEnd] = useState(dates.at(-1));
+  const context = useMemo(() => {
+    const forecasts = new Map(allData.filter((r) => horizonOf(r.Label) === "02_1h_pre" && r.Forecast).map((r) => [r.Date, r.Forecast]));
+    const event = allData.some((r) => /^\d+_sunrise/.test(r.Label)) ? "sunrise" : "sunset";
+    return (r) => ({ forecast: forecasts.get(r.Date), event });
+  }, [allData]);
+
+  // An emptied date box means no limit on that side.
+  const lines = rows
+    .filter((r) => (!start || r.Date >= start) && (!end || r.Date <= end))
+    .sort((a, b) => (a.Date < b.Date ? 1 : -1))
+    .map((r) => COLUMNS.map(([, value]) => value(r, context(r)) ?? null));
+  const headings = COLUMNS.map(([heading]) => heading);
+
   return (
-    <table>
-      <thead>
-        <tr>
-          <th>dt_local</th>
-          <th>Date</th>
-          <th>Time</th>
-          <th>Score</th>
-          <th>Label</th>
-        </tr>
-      </thead>
-      <tbody>
-        {sorted.map((r) => (
-          <tr key={r["Ranked Image"]}>
-            <td>{new Date(r.dt_local).toLocaleString()}</td>
-            <td>{r.Date}</td>
-            <td>{r.Time}</td>
-            <td>{r.Score.toFixed(2)}</td>
-            <td>{r.Label}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <>
+      <div className="data-controls">
+        <label>
+          Start date
+          <input type="date" value={start} min={dates[0]} max={end || dates.at(-1)} onChange={(e) => setStart(e.target.value)} />
+        </label>
+        <label>
+          End date
+          <input type="date" value={end} min={start || dates[0]} max={dates.at(-1)} onChange={(e) => setEnd(e.target.value)} />
+        </label>
+        <button
+          className="btn btn-primary"
+          disabled={!lines.length}
+          onClick={() => download(`${camera}_${start || dates[0]}_to_${end || dates.at(-1)}.csv`, toCsv([headings, ...lines]))}
+        >
+          Download CSV
+        </button>
+        <span className="muted">{`${lines.length} ${lines.length === 1 ? "day" : "days"}`}</span>
+      </div>
+      <div className="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              {headings.map((h) => (
+                <th key={h}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {lines.map((line) => (
+              <tr key={line[0]}>
+                {line.map((v, i) => (
+                  <td key={headings[i]}>{v}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 }
 

@@ -8,6 +8,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { dayPath, thumb as small, useDocumentTitle } from "../api.js";
 import DayDetail, { captureName } from "../DayDetail.jsx";
 import { ForecastCard } from "../Forecast.jsx";
+import { CALL_TONE, horizonOf } from "../forecast.js";
 import Img, { SIZES, sizeForLabel } from "../Img.jsx";
 import Reveal from "../Reveal.jsx";
 import SunsetHero from "../SunsetHero.jsx";
@@ -45,14 +46,6 @@ const isoFor = (year, month, day) =>
 // "12_histogram_..." -- the leading number is the true capture order.
 const labelOrder = (label) => parseInt(label.slice(0, 2), 10);
 const byLabelOrder = (a, b) => labelOrder(a.Label) - labelOrder(b.Label);
-
-// Normalize display labels - ranked/histogram get generic names since they vary per day
-function normalizeLabel(label) {
-  const lower = label.toLowerCase();
-  if (lower.includes("ranked")) return "Ranked";
-  if (lower.includes("histogram")) return "Histogram";
-  return label.slice(3); // Remove "01_", "07_", etc.
-}
 
 export default function Calendar({ data, camera, onLoadToHsv, admin = false }) {
   // Shots that don't count (thumbs down, bad view) still show, scored 0% with a pill saying why.
@@ -108,7 +101,9 @@ export default function Calendar({ data, camera, onLoadToHsv, admin = false }) {
       </div>
 
       {view === "day" && <DayView key={date} {...viewProps} camera={camera} admin={admin} best={rankedByDate.get(date)} />}
-      {view === "week" && <WeekView {...viewProps} />}
+      {view === "week" && (
+        <WeekView {...viewProps} rankedByDate={rankedByDate} expanded={expanded} setExpanded={(d) => update({ open: d })} />
+      )}
       {view === "year" && <YearView {...viewProps} />}
       {view === "month" && (
         <MonthView
@@ -232,31 +227,32 @@ export function CaptureCard({ img, camera, admin = false, event = "sunset", sele
 }
 
 // ---------------------------------------------------------------------------
-// Week view -- table layout with photo labels in column 1, days across top
+// Week view -- one card per day, a cut-down Day view: the best shot, its score, the 1 hr
+// forecast and the weather. A card opens that day's captures under the week (as in the month view).
 // ---------------------------------------------------------------------------
-function WeekView({ date, goTo, allData }) {
+function WeekView({ date, goTo, byDate, rankedByDate, allData, onLoadToHsv, permalinkFor, expanded, setExpanded }) {
   const focus = fromISODate(date);
   const weekStart = new Date(focus);
   weekStart.setDate(focus.getDate() - focus.getDay());
   const weekEnd = new Date(weekStart);
   weekEnd.setDate(weekStart.getDate() + 6);
 
-  const now = new Date();
-  const todayWeekStart = new Date(now);
-  todayWeekStart.setDate(now.getDate() - now.getDay());
-  const isCurrentWeek = toISODate(weekStart) === toISODate(todayWeekStart);
+  const today = toISODate(new Date());
+  const forecasts = useMemo(
+    () => new Map(allData.filter((r) => horizonOf(r.Label) === "02_1h_pre" && r.Forecast).map((r) => [r.Date, r.Forecast])),
+    [allData],
+  );
+  const event = allData.some((img) => /^\d+_sunrise/.test(img.Label)) ? "sunrise" : "sunset";
 
-  const weekDates = WEEKDAYS.map((weekday, i) => {
+  const days = WEEKDAYS.map((weekday, i) => {
     const dayDate = new Date(weekStart);
     dayDate.setDate(weekStart.getDate() + i);
     const iso = toISODate(dayDate);
-    return { iso, dayDate, weekday, images: allData.filter((img) => img.Date === iso).sort(byLabelOrder) };
+    // The day's best shot; before one is picked (today, mid-capture), the sunset shot or the latest capture.
+    const shot = rankedByDate.get(iso) ?? byDate.get(iso) ?? allData.filter((img) => img.Date === iso).sort(byLabelOrder).at(-1);
+    return { iso, weekday, day: dayDate.getDate(), shot, image: shot?.["Raw Image"] ?? shot?.Image };
   });
-
-  // Unique photo labels across the week (normalized for grouping), in capture order
-  const labelSet = new Set(weekDates.flatMap((d) => d.images.map((img) => normalizeLabel(img.Label))));
-  const firstLabel = (label) => allData.find((img) => normalizeLabel(img.Label) === label)?.Label || "99";
-  const photoLabels = [...labelSet].sort((a, b) => labelOrder(firstLabel(a)) - labelOrder(firstLabel(b)));
+  const open = days.find((d) => d.iso === expanded && d.shot);
 
   const fmt = (d) => d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 
@@ -266,53 +262,87 @@ function WeekView({ date, goTo, allData }) {
         title={`${fmt(weekStart)} – ${fmt(weekEnd)}`}
         onPrev={() => goTo(shiftDate(date, { days: -7 }))}
         onNext={() => goTo(shiftDate(date, { days: 7 }))}
-        nextDisabled={isCurrentWeek}
+        nextDisabled={days.some((d) => d.iso === today)}
+        prevTitle="Previous week"
+        nextTitle="Next week"
       />
-      <table className="week-view-table">
-        <thead>
-          <tr>
-            <th className="week-label-col">Photo</th>
-            {weekDates.map((d) => (
-              <th key={d.iso}>{`${d.weekday} ${d.dayDate.getDate()}`}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {photoLabels.map((label) => (
-            <tr key={label}>
-              <td className="week-label-col">{label}</td>
-              {weekDates.map((d) => {
-                const img = d.images.find((i) => normalizeLabel(i.Label) === label);
-                if (!img) {
-                  return (
-                    <td key={d.iso} className="week-day-empty">
-                      —
-                    </td>
-                  );
-                }
-                return (
-                  <td key={d.iso}>
-                    <div className="week-day-thumb-wrap">
-                      <Tip label={`${img.Time} · Score ${img.Score.toFixed(1)}%`}>
-                        <Zoomable
-                          {...sizeForLabel(img.Label)}
-                          alt={img.Label}
-                          className="week-day-thumb"
-                          src={small(img.Image)}
-                          full={img.Image}
-                          loading="lazy"
-                        />
-                      </Tip>
-                      <div className="week-thumb-score">{`${img.Score.toFixed(0)}%`}</div>
-                      <FlagPill reason={img.Excluded} className="on-photo" />
+      <div className="week-grid">
+        {days.map(({ iso, weekday, day, shot, image }) => {
+          const head = (
+            <div className="week-card-head">
+              <span>{weekday}</span>
+              <strong>{day}</strong>
+            </div>
+          );
+          if (!shot) {
+            return (
+              <div key={iso} className={`week-card${iso === today ? " today" : ""}`}>
+                {head}
+                <span className="week-empty">No captures</span>
+              </div>
+            );
+          }
+          const toggle = () => setExpanded(iso === expanded ? null : iso);
+          const w = shot.Weather;
+          const call = forecasts.get(iso)?.call;
+          const stats = [
+            ["Temp", w?.temperature_2m != null && `${Math.round(w.temperature_2m)}°F`],
+            ["Cloud", w?.cloud_cover_total != null && `${Math.round(w.cloud_cover_total)}%`],
+            ["Wind", (w?.obs_wind_mph ?? w?.wind_speed_10m) != null && `${Math.round(w.obs_wind_mph ?? w.wind_speed_10m)} mph`],
+          ].filter(([, v]) => v);
+          return (
+            <div
+              key={iso}
+              className={`week-card has-image${iso === today ? " today" : ""}${iso === expanded ? " selected" : ""}`}
+              role="button"
+              tabIndex={0}
+              aria-expanded={iso === expanded}
+              onClick={toggle}
+              onKeyDown={(e) => {
+                if (e.key !== "Enter" && e.key !== " ") return;
+                e.preventDefault();
+                toggle();
+              }}
+            >
+              {head}
+              <div className="week-photo">
+                <Img src={small(image)} alt={`${weekday} ${iso}`} loading="lazy" {...SIZES.photo} />
+                <FlagPill reason={shot.Excluded} className="on-photo" />
+              </div>
+              <div className="week-score">{`${shot.Score.toFixed(0)}%`}</div>
+              <div className="week-meta">{`${captureName(shot.Label, event)} · ${shot.Time}`}</div>
+              {call && (
+                <Tip label="Forecast made 1 hr before">
+                  <span className={`bubble ${CALL_TONE[call] ?? ""}`}>{call}</span>
+                </Tip>
+              )}
+              {!!stats.length && (
+                <dl className="week-stats">
+                  {stats.map(([label, value]) => (
+                    <div key={label} style={{ display: "contents" }}>
+                      <dt>{label}</dt>
+                      <dd>{value}</dd>
                     </div>
-                  </td>
-                );
-              })}
-            </tr>
-          ))}
-        </tbody>
-      </table>
+                  ))}
+                </dl>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      {open && (
+        <div className="cal-inline-detail">
+          <DayDetail
+            key={open.iso}
+            date={open.iso}
+            start={open.image}
+            allData={allData}
+            onClose={() => setExpanded(null)}
+            onLoadToHsv={onLoadToHsv}
+            permalink={permalinkFor(open.iso)}
+          />
+        </div>
+      )}
     </div>
   );
 }

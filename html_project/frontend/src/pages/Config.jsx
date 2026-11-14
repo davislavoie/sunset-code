@@ -27,7 +27,6 @@ export default function Config({ admin = false }) {
   const [prefill, setPrefill] = useState(null); // a request being turned into a camera
 
   function loadConfigs() {
-    // The public list never includes stream URLs.
     fetch(admin ? "/api/admin/camera-configs" : "/api/camera-locations")
       .then((res) => res.json())
       .then(setConfigs)

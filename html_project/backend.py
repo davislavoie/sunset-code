@@ -531,8 +531,8 @@ def camera_configs():
 
 @app.route("/api/camera-locations")
 def camera_locations():
-    """Public subset of the camera configs for the map: no stream URLs."""
-    public_fields = ["CAMERA_TAG", "LAT", "LON", "ALTITUDE", "TIMEZONE", "MODE"]
+    """Public subset of the camera configs for the Cameras page and map (the streams are public webcams)."""
+    public_fields = ["CAMERA_TAG", "YOUTUBE_URL", "LAT", "LON", "ALTITUDE", "TIMEZONE", "MODE"]
     locations = []
     for env_file in get_config_dir().glob("*.env"):
         try:
