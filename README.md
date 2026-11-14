@@ -38,7 +38,6 @@ html_project/
   frontend/src/         React app: App.jsx (nav, routes), pages/, components/charts (bklit), scoring.js, hsv.js
 config/                 one .env per camera: YOUTUBE_URL, CAMERA_TAG, LAT, LON, ALTITUDE, TIMEZONE, MODE
 webhook.py              tiny token-protected endpoint the dashboard calls to run `docker compose up -d --build`
-streamlit_project/      older Streamlit dashboard (superseded by html_project/, not in the compose files)
 tests/                  sunset_process_testing.py (score + debug overlay for a few photos), example images
 skills/                 vendored UI/animation design skills for Claude Code (not part of the app)
 
@@ -113,7 +112,6 @@ python -m unittest ai_analysis.test_ai_analysis ai_analysis.test_rescore html_pr
 
 ## Known rough edges
 
-- `streamlit_project/app.py` hardcodes the InfluxDB host (`100.107.153.41`).
 - The scoring multipliers are read and written by regex against `sunset_process.py`, so reformatting that `score = (...)` line breaks the Admin → Scoring page.
 - Galleries lazy-load images but don't paginate or generate thumbnails, so visible images are full resolution.
 - `.cache.sqlite` is the `requests_cache` cache for the weather client.

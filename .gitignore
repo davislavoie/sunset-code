@@ -1,6 +1,7 @@
 .env
 __pycache__/
 *.pyc
+.cache.sqlite
 docker-compose.override.yml
 node_modules/
 html_project/frontend/dist/
