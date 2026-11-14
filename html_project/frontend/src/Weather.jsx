@@ -149,6 +149,10 @@ export function cloudSource(w) {
   return w?.goes_fan != null ? "Satellite" : "Forecast";
 }
 
+/** One number for the whole panel: the cloudy share (0-100) of the satellite's wedge toward the sun,
+ * 3-190 mi out; null without a satellite reading. Ranked images sorts by it. */
+export const cloudTowardSun = (w) => (w?.goes_fan != null ? 100 * w.goes_fan : null);
+
 function CloudProfileSvg({ w, ground }) {
   const step = (ground - 8) / LAYERS.length; // row pitch; 36 at the natural height
   const cellH = step - 8;

@@ -9,7 +9,7 @@ import { ForecastMetric } from "../Forecast.jsx";
 import HsvHistogram from "../HsvHistogram.jsx";
 import Reveal from "../Reveal.jsx";
 import ScoreOverlay from "../ScoreOverlay.jsx";
-import { CloudProfile, WeatherStats, cloudSource } from "../Weather.jsx";
+import { CloudProfile, WeatherStats, cloudSource, cloudTowardSun } from "../Weather.jsx";
 import { GlassPill } from "../Thumbs.jsx";
 import Select from "../Select.jsx";
 import Tip from "../Tip.jsx";
@@ -19,7 +19,9 @@ const PAGE_SIZE = 20;
 const SORTS = {
   Score: (r) => r.Score, Date: (r) => r.Date, Time: (r) => r.dt_local?.slice(11),
   Temperature: (r) => r.Weather?.temperature_2m, Humidity: (r) => r.Weather?.relative_humidity_2m,
-  "Cloud cover": (r) => r.Weather?.cloud_cover_total,
+  // What the satellite saw toward the sun (the number in each card's cloud panel title), not the
+  // forecast's cloud over the camera: that one is 0 or 100 on half the days and often wrong.
+  "Cloud toward the sun": (r) => cloudTowardSun(r.Weather),
   Precipitation: (r) => r.Weather?.precipitation, Wind: (r) => r.Weather?.obs_wind_mph ?? r.Weather?.wind_speed_10m,
 };
 
@@ -139,7 +141,12 @@ function RankingRow({ row, camera, votes, onVoted, event, allData, onLoadToHsv }
           <ScoreOverlay imageUrl={rawUrl} camera={camera} interactive />
           <HsvHistogram imageUrl={rawUrl} camera={camera} ts={row.ts} />
           <div className="rank-media">
-            <div className="hsv-hist-title">Clouds toward the sun{row.Weather && <span className="cp-source"> · {cloudSource(row.Weather)}</span>}</div>
+            <div className="hsv-hist-title">Clouds toward the sun{row.Weather && (
+              <span className="cp-source">
+                {` · ${cloudSource(row.Weather)}`}
+                {cloudTowardSun(row.Weather) != null && ` · ${Math.round(cloudTowardSun(row.Weather))}% overall`}
+              </span>
+            )}</div>
             {row.Weather ? <CloudProfile w={row.Weather} fill /> : <div className="rank-media-empty">No weather saved</div>}
           </div>
           <div className="rank-media info-cell">
