@@ -4,5 +4,6 @@ __pycache__/
 .cache.sqlite
 docker-compose.override.yml
 node_modules/
+.venv/
 html_project/frontend/dist/
 analysis_export/
