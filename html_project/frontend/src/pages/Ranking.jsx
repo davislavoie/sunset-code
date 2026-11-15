@@ -121,12 +121,12 @@ function RankingRow({ row, camera, votes, onVoted, event, allData, onLoadToHsv }
               </div>
             )}
           </div>
-          <ForecastMetric date={row.Date} allData={allData} />
           <div className="ranking-when">
             <h2>{longDate(row.Date)}</h2>
             <span>{[row.Time, captureName(rawUrl, event)].filter(Boolean).join(" · ")}</span>
             <GlassPill glass={row.Glass} hsv={row["HSV Score"]} />
           </div>
+          <ForecastMetric date={row.Date} allData={allData} />
           <div className="ranking-actions">
             <button className="btn" aria-expanded={showDay} onClick={() => setShowDay(!showDay)}>
               {showDay ? "Hide captures" : "Expand all captures"}

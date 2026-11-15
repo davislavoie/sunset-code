@@ -676,6 +676,10 @@ button {
 .ranking-score { padding-right: 18px; margin-right: 4px; border-right: 1px solid var(--border); }
 .ranking-score-value { font-size: 2.2em; font-weight: 700; line-height: 1.05; color: var(--text); font-variant-numeric: tabular-nums; }
 .ranking-when { display: flex; flex-direction: column; gap: 2px; }
+/* The 1 hr forecast sits after the date, so its divider goes on its left. */
+@media (min-width: 769px) {
+  .ranking-when + .ranking-score { border-right: none; border-left: 1px solid var(--border); padding: 0 0 0 18px; margin: 0 0 0 4px; }
+}
 .rank-media-empty { color: var(--text-muted); font-size: 0.85em; }
 .ranking-title span { color: var(--text-muted); font-weight: 500; }
 .ranking-row {
