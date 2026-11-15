@@ -43,7 +43,10 @@ export default function App() {
   const { pathname } = useLocation();
   const section = pathname.split("/")[1];
   // A new page opens at its top (e.g. Open day from far down Ranked images), not at the old page's scroll position.
-  useEffect(() => window.scrollTo({ top: 0, behavior: "instant" }), [pathname]);
+  // Braces matter: newer browsers return a promise from scrollTo, and React calls whatever an effect returns as its cleanup.
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }, [pathname]);
   const [searchParams, setSearchParams] = useSearchParams();
   const [cameras, setCameras] = useState([]);
   const [camera, setCamera] = useState(null);
@@ -124,11 +127,14 @@ export default function App() {
   const withData = (render, kind) => (data ? render(data) : !error && <PageSkeleton kind={kind} />);
 
   // Collapsed, the sidebar is a rail of icons; the name shows as a tooltip instead.
+  const railTip = (label) => ({ label: collapsed && label, side: "right" });
   const navLink = ([to, label, Icon]) => (
-    <NavLink key={to} className="nav-btn" to={to} title={collapsed ? label : undefined} onClick={collapseOnMobile}>
-      <Icon size={16} />
-      <span className="nav-label">{label}</span>
-    </NavLink>
+    <Tip key={to} {...railTip(label)}>
+      <NavLink className="nav-btn" to={to} aria-label={label} onClick={collapseOnMobile}>
+        <Icon size={16} />
+        <span className="nav-label">{label}</span>
+      </NavLink>
+    </Tip>
   );
 
   return (
@@ -166,19 +172,22 @@ export default function App() {
             </>
           )}
 
-          <ThemeToggle collapsed={collapsed} />
+          <ThemeToggle tip={railTip} />
           {!isAdmin && (
-            <button className="nav-btn login-btn" title={collapsed ? "Admin log in" : undefined}
-              onClick={() => adminLogin().then((ok) => ok && setIsAdmin(true))}>
-              <LogIn size={16} />
-              <span className="nav-label">Admin log in</span>
-            </button>
+            <Tip {...railTip("Admin log in")}>
+              <button className="nav-btn login-btn" aria-label="Admin log in" onClick={() => adminLogin().then((ok) => ok && setIsAdmin(true))}>
+                <LogIn size={16} />
+                <span className="nav-label">Admin log in</span>
+              </button>
+            </Tip>
           )}
-          <button className="nav-btn collapse-btn" aria-expanded={!collapsed} title={collapsed ? "Expand sidebar" : undefined}
-            onClick={() => setCollapsed(!collapsed)}>
-            {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
-            <span className="nav-label">Collapse</span>
-          </button>
+          <Tip {...railTip("Expand sidebar")}>
+            <button className="nav-btn collapse-btn" aria-expanded={!collapsed} aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+              onClick={() => setCollapsed(!collapsed)}>
+              {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+              <span className="nav-label">Collapse</span>
+            </button>
+          </Tip>
         </div>
       </aside>
 
@@ -268,7 +277,7 @@ function SunsetPermalink() {
 }
 
 /** Light / dark switch. Starts from the OS setting; a choice sticks in localStorage. */
-function ThemeToggle({ collapsed }) {
+function ThemeToggle({ tip }) {
   const systemDark = () => window.matchMedia("(prefers-color-scheme: dark)").matches;
   const [dark, setDark] = useState(() => {
     const chosen = document.documentElement.dataset.theme;
@@ -287,10 +296,12 @@ function ThemeToggle({ collapsed }) {
   }
 
   return (
-    <button className="nav-btn theme-toggle" title={collapsed ? (dark ? "Light mode" : "Dark mode") : undefined} onClick={toggle}>
-      {dark ? <Sun size={16} /> : <Moon size={16} />}
-      <span className="nav-label">{dark ? "Light mode" : "Dark mode"}</span>
-    </button>
+    <Tip {...tip(dark ? "Light mode" : "Dark mode")}>
+      <button className="nav-btn theme-toggle" aria-label={dark ? "Light mode" : "Dark mode"} onClick={toggle}>
+        {dark ? <Sun size={16} /> : <Moon size={16} />}
+        <span className="nav-label">{dark ? "Light mode" : "Dark mode"}</span>
+      </button>
+    </Tip>
   );
 }
 
