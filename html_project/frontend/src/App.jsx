@@ -1,6 +1,9 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { NavLink, Navigate, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
-import { LogIn, Moon, PanelLeftClose, PanelLeftOpen, Sun, Sunset } from "lucide-react";
+import {
+  Archive as ArchiveIcon, BookOpen, CalendarDays, Camera, ChartScatter, ListOrdered, LogIn, Moon, PanelLeftClose, PanelLeftOpen,
+  Settings, SlidersHorizontal, Sun, Sunset, Trophy,
+} from "lucide-react";
 import Tip from "./Tip.jsx";
 import { fetchCameraData, getJson } from "./api.js";
 import Dropdown from "./Dropdown.jsx";
@@ -21,18 +24,18 @@ const MOBILE_BREAKPOINT = 768;
 const isMobile = () => window.innerWidth <= MOBILE_BREAKPOINT;
 
 const PUBLIC_PAGES = [
-  ["/calendar", "Sunset calendar"],
-  ["/ranking", "Ranked images"],
-  ["/score-tracker", "Score tracker"],
-  ["/ranking-explained", "Ranking explained"],
-  ["/cameras", "Cameras"],
+  ["/calendar", "Sunset calendar", CalendarDays],
+  ["/ranking", "Ranked images", Trophy],
+  ["/score-tracker", "Score tracker", ChartScatter],
+  ["/ranking-explained", "Ranking explained", BookOpen],
+  ["/cameras", "Cameras", Camera],
 ];
 // Everything that writes lives under /admin so a reverse proxy can gate it.
 const ADMIN_PAGES = [
-  ["/admin/my-ranking", "My ranking"],
-  ["/admin/hsv-tuner", "HSV tuner"],
-  ["/admin/config", "Config"],
-  ["/admin/archive", "Archive"],
+  ["/admin/my-ranking", "My ranking", ListOrdered],
+  ["/admin/hsv-tuner", "HSV tuner", SlidersHorizontal],
+  ["/admin/config", "Config", Settings],
+  ["/admin/archive", "Archive", ArchiveIcon],
 ];
 
 export default function App() {
@@ -120,9 +123,11 @@ export default function App() {
   // Pages that need the selected camera's data show a page-shaped skeleton until it arrives.
   const withData = (render, kind) => (data ? render(data) : !error && <PageSkeleton kind={kind} />);
 
-  const navLink = ([to, label]) => (
-    <NavLink key={to} className="nav-btn" to={to} onClick={collapseOnMobile}>
-      {label}
+  // Collapsed, the sidebar is a rail of icons; the name shows as a tooltip instead.
+  const navLink = ([to, label, Icon]) => (
+    <NavLink key={to} className="nav-btn" to={to} title={collapsed ? label : undefined} onClick={collapseOnMobile}>
+      <Icon size={16} />
+      <span className="nav-label">{label}</span>
     </NavLink>
   );
 
@@ -130,12 +135,6 @@ export default function App() {
     <div className={`layout${collapsed ? " sidebar-collapsed" : ""}`}>
       <aside className="sidebar">
         <div className="sidebar-inner">
-          <Tip label="Collapse sidebar">
-            <button className="icon-btn collapse-btn" aria-label="Collapse sidebar" onClick={() => setCollapsed(true)}>
-              <PanelLeftClose size={18} />
-            </button>
-          </Tip>
-
           <div className="sidebar-header">
             <span className="brand-tile">
               <Sunset size={18} />
@@ -167,15 +166,23 @@ export default function App() {
             </>
           )}
 
-          <ThemeToggle />
+          <ThemeToggle collapsed={collapsed} />
           {!isAdmin && (
-            <button className="nav-btn login-btn" onClick={() => adminLogin().then((ok) => ok && setIsAdmin(true))}>
-              <LogIn size={16} /> Admin log in
+            <button className="nav-btn login-btn" title={collapsed ? "Admin log in" : undefined}
+              onClick={() => adminLogin().then((ok) => ok && setIsAdmin(true))}>
+              <LogIn size={16} />
+              <span className="nav-label">Admin log in</span>
             </button>
           )}
+          <button className="nav-btn collapse-btn" aria-expanded={!collapsed} title={collapsed ? "Expand sidebar" : undefined}
+            onClick={() => setCollapsed(!collapsed)}>
+            {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+            <span className="nav-label">Collapse</span>
+          </button>
         </div>
       </aside>
 
+      {/* Phones only: the sidebar slides off screen there, so this floating button brings it back. */}
       <Tip label="Expand sidebar" side="right">
         <button
           className="icon-btn expand-btn"
@@ -261,7 +268,7 @@ function SunsetPermalink() {
 }
 
 /** Light / dark switch. Starts from the OS setting; a choice sticks in localStorage. */
-function ThemeToggle() {
+function ThemeToggle({ collapsed }) {
   const systemDark = () => window.matchMedia("(prefers-color-scheme: dark)").matches;
   const [dark, setDark] = useState(() => {
     const chosen = document.documentElement.dataset.theme;
@@ -280,9 +287,9 @@ function ThemeToggle() {
   }
 
   return (
-    <button className="nav-btn theme-toggle" onClick={toggle}>
+    <button className="nav-btn theme-toggle" title={collapsed ? (dark ? "Light mode" : "Dark mode") : undefined} onClick={toggle}>
       {dark ? <Sun size={16} /> : <Moon size={16} />}
-      {dark ? "Light mode" : "Dark mode"}
+      <span className="nav-label">{dark ? "Light mode" : "Dark mode"}</span>
     </button>
   );
 }

@@ -145,13 +145,6 @@ main#content h4 { font-size: 0.8rem; font-weight: 600; text-transform: uppercase
 /* Scroll fade at bottom */
 
 
-.collapse-btn {
-  position: absolute;
-  top: 20px;
-  right: 16px;
-  z-index: 2;
-}
-
 .icon-btn {
   display: inline-flex;
   align-items: center;
@@ -188,7 +181,6 @@ main#content h4 { font-size: 0.8rem; font-weight: 600; text-transform: uppercase
 
 /* Sidebar header */
 .sidebar-header {
-  margin-top: 56px;
   margin-bottom: 24px;
   padding-bottom: 16px;
   border-bottom: 1px solid var(--border-subtle);
@@ -2384,14 +2376,20 @@ main#content.is-stale { opacity: 0.5; pointer-events: none; }
 /* Active nav item wears the sunset colour. */
 .nav-btn.active { background: color-mix(in srgb, var(--sun) 14%, transparent); color: var(--sun); }
 
-/* Collapsed sidebar leaves a slim rail; the whole rail opens it. */
+/* Sidebar rows: icon then name. The collapse toggle is the last row, at the bottom. */
+.sidebar .nav-btn { display: flex; align-items: center; gap: 10px; }
+.sidebar .nav-btn svg { flex: none; }
+.collapse-btn { color: var(--text-muted); }
+/* Collapsed sidebar is a rail of icons (names show as tooltips); the camera picker needs the full width, so it hides. */
 @media (min-width: 769px) {
+  .sidebar { transition: width 250ms var(--ease-drawer); }
+  .expand-btn { display: none; }
   .layout.sidebar-collapsed main#content { margin-left: 56px; }
-  .expand-btn {
-    top: 0; left: 0; width: 56px; height: 100vh; border: none; border-radius: 0;
-    border-right: 1px solid var(--border-subtle); background: var(--sidebar); box-shadow: none;
-    align-items: flex-start; padding-top: 20px;
-  }
+  .layout.sidebar-collapsed .sidebar { transform: none; width: 56px; }
+  .layout.sidebar-collapsed .sidebar-inner { pointer-events: auto; padding: 20px 8px; }
+  .layout.sidebar-collapsed .sidebar :is(.nav-label, h2, h3, hr, .dd-trigger) { display: none; }
+  .layout.sidebar-collapsed .sidebar-header { justify-content: center; }
+  .layout.sidebar-collapsed .sidebar .nav-btn { justify-content: center; padding: 10px 0; }
 }
 
 /* Day tab hero: photo and stats share one height; arrows step through the day's shots. */
