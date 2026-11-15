@@ -45,14 +45,8 @@ export function WeatherStats({ w }) {
   );
 }
 
-// Low cloud of 70%+ along the path went with much weaker sunsets in the history (median best
-// score 7 vs 31 with a clear path, from the earlier 50-300 km readings), so that's where we call
-// the light blocked. ponytail: re-check against the 8-50 mi readings once they're backfilled.
-const BLOCKING = 70;
-
 // A side view of the sky from the camera out toward the sun: cloud cover in each layer
 // overhead and 8 / 25 / 50 miles along the sunset (sunrise) direction, one bar per cell.
-// Low cloud out toward the sun is what blocks the light, so only that gets colour.
 const COLUMNS = [
   { prefix: "", label: "Overhead" },
   { prefix: "path13_", label: "8 mi" },
@@ -85,7 +79,7 @@ export function CloudProfile({ w, fill = false }) {
 }
 
 // The satellite sees cloud or no cloud, not layers: one tall bar per zone, from the camera out
-// toward the sun. A far zone mostly cloudy is the bank that blocks the light, so it gets colour.
+// toward the sun.
 // Under each, how high the cloud tops are (GOES cloud-top height; the top layer only) and how thick the
 // cloud is (GOES optical depth), which also sets how dark the bar is.
 const ZONES = [
@@ -124,17 +118,15 @@ function SatelliteSvg({ w, ground }) {
       <circle className="cp-sun" cx={SUN_X} cy={ground} r="7" />
       {ZONES.map((z, i) => {
         const v = w[z.key] != null ? 100 * w[z.key] : null;
-        const blocks = z.key === "goes_far" && v >= BLOCKING;
         const h = v == null ? 0 : Math.max(4, (cellH * v) / 100);
         return (
           <g key={z.key} className="cp-cell">
             <rect className="cp-cell-frame" x={x(i)} y={top} width={ZONE_COL} height={cellH} rx="6" />
             {v != null && (
-              <rect className={`cp-fill${blocks ? " blocks" : ""}`} x={x(i)} y={top + cellH - h} rx="6"
-                width={ZONE_COL} height={h} opacity={DENSITY[thick(z)] ?? (blocks ? 0.25 : 0.18)} />
+              <rect className="cp-fill" x={x(i)} y={top + cellH - h} rx="6"
+                width={ZONE_COL} height={h} opacity={DENSITY[thick(z)] ?? 0.18} />
             )}
-            <text className="cp-value cp-big" x={x(i) + ZONE_COL / 2} y={top + cellH / 2 + 6 - up} textAnchor="middle"
-              style={blocks ? { fill: "var(--destructive)" } : undefined}>
+            <text className="cp-value cp-big" x={x(i) + ZONE_COL / 2} y={top + cellH / 2 + 6 - up} textAnchor="middle">
               {pct(v)}
             </text>
             {w[z.top] != null && v > 0 && (
@@ -190,16 +182,14 @@ function CloudProfileSvg({ w, ground }) {
       {LAYERS.map((layer, li) =>
         COLUMNS.map((col, i) => {
           const v = value(col, layer);
-          const blocks = i > 0 && layer.key === "low" && v >= BLOCKING;
           return (
             <g key={layer.key + i} className="cp-cell">
               <rect className="cp-cell-frame" x={colX(i)} y={rowY(li)} width={COL} height={cellH} rx="6" />
               {v != null && (
-                <rect className={`cp-fill${blocks ? " blocks" : ""}`} x={colX(i)} y={rowY(li)} rx="6"
-                  width={Math.max(4, (COL * v) / 100)} height={cellH} opacity={blocks ? 0.25 : 0.18} />
+                <rect className="cp-fill" x={colX(i)} y={rowY(li)} rx="6"
+                  width={Math.max(4, (COL * v) / 100)} height={cellH} opacity={0.18} />
               )}
-              <text className="cp-value" x={colX(i) + 8} y={rowY(li) + cellH / 2 + 4.5}
-                style={blocks ? { fill: "var(--destructive)" } : undefined}>
+              <text className="cp-value" x={colX(i) + 8} y={rowY(li) + cellH / 2 + 4.5}>
                 {pct(v)}
               </text>
             </g>

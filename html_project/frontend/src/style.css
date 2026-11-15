@@ -2353,12 +2353,11 @@ main#content.is-stale { opacity: 0.5; pointer-events: none; }
 .weather-stats dt { font-size: 12px; color: var(--text-muted); }
 .weather-stats dd { margin: 0; font-weight: 600; color: var(--text); }
 
-/* Cloud profile: a tile, cloud cover as grey density; only low cloud that blocks the sun gets colour */
+/* Cloud profile: a tile, cloud cover as grey density */
 .cloud-profile { display: block; width: 100%; max-width: 420px; }
 .cp-bg { fill: var(--tile); }
 .cp-cell-frame { fill: var(--hover); }
 .cp-fill { fill: var(--ink); }
-.cp-fill.blocks { fill: var(--destructive); }
 .cp-value { font-size: 13px; font-weight: 600; fill: var(--text); }
 .cp-value.on-fill { fill: var(--ink-contrast); }
 .cp-axis { font-size: 12px; fill: var(--text-muted); }
