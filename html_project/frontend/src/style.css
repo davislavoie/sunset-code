@@ -545,6 +545,7 @@ main#content {
   align-items: center;
   justify-content: center;
   z-index: 100;
+  overflow: hidden;
   opacity: 0;
   visibility: hidden;
   /* visibility flips at the end of the fade, so closing animates too */
@@ -553,11 +554,14 @@ main#content {
 .lightbox-overlay.open { opacity: 1; visibility: visible; }
 
 .lightbox-img {
-  max-width: 92vw;
+  /* Every photo opens at the same size, whatever its own resolution (16:9 fits exactly). */
+  width: min(92vw, calc(92vh * 16 / 9));
   max-height: 92vh;
+  object-fit: contain;
+  user-select: none;
   border-radius: 8px;
   box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
-  cursor: default;
+  cursor: zoom-in;
   transform: scale(0.95);
   opacity: 0;
   transition: transform 200ms var(--ease-out), opacity 200ms var(--ease-out);
@@ -673,7 +677,7 @@ button {
 .ranking-row {
   display: grid;
   /* photo + color picker, HSV histogram, clouds, weather */
-  grid-template-columns: 4.7fr 2.4fr 2fr 1.6fr;
+  grid-template-columns: 5.6fr 2.2fr 1.9fr 1.7fr;
   gap: 16px;
   /* Titles share the top line; photo, overlay and the chart's x-axis share the bottom one. */
   align-items: stretch;
@@ -2669,8 +2673,10 @@ main#content.is-stale { opacity: 0.5; pointer-events: none; }
 }
 
 /* Ranked tab: one photo, plain until a color is checked in the picker beside it. */
-.overlay-split-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(128px, 30%); gap: 16px; margin-top: 8px; align-items: stretch; }
+.overlay-split-body { display: grid; grid-template-columns: minmax(0, 1fr) 150px; gap: 12px; align-items: stretch; }
 .overlay-help { margin: 0 0 2px 10px; font-size: 12px; color: var(--text-muted); }
+/* Source and overall share on their own line under the title, level with the histogram's legend. */
+.rank-media .cp-source { display: block; font-size: 12px; min-height: 18px; }
 .overlay-picker { min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 4px; }
 .overlay-split .ranked-img-cell { margin-top: 0; align-self: start; }
 .overlay-pick {

@@ -39,6 +39,8 @@ export default function App() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const section = pathname.split("/")[1];
+  // A new page opens at its top (e.g. Open day from far down Ranked images), not at the old page's scroll position.
+  useEffect(() => window.scrollTo({ top: 0, behavior: "instant" }), [pathname]);
   const [searchParams, setSearchParams] = useSearchParams();
   const [cameras, setCameras] = useState([]);
   const [camera, setCamera] = useState(null);

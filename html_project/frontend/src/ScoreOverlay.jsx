@@ -14,7 +14,7 @@ import { COLOR_META } from "./ScoreBreakdown.jsx";
 import { COLORS, paintMasks, skyShare } from "./scoring.js";
 import Tip from "./Tip.jsx";
 
-// The 960 px copy: sharp at row size, ~50 KB instead of the ~350 KB original. (Fullscreen shows it as painted.)
+// The 960 px copy: sharp at row size, ~50 KB instead of the ~350 KB original.
 const WIDTH = 960;
 
 export default function ScoreOverlay({ imageUrl, camera, interactive = false }) {
@@ -78,12 +78,12 @@ export default function ScoreOverlay({ imageUrl, camera, interactive = false }) 
     if (source.current) paint(painted(shown, color));
   };
 
-  // Fullscreen shows the photo as painted right now.
+  // Fullscreen shows the full-size photo; with colors pinned, the 960 px copy as painted right now.
   const isOpen = fullSrc && lightbox.src === fullSrc;
   const toggleFull = (e) => {
     e.stopPropagation();
     if (isOpen) return lightbox.close();
-    const src = canvasRef.current.toDataURL("image/jpeg", 0.9);
+    const src = shown.size ? canvasRef.current.toDataURL("image/jpeg", 0.9) : imageUrl;
     setFullSrc(src);
     lightbox.open(src);
   };
@@ -109,7 +109,6 @@ export default function ScoreOverlay({ imageUrl, camera, interactive = false }) 
   if (interactive) {
     return (
       <div className="rank-media overlay-split" ref={ref}>
-        <div className="hsv-hist-title">Photo</div>
         <div className="overlay-split-body">
           {photo}
           <div className="overlay-picker" role="group" aria-label="Colors the score counts: hover to preview on the photo, click to pin">

@@ -143,7 +143,7 @@ function RankingRow({ row, camera, votes, onVoted, event, allData, onLoadToHsv }
           <div className="rank-media">
             <div className="hsv-hist-title">Clouds toward the sun{row.Weather && (
               <span className="cp-source">
-                {` · ${cloudSource(row.Weather)}`}
+                {cloudSource(row.Weather)}
                 {cloudTowardSun(row.Weather) != null && ` · ${Math.round(cloudTowardSun(row.Weather))}% overall`}
               </span>
             )}</div>
