@@ -17,7 +17,8 @@ import Tip from "./Tip.jsx";
 // The 960 px copy: sharp at row size, ~50 KB instead of the ~350 KB original.
 const WIDTH = 960;
 
-export default function ScoreOverlay({ imageUrl, camera, interactive = false }) {
+/** onShow: told which colors are painted right now (hovered or pinned), e.g. to mark them on the histogram. */
+export default function ScoreOverlay({ imageUrl, camera, interactive = false, onShow }) {
   const ref = useRef(null);
   const canvasRef = useRef(null);
   const source = useRef(null); // { image, config }: the unpainted photo, kept to repaint on toggle
@@ -67,6 +68,9 @@ export default function ScoreOverlay({ imageUrl, camera, interactive = false }) 
   }, [imageUrl, camera]);
 
   const painted = (pins, hover) => (hover ? new Set([...pins, hover]) : pins);
+  useEffect(() => {
+    onShow?.([...painted(shown, preview)]);
+  }, [shown, preview]);
   const toggle = (color) => {
     const next = new Set(shown);
     next.has(color) ? next.delete(color) : next.add(color);

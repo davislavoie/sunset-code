@@ -7,7 +7,8 @@ import { AreaClosed } from "@visx/shape";
 import { scaleLinear } from "@visx/scale";
 import { ParentSize } from "@visx/responsive";
 import { curveMonotoneX } from "@visx/curve";
-import { getJson, thumb } from "./api.js";
+import { fetchScoringConfig, getJson, thumb } from "./api.js";
+import { COLOR_META } from "./ScoreBreakdown.jsx";
 import { loadImage, rgbToOpenCvHsv, toResizedCanvas } from "./hsv.js";
 
 // Histogram shape doesn't need every pixel; 480 px wide is ~16x fewer and looks the same.
@@ -34,10 +35,15 @@ const SERIES = [
   { key: "hue", label: "Hue", fill: "url(#hue-spectrum)", opacity: 0.8, swatch: "linear-gradient(90deg, #e33, #ee3, #3e3, #3ee, #33e, #e3e)" },
 ];
 
-export default function HsvHistogram({ imageUrl, camera, ts }) {
+/** highlight: score colors (scoring.js COLORS) whose hue range is shaded on the chart. */
+export default function HsvHistogram({ imageUrl, camera, ts, highlight = [] }) {
   const ref = useRef(null);
   const [hist, setHist] = useState(null);
   const [error, setError] = useState(false);
+  const [bands, setBands] = useState(null); // hsv_score.json's bands
+  useEffect(() => {
+    if (highlight.length && !bands) fetchScoringConfig().then((c) => setBands(c.bands), () => {});
+  }, [highlight, bands]);
 
   // Only fetch and crunch the photo once the row scrolls near the screen.
   useEffect(() => {
@@ -80,7 +86,7 @@ export default function HsvHistogram({ imageUrl, camera, ts }) {
       {!imageUrl || error ? (
         <div className="hsv-hist-empty">{imageUrl ? "Couldn't read the photo" : "No photo"}</div>
       ) : (
-        <HistChart hist={hist} />
+        <HistChart hist={hist} marks={bands ? highlight.map((c) => ({ color: c, hue: bands[c].hue })) : []} />
       )}
     </div>
   );
@@ -92,7 +98,8 @@ const X_TICKS = Array.from({ length: 11 }, (_, i) => i * 25);
 const FULL = [0, 255];
 
 // Drag across the chart to zoom into that range; double-click to zoom back out.
-function HistChart({ hist }) {
+// marks: hue ranges to shade. A color also needs enough saturation and brightness to count, which this can't show.
+function HistChart({ hist, marks }) {
   const [hover, setHover] = useState(null);
   const [domain, setDomain] = useState(FULL);
   const [drag, setDrag] = useState(null); // [startBin, currentBin] while dragging
@@ -171,6 +178,10 @@ function HistChart({ hist }) {
                     </g>
                   ))}
                   <g clipPath={`url(#${clipId})`}>
+                    {marks.map(({ color, hue }) => (
+                      <rect key={color} x={x(hue[0] - 0.5)} width={x(hue[1] + 0.5) - x(hue[0] - 0.5)} y={M.top} height={bottom - M.top}
+                        fill={COLOR_META[color].swatch} fillOpacity={0.25} />
+                    ))}
                     {SERIES.map((sr) => (
                       <AreaClosed key={sr.key} data={hist[sr.key]} x={(_, i) => x(i)} y={(d) => y(Math.min(d, y.domain()[1]))} yScale={y}
                         curve={curveMonotoneX} fill={sr.fill} fillOpacity={sr.opacity} />

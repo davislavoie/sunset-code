@@ -104,6 +104,7 @@ export default function Ranking({ data, camera, onLoadToHsv }) {
 
 function RankingRow({ row, camera, votes, onVoted, event, allData, onLoadToHsv }) {
   const [showDay, setShowDay] = useState(false);
+  const [lit, setLit] = useState([]); // colors hovered or pinned beside the photo, marked on the histogram too
   const rawUrl = row["Raw Image"];
 
   return (
@@ -138,8 +139,8 @@ function RankingRow({ row, camera, votes, onVoted, event, allData, onLoadToHsv }
           </div>
         </div>
         <div className="ranking-row">
-          <ScoreOverlay imageUrl={rawUrl} camera={camera} interactive />
-          <HsvHistogram imageUrl={rawUrl} camera={camera} ts={row.ts} />
+          <ScoreOverlay imageUrl={rawUrl} camera={camera} interactive onShow={setLit} />
+          <HsvHistogram imageUrl={rawUrl} camera={camera} ts={row.ts} highlight={lit} />
           <div className="rank-media">
             <div className="hsv-hist-title">Clouds toward the sun{row.Weather && (
               <span className="cp-source" title={thicknessNote(row.Weather) ?? undefined}>
