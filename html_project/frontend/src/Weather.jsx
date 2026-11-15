@@ -97,8 +97,8 @@ const ZONES = [
 const thicknessOf = (cod) => (cod == null ? null : cod < 3.6 ? "thin" : cod < 23 ? "medium" : "thick");
 const DENSITY = { thin: 0.1, medium: 0.26, thick: 0.48 }; // bar opacity
 /** The satellite can't measure thickness once the sun is low, so later shots carry the last daylight
- * reading: "thickness from 65 min earlier" when it's older than a scan or two, else null. */
-export const thicknessNote = (w) => (w?.goes_cod_age > 20 ? `thickness from ${Math.round(w.goes_cod_age)} min earlier` : null);
+ * reading: "thickness 65 min earlier" when it's older than a scan or two, else null. */
+export const thicknessNote = (w) => (w?.goes_cod_age > 20 ? `thickness ${Math.round(w.goes_cod_age)} min earlier` : null);
 const KM_TO_KFT = 3.28084;
 /** "31k ft" from a cloud-top height in km; "Tops 31k ft" where there's no "Tops" axis label beside it. */
 const topsFt = (km) => `${Math.round(km * KM_TO_KFT)}k ft`;
