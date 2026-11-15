@@ -570,6 +570,18 @@ main#content {
   transition: background 150ms var(--ease-out), transform 160ms var(--ease-out);
 }
 .lightbox-close:hover { background: rgba(0, 0, 0, 0.8); }
+.lightbox-hud {
+  position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); z-index: 1;
+  display: flex; align-items: center; gap: 2px; padding: 4px; border-radius: 10px;
+  background: rgba(0, 0, 0, 0.7); color: #f8faff;
+}
+.lightbox-hud button {
+  display: grid; place-items: center; min-width: 36px; height: 36px; padding: 0 8px; border: none; border-radius: 8px;
+  background: none; color: inherit; font: inherit; font-weight: 600; font-variant-numeric: tabular-nums; cursor: pointer;
+}
+.lightbox-hud .lightbox-zoom { min-width: 60px; }
+.lightbox-hud button:hover:not(:disabled) { background: rgba(255, 255, 255, 0.15); }
+.lightbox-hud button:disabled { opacity: 0.4; cursor: default; }
 .lightbox-close:active { transform: scale(0.92); }
 
 

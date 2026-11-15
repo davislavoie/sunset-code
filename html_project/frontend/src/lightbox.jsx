@@ -1,11 +1,12 @@
-// Shared fullscreen image viewer used across pages. Scroll (or double-click) zooms in on the point
-// under the cursor; drag moves the photo while zoomed.
+// Shared fullscreen image viewer used across pages. Click or scroll zooms in on the point under the
+// cursor, drag moves the photo while zoomed, and the bar at the bottom zooms in / out and shows the zoom
+// (click the number to fit the photo again).
 
 import { createContext, useContext, useEffect, useRef, useState } from "react";
-import { X } from "lucide-react";
+import { X, ZoomIn, ZoomOut } from "lucide-react";
 import Img from "./Img.jsx";
 import { photo } from "./api.js";
-import { FIT, zoomAt } from "./zoom.js";
+import { FIT, MAX_ZOOM, zoomAt } from "./zoom.js";
 
 const LightboxContext = createContext(null);
 
@@ -55,7 +56,7 @@ export function LightboxProvider({ children }) {
       <div ref={overlayRef} className={`lightbox-overlay${open ? " open" : ""}`} onClick={close}>
         {src && (
           <div className="lightbox-frame" onClick={(e) => e.stopPropagation()}>
-            {/* ponytail: no pinch handling; phones zoom the page with two fingers, or double-tap here. */}
+            {/* ponytail: no pinch handling; phones tap to zoom or use the bar. */}
             <img
               ref={imgRef}
               className="lightbox-img"
@@ -65,7 +66,7 @@ export function LightboxProvider({ children }) {
               style={zoomed
                 ? { transform: `translate(${view.x}px, ${view.y}px) scale(${view.s})`, transition: "none", cursor: "grab", touchAction: "none" }
                 : undefined}
-              onDoubleClick={(e) => zoom(e, zoomed ? 0 : 2.5)}
+              onClick={(e) => !zoomed && zoom(e, 2)}
               onPointerDown={(e) => {
                 if (!zoomed) return;
                 e.currentTarget.setPointerCapture(e.pointerId);
@@ -80,6 +81,18 @@ export function LightboxProvider({ children }) {
             </button>
           </div>
         )}
+        {/* Outside the frame, so it stays put while the photo zooms and moves. */}
+        <div className="lightbox-hud" role="group" aria-label="Zoom" onClick={(e) => e.stopPropagation()}>
+          <button aria-label="Zoom out" disabled={!zoomed} onClick={() => setView((v) => zoomAt(v, 0, 0, 1 / 1.5))}>
+            <ZoomOut size={18} />
+          </button>
+          <button className="lightbox-zoom" aria-label="Fit to screen" onClick={() => setView(FIT)}>
+            {Math.round(view.s * 100)}%
+          </button>
+          <button aria-label="Zoom in" disabled={view.s >= MAX_ZOOM} onClick={() => setView((v) => zoomAt(v, 0, 0, 1.5))}>
+            <ZoomIn size={18} />
+          </button>
+        </div>
       </div>
     </LightboxContext.Provider>
   );
