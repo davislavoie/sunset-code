@@ -208,7 +208,8 @@ WEATHER_FIELDS = ["temperature_2m", "relative_humidity_2m", "dew_point_2m", "pre
     f"path{km}_{model}cloud_cover_{layer}" for model in ("", "icon_") for km in (13, 40, 80)
     for layer in ("low", "mid", "high")] + [  # toward the sun, 8/25/50 mi (best_match, and the ICON model)
     "goes_over", "goes_near", "goes_far", "goes_fan"] + [  # observed by GOES-East: cloudy share overhead / toward the sun
-    f"goes_{k}_{z}" for z in ("over", "near", "far") for k in ("top", "high", "mid", "low")]  # and its cloud-top height (km)
+    f"goes_{k}_{z}" for z in ("over", "near", "far") for k in ("top", "high", "mid", "low")] + [  # and its cloud-top height (km)
+    "goes_cod_over", "goes_cod_near", "goes_cod_far", "goes_cod_age"]  # cloud thickness (optical depth) at the last daylight scan; its age, minutes
 
 
 def weather_fields(point):

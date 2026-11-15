@@ -9,7 +9,7 @@ import { ForecastMetric } from "../Forecast.jsx";
 import HsvHistogram from "../HsvHistogram.jsx";
 import Reveal from "../Reveal.jsx";
 import ScoreOverlay from "../ScoreOverlay.jsx";
-import { CloudProfile, WeatherStats, cloudSource, cloudTowardSun } from "../Weather.jsx";
+import { CloudProfile, WeatherStats, cloudSource, cloudTowardSun, thicknessNote } from "../Weather.jsx";
 import { GlassPill } from "../Thumbs.jsx";
 import Select from "../Select.jsx";
 import Tip from "../Tip.jsx";
@@ -142,7 +142,7 @@ function RankingRow({ row, camera, votes, onVoted, event, allData, onLoadToHsv }
           <HsvHistogram imageUrl={rawUrl} camera={camera} ts={row.ts} />
           <div className="rank-media">
             <div className="hsv-hist-title">Clouds toward the sun{row.Weather && (
-              <span className="cp-source">
+              <span className="cp-source" title={thicknessNote(row.Weather) ?? undefined}>
                 {cloudSource(row.Weather)}
                 {cloudTowardSun(row.Weather) != null && ` · ${Math.round(cloudTowardSun(row.Weather))}% overall`}
               </span>

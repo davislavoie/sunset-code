@@ -52,6 +52,28 @@ class Zones(unittest.TestCase):
         self.assertIsNone(goes.zones(np.full(lat.shape, np.nan), lat, lon, 44.5, -73.5, 270)["goes_over"])
 
 
+class Thickness(unittest.TestCase):
+    def test_median_of_daylight_cloudy_pixels_per_zone(self):
+        lat0, lon0 = 44.48, -73.22
+        lat, lon = np.meshgrid(np.linspace(41.5, 47.5, 301), np.linspace(-77.5, -69, 301), indexing="ij")
+        far = goes.zone_masks(lat, lon, lat0, lon0, 270)["far"]
+        cod = np.where(far, 30.0, 0.0)  # a thick deck far toward the sun, clear elsewhere
+        dqf = np.zeros(lat.shape, dtype=np.uint8)
+        self.assertEqual(goes.thickness(cod, dqf, lat, lon, lat0, lon0, 270),
+                         {"goes_cod_over": None, "goes_cod_near": None, "goes_cod_far": 30.0})
+        # the same pixels from the night method don't count
+        self.assertIsNone(goes.thickness(cod, dqf | 1, lat, lon, lat0, lon0, 270)["goes_cod_far"])
+
+    def test_low_sun_falls_back_to_the_last_daylight_minute(self):
+        lat0, lon0 = 44.48, -73.22  # Burlington; sunset 2026-06-21 is about 00:41 UTC on the 22nd
+        noon = datetime(2026, 6, 21, 17, 0, tzinfo=timezone.utc)
+        self.assertEqual(goes.last_daylight(noon, lat0, lon0), noon)
+        at_sunset = datetime(2026, 6, 22, 0, 41, tzinfo=timezone.utc)
+        back = (at_sunset - goes.last_daylight(at_sunset, lat0, lon0)).total_seconds() / 60
+        self.assertTrue(45 < back < 90, back)
+        self.assertIsNone(goes.last_daylight(datetime(2026, 6, 22, 5, 0, tzinfo=timezone.utc), lat0, lon0))
+
+
 class Scans(unittest.TestCase):
     def test_picks_the_latest_scan_landed_by_the_capture(self):
         listing = "".join(f"<Key>{key(s)}</Key>" for s in ("20260082001173", "20260082006173", "20260082011173"))
@@ -93,19 +115,20 @@ class Fill(unittest.TestCase):
                   {"time": "2026-09-01T22:30:00Z", "camera": "btv_echo_cam", "label": "04_30m_pre"},
                   {"time": "2026-09-01T23:30:00Z", "camera": "btv_echo_cam", "label": "07_sunset"},
                   {"time": "2026-09-01T21:00:00Z", "camera": "btv_echo_cam", "label": "01_2h_pre", "goes_fan": 0.5,
-                   "goes_high_far": 0.0}]
+                   "goes_high_far": 0.0, "goes_cod_age": 5.0}]
         reading = {"goes_over": 1.0, "goes_near": 0.5, "goes_far": None, "goes_fan": 0.4}
         tops = {"goes_top_far": 9.1, "goes_high_far": 0.6, "goes_low_far": 0.0}
+        thick = {"goes_cod_far": 30.0, "goes_cod_near": None, "goes_cod_age": 60.0}
         client = mock.Mock()
         with fake_pipeline(), mock.patch.object(goes.store, "captures", return_value=points), \
                 mock.patch.object(weather, "camera_config", return_value={"LAT": "44.47", "LON": "-73.22"}), \
                 mock.patch.object(goes, "observe", side_effect=[reading, TimeoutError("S3 slow"), reading]) as observe, \
-                mock.patch.object(goes, "observe_heights", side_effect=[tops, TimeoutError("S3 slow"), None]) as heights:
+                mock.patch.object(goes, "observe_heights", side_effect=[tops, TimeoutError("S3 slow"), None]) as heights,                 mock.patch.object(goes, "observe_thickness", side_effect=[thick, None, None]):
             self.assertEqual(goes.fill(client, "btv_echo_cam"), 2)
         self.assertEqual((observe.call_count, heights.call_count), (3, 3))  # the shot that had both is skipped
         (written,), _ = client.write_points.call_args
         self.assertEqual([w["tags"]["label"] for w in written], ["02_1h_pre", "07_sunset"])
-        self.assertEqual(written[0]["fields"], {"goes_over": 1.0, "goes_near": 0.5, "goes_fan": 0.4, **tops})
+        self.assertEqual(written[0]["fields"], {"goes_over": 1.0, "goes_near": 0.5, "goes_fan": 0.4, **tops, "goes_cod_far": 30.0, "goes_cod_age": 60.0})
         self.assertEqual(written[1]["fields"], {"goes_over": 1.0, "goes_near": 0.5, "goes_fan": 0.4})
 
     def test_only_the_missing_product_is_read(self):
@@ -114,7 +137,7 @@ class Fill(unittest.TestCase):
         with fake_pipeline(), mock.patch.object(goes.store, "captures", return_value=points), \
                 mock.patch.object(weather, "camera_config", return_value={"LAT": "44.47", "LON": "-73.22"}), \
                 mock.patch.object(goes, "observe") as observe, \
-                mock.patch.object(goes, "observe_heights", return_value={"goes_high_far": 0.2}):
+                mock.patch.object(goes, "observe_heights", return_value={"goes_high_far": 0.2}),                 mock.patch.object(goes, "observe_thickness", return_value=None):
             self.assertEqual(goes.fill(client, "btv_echo_cam"), 1)
         observe.assert_not_called()
 

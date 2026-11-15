@@ -9,7 +9,7 @@ export default function Weather({ w, fill = false }) {
   if (!w) return null;
   return (
     <div className="weather-card">
-      <div className="metric-label">Clouds toward the sun <span className="cp-source">· {cloudSource(w)}</span></div>
+      <div className="metric-label">Clouds toward the sun <span className="cp-source">· {cloudSource(w)}{thicknessNote(w) && ` · ${thicknessNote(w)}`}</span></div>
       <CloudProfile w={w} fill={fill} />
       <WeatherStats w={w} />
     </div>
@@ -86,12 +86,19 @@ export function CloudProfile({ w, fill = false }) {
 
 // The satellite sees cloud or no cloud, not layers: one tall bar per zone, from the camera out
 // toward the sun. A far zone mostly cloudy is the bank that blocks the light, so it gets colour.
-// Under each, how high the cloud tops are (GOES cloud-top height; the top layer only).
+// Under each, how high the cloud tops are (GOES cloud-top height; the top layer only) and how thick the
+// cloud is (GOES optical depth), which also sets how dark the bar is.
 const ZONES = [
-  { key: "goes_over", top: "goes_top_over", label: "Overhead" },
-  { key: "goes_near", top: "goes_top_near", label: "3–25 mi" },
-  { key: "goes_far", top: "goes_top_far", label: "50–190 mi" },
+  { key: "goes_over", top: "goes_top_over", cod: "goes_cod_over", label: "Overhead" },
+  { key: "goes_near", top: "goes_top_near", cod: "goes_cod_near", label: "3–25 mi" },
+  { key: "goes_far", top: "goes_top_far", cod: "goes_cod_far", label: "50–190 mi" },
 ];
+// The usual classes of optical depth (ISCCP): under 3.6 the sun shines through, 23 and up is a solid deck.
+const thicknessOf = (cod) => (cod == null ? null : cod < 3.6 ? "thin" : cod < 23 ? "medium" : "thick");
+const DENSITY = { thin: 0.1, medium: 0.26, thick: 0.48 }; // bar opacity
+/** The satellite can't measure thickness once the sun is low, so later shots carry the last daylight
+ * reading: "thickness from 65 min earlier" when it's older than a scan or two, else null. */
+export const thicknessNote = (w) => (w?.goes_cod_age > 20 ? `thickness from ${Math.round(w.goes_cod_age)} min earlier` : null);
 const KM_TO_KFT = 3.28084;
 /** "31k ft" from a cloud-top height in km; "Tops 31k ft" where there's no "Tops" axis label beside it. */
 const topsFt = (km) => `${Math.round(km * KM_TO_KFT)}k ft`;
@@ -101,7 +108,11 @@ const ZONE_COL = (SUN_X - 16 - LEFT - GAP * (ZONES.length - 1)) / ZONES.length;
 function SatelliteSvg({ w, ground }) {
   const top = 8, cellH = ground - top - 8;
   const x = (i) => LEFT + i * (ZONE_COL + GAP);
-  const summary = ZONES.map((z) => `${z.label} ${pct(w[z.key] != null ? 100 * w[z.key] : null)}${w[z.top] != null ? ` (${tops(w[z.top])})` : ""}`).join(", ");
+  const thick = (z) => (w[z.key] > 0 ? thicknessOf(w[z.cod]) : null);
+  const summary = ZONES.map((z) => `${z.label} ${pct(w[z.key] != null ? 100 * w[z.key] : null)}${w[z.top] != null ? ` (${tops(w[z.top])})` : ""}${thick(z) ? ` ${thick(z)}` : ""}`).join(", ")
+    + (thicknessNote(w) ? `; ${thicknessNote(w)}` : "");
+  // With a thickness line the three lines sit a little higher, so they stay centred in the bar.
+  const up = ZONES.some(thick) ? 14 : 0;
   return (
     <svg
       className="cloud-profile"
@@ -120,24 +131,30 @@ function SatelliteSvg({ w, ground }) {
             <rect className="cp-cell-frame" x={x(i)} y={top} width={ZONE_COL} height={cellH} rx="6" />
             {v != null && (
               <rect className={`cp-fill${blocks ? " blocks" : ""}`} x={x(i)} y={top + cellH - h} rx="6"
-                width={ZONE_COL} height={h} opacity={blocks ? 0.25 : 0.18} />
+                width={ZONE_COL} height={h} opacity={DENSITY[thick(z)] ?? (blocks ? 0.25 : 0.18)} />
             )}
-            <text className="cp-value cp-big" x={x(i) + ZONE_COL / 2} y={top + cellH / 2 + 6} textAnchor="middle"
+            <text className="cp-value cp-big" x={x(i) + ZONE_COL / 2} y={top + cellH / 2 + 6 - up} textAnchor="middle"
               style={blocks ? { fill: "var(--destructive)" } : undefined}>
               {pct(v)}
             </text>
             {w[z.top] != null && v > 0 && (
-              <text className="cp-tops" x={x(i) + ZONE_COL / 2} y={top + cellH / 2 + 32} textAnchor="middle">
+              <text className="cp-tops" x={x(i) + ZONE_COL / 2} y={top + cellH / 2 + 32 - up} textAnchor="middle">
                 {topsFt(w[z.top])}
+              </text>
+            )}
+            {thick(z) && (
+              <text className="cp-tops" x={x(i) + ZONE_COL / 2} y={top + cellH / 2 + 54 - up} textAnchor="middle">
+                {thick(z)}
+                {thicknessNote(w) && <title>{thicknessNote(w)}</title>}
               </text>
             )}
             <text x={x(i) + ZONE_COL / 2} y={ground + 18} textAnchor="middle" className="cp-axis">{z.label}</text>
           </g>
         );
       })}
-      <text x={LEFT - 8} y={top + cellH / 2 + 4} textAnchor="end" className="cp-axis">Cloud</text>
+      <text x={LEFT - 8} y={top + cellH / 2 + 4 - up} textAnchor="end" className="cp-axis">Cloud</text>
       {ZONES.some((z) => w[z.top] != null && w[z.key] > 0) && (
-        <text x={LEFT - 8} y={top + cellH / 2 + 30} textAnchor="end" className="cp-axis">Tops</text>
+        <text x={LEFT - 8} y={top + cellH / 2 + 30 - up} textAnchor="end" className="cp-axis">Tops</text>
       )}
       <text x={SUN_X} y={ground + 18} textAnchor="middle" className="cp-axis cp-sun">Sun</text>
     </svg>

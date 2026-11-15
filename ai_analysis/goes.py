@@ -22,6 +22,17 @@ It sees the top layer only: low cloud under high cloud is missed. Per zone (over
   goes_mid_<zone>   share with a cloud top at 2-6 km (mid-level cloud, altocumulus and the like)
   goes_low_<zone>   share with a cloud top under 2 km (low cloud that can block the horizon)
 
+Cloud thickness, product ABI-L2-CODC (CONUS cloud optical depth, 2 km, every 5 min, ~1.2 MB for the rows the
+zones need). It is only a thickness measurement while the sun is up: below 8 deg of sun the product switches
+to an infrared method that never reads thick (analysis/thickness.md). So a capture taken with the sun under
+DAY_ELEVATION gets the last daylight reading before it, and how old that reading is:
+
+  goes_cod_<zone>   median optical depth of the zone's cloudy pixels (None when it's clear); under ~3.6 is
+                    thin cloud the sun shines through, 23 and up a thick deck
+  goes_cod_age      minutes from that scan to the capture
+
+For the dashboard only: thickness did not improve the forecast (analysis/satellite_ideas.md).
+
 Anything unavailable (S3 down, a missing scan) is skipped and retried next pass.
 """
 
@@ -44,6 +55,8 @@ LATENCY = timedelta(minutes=5)  # a scan's file appears ~4 min after it starts
 TIMEOUT = 15
 FIELDS = ("goes_over", "goes_near", "goes_far", "goes_fan")
 HIGH_KM, LOW_KM = 6.0, 2.0
+COD_PRODUCT = "ABI-L2-CODC"
+DAY_ELEVATION = 10  # deg of sun at the camera; the product's own switch is at 8, and the 1 h shot sits right on it
 HEIGHT_FIELDS = tuple(f"goes_{k}_{z}" for z in ("over", "near", "far") for k in ("top", "high", "mid", "low"))
 
 
@@ -213,14 +226,68 @@ def observe_heights(when, lat0, lon0, azimuth, session=requests):
     return heights(*height_window(url, session), lat0, lon0, azimuth) if url else None
 
 
+def last_daylight(when, lat0, lon0):
+    """`when`, or the latest minute in the 3 h before it, with the sun at least DAY_ELEVATION up; None in the dark."""
+    from astral import Observer
+    from astral.sun import elevation
+
+    observer = Observer(latitude=lat0, longitude=lon0)
+    return next((t for t in (when - timedelta(minutes=m) for m in range(181)) if elevation(observer, t) >= DAY_ELEVATION), None)
+
+
+def cod_window(url, lat0, lon0, azimuth, session=requests):
+    """(optical depth, nan where missing; quality flags; lat; lon) over the rows the zones need, from one scan.
+    COD is stored in chunks of full rows, so reading only those rows is what keeps this near 1 MB."""
+    import h5py
+
+    with h5py.File(RangeFile(url, session), "r") as h:
+        scale = lambda v: h[v][:] * h[v].attrs["scale_factor"][0] + h[v].attrs["add_offset"][0]
+        x, y = scale("x"), scale("y")
+        proj = dict(h["goes_imager_projection"].attrs)
+        lat, lon = latlon_grid(x[::20], y[::20], proj)  # coarse locate, as cloud_window
+        d = (lat - lat0) ** 2 + ((lon - lon0) * math.cos(math.radians(lat0))) ** 2
+        iy, ix = (20 * i for i in np.unravel_index(np.nanargmin(d), d.shape))
+        ys, xs = slice(max(0, iy - 200), iy + 200), slice(max(0, ix - 200), ix + 200)
+        lat, lon = latlon_grid(x[xs], y[ys], proj)
+        rows = np.flatnonzero(np.logical_or.reduce(list(zone_masks(lat, lon, lat0, lon0, azimuth).values())).any(axis=1))
+        r = slice(ys.start + rows[0], ys.start + rows[-1] + 1)
+        raw, dqf = h["COD"][r, xs], h["DQF"][r, xs]
+        cod = np.where(raw == h["COD"].attrs["_FillValue"][0], np.nan, raw * h["COD"].attrs["scale_factor"][0])
+    return cod, dqf, lat[rows[0]:rows[-1] + 1], lon[rows[0]:rows[-1] + 1]
+
+
+def thickness(cod, dqf, lat, lon, lat0, lon0, azimuth):
+    """goes_cod_<zone>: median optical depth of each zone's cloudy pixels, None where it has none. Only pixels
+    from the daylight method (DQF bit 0 clear) count."""
+    masks = zone_masks(lat, lon, lat0, lon0, azimuth)
+    cloudy = np.isfinite(cod) & (cod > 0) & (dqf & 1 == 0)
+    return {f"goes_cod_{z}": round(float(np.median(cod[masks[z] & cloudy])), 2) if (masks[z] & cloudy).any() else None
+            for z in ("over", "near", "far")}
+
+
+_thickness = {}  # every capture after the sun gets low shares one scan, so a day's reading is kept (a few numbers each)
+
+
+def observe_thickness(when, lat0, lon0, azimuth, session=requests):
+    """goes_cod_* from the last daylight scan by `when`, plus its age; None in the dark or with no scan."""
+    t = last_daylight(when, lat0, lon0)
+    url = t and scan_url(t, session, COD_PRODUCT)
+    if not url:
+        return None
+    key = (url, lat0, lon0, azimuth)
+    if key not in _thickness:
+        _thickness[key] = thickness(*cod_window(url, lat0, lon0, azimuth, session), lat0, lon0, azimuth)
+    return {**_thickness[key], "goes_cod_age": round((when - scan_start(url)).total_seconds() / 60, 1)}
+
+
 def fill(client, camera, recent="2d", since=None, before=None):
-    """Add GOES cloud (and cloud height) fields to captures lacking them. Returns how many got any."""
+    """Add GOES cloud, cloud height and cloud thickness fields to captures lacking them. Returns how many got any."""
     from sunset_code.helpers.open_metro_weater_api import sun_bearing
 
     from .weather import camera_config
 
     todo = [p for p in store.captures(client, camera, recent=None if since or before else recent, since=since, before=before)
-            if p.get("goes_fan") is None or p.get("goes_high_far") is None]
+            if p.get("goes_fan") is None or p.get("goes_high_far") is None or p.get("goes_cod_age") is None]
     if not todo:
         return 0
     config = camera_config(camera)
@@ -229,7 +296,8 @@ def fill(client, camera, recent="2d", since=None, before=None):
     for i, p in enumerate(todo, 1):
         when, bearing, got = store.parse_time(p), sun_bearing(store.local_date(p), lat, lon, mode), {}
         for what, missing, read in (("cloud", p.get("goes_fan") is None, observe),
-                                    ("cloud height", p.get("goes_high_far") is None, observe_heights)):
+                                    ("cloud height", p.get("goes_high_far") is None, observe_heights),
+                                    ("cloud thickness", p.get("goes_cod_age") is None, observe_thickness)):
             if not missing:
                 continue
             try:
