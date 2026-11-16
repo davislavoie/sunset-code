@@ -104,10 +104,18 @@ function HistChart({ hist, marks }) {
   const [domain, setDomain] = useState(FULL);
   const [drag, setDrag] = useState(null); // [startBin, currentBin] while dragging
   const clipId = useId();
+  const [hidden, setHidden] = useState([]); // series keys switched off in the legend
   const zoomed = domain !== FULL;
+  const shown = SERIES.filter((sr) => !hidden.includes(sr.key));
+  // Click hides or re-shows a series; ctrl/cmd-click shows only it (again: all back).
+  const toggle = (key, only) => setHidden((h) => {
+    const others = SERIES.map((sr) => sr.key).filter((k) => k !== key);
+    if (only) return !h.includes(key) && h.length === others.length ? [] : others;
+    return h.includes(key) ? h.filter((k) => k !== key) : [...h, key];
+  });
   // Y fits the tallest bar in view, so small peaks grow when zoomed in.
   const peak = hist
-    ? Math.max(...SERIES.map((sr) => Math.max(...hist[sr.key].slice(domain[0], domain[1] + 1))))
+    ? Math.max(0, ...shown.map((sr) => Math.max(...hist[sr.key].slice(domain[0], domain[1] + 1))))
     : 0;
   const pct = (key) => (hist[key][hover] == null ? "–" : `${(hist[key][hover] * 100).toFixed(1)}%`);
 
@@ -116,9 +124,10 @@ function HistChart({ hist, marks }) {
       <div className="hsv-hist-title">HSV histogram</div>
       <div className="hsv-hist-legend">
         {SERIES.slice().reverse().map((sr) => (
-          <span key={sr.key}>
+          <button key={sr.key} type="button" aria-pressed={!hidden.includes(sr.key)} title="Click to hide, Ctrl-click to show only this"
+            onClick={(e) => toggle(sr.key, e.ctrlKey || e.metaKey)}>
             <i style={{ background: sr.swatch }} /> {sr.label}
-          </span>
+          </button>
         ))}
       </div>
       <div className="hsv-hist-plot">
@@ -182,7 +191,7 @@ function HistChart({ hist, marks }) {
                       <rect key={color} x={x(hue[0] - 0.5)} width={x(hue[1] + 0.5) - x(hue[0] - 0.5)} y={M.top} height={bottom - M.top}
                         fill={COLOR_META[color].swatch} fillOpacity={0.25} />
                     ))}
-                    {SERIES.map((sr) => (
+                    {shown.map((sr) => (
                       <AreaClosed key={sr.key} data={hist[sr.key]} x={(_, i) => x(i)} y={(d) => y(Math.min(d, y.domain()[1]))} yScale={y}
                         curve={curveMonotoneX} fill={sr.fill} fillOpacity={sr.opacity} />
                     ))}
@@ -207,7 +216,7 @@ function HistChart({ hist, marks }) {
                     {/* x is the channel's own number (OpenCV: hue 0-179 = half-degrees, saturation and value 0-255);
                         each % is the share of the sky's pixels that have exactly that number. */}
                     <div className="scatter-tip-title">% of sky at this number</div>
-                    {SERIES.slice().reverse().map((sr) => (
+                    {shown.slice().reverse().map((sr) => (
                       <div key={sr.key}>
                         <span>{sr.key === "hue" ? `Hue ${hover}${hover < 180 ? ` (${hover * 2}°)` : ""}` : `${sr.label} ${hover}`}</span>
                         <b>{sr.key === "hue" && hover >= 180 ? "–" : pct(sr.key)}</b>
