@@ -1,5 +1,5 @@
-// Hue / saturation / value histograms of a photo's sky (shares of sky pixels), drawn as three overlaid
-// area charts. Stored by sunset_process.py with each capture (/api/hist); captures scored before that
+// Hue / saturation / value histograms of a photo's sky (shares of sky pixels), drawn as three stacked
+// strips, each on its own axis. Stored by sunset_process.py with each capture (/api/hist); captures scored before that
 // are counted here in the browser instead.
 
 import { useEffect, useId, useRef, useState } from "react";
@@ -27,13 +27,6 @@ export function hsvHistograms({ data, width, height }) {
   const share = (bins) => bins.map((c) => c / n);
   return { hue: share(h), saturation: share(s), value: share(v) };
 }
-
-// Drawn on one shared 0-255 axis like the pipeline's PNG (hue only runs to 179).
-const SERIES = [
-  { key: "value", label: "Value", fill: "var(--muted-foreground)", opacity: 0.35, swatch: "var(--muted-foreground)" },
-  { key: "saturation", label: "Saturation", fill: "var(--chart-2)", opacity: 0.4, swatch: "var(--chart-2)" },
-  { key: "hue", label: "Hue", fill: "url(#hue-spectrum)", opacity: 0.8, swatch: "linear-gradient(90deg, #e33, #ee3, #3e3, #3ee, #33e, #e3e)" },
-];
 
 /** highlight: score colors (scoring.js COLORS) whose hue range is shaded on the chart. */
 export default function HsvHistogram({ imageUrl, camera, ts, highlight = [] }) {
@@ -86,152 +79,131 @@ export default function HsvHistogram({ imageUrl, camera, ts, highlight = [] }) {
       {!imageUrl || error ? (
         <div className="hsv-hist-empty">{imageUrl ? "Couldn't read the photo" : "No photo"}</div>
       ) : (
-        <HistChart hist={hist} marks={bands ? highlight.map((c) => ({ color: c, hue: bands[c].hue })) : []} />
+        <HistChart hist={hist} marks={bands ? highlight.map((c) => ({ color: c, ...bands[c] })) : []} />
       )}
     </div>
   );
 }
 
-const M = { top: 6, right: 6, bottom: 34, left: 36 };
-// Gridline every 25 like the pipeline's PNG; labels every 50 so they fit a narrow cell.
-const X_TICKS = Array.from({ length: 11 }, (_, i) => i * 25);
-const FULL = [0, 255];
+// One strip each, on its own axis (OpenCV: hue 0-179 = half-degrees, saturation and value 0-255).
+// range: the part of the axis a score color's band covers on that strip.
+const SERIES = [
+  { key: "hue", label: "Hue", fill: "url(#hue-spectrum)", opacity: 0.85, range: (b) => [b.hue[0] - 0.5, b.hue[1] + 0.5] },
+  { key: "saturation", label: "Saturation", fill: "var(--chart-2)", opacity: 0.5, range: (b) => [b.sat_min, 255] },
+  { key: "value", label: "Value", fill: "var(--muted-foreground)", opacity: 0.45, range: (b) => [b.val_min, 255] },
+];
 
-// Drag across the chart to zoom into that range; double-click to zoom back out.
-// marks: hue ranges to shade. A color also needs enough saturation and brightness to count, which this can't show.
+const M = { top: 4, right: 6, bottom: 15, left: 30 };
+
+// marks: score colors' bands (hsv_score.json) to shade: the hue range, and the minimum saturation and value upward.
 function HistChart({ hist, marks }) {
-  const [hover, setHover] = useState(null);
-  const [domain, setDomain] = useState(FULL);
-  const [drag, setDrag] = useState(null); // [startBin, currentBin] while dragging
-  const clipId = useId();
-  const [hidden, setHidden] = useState([]); // series keys switched off in the legend
-  const zoomed = domain !== FULL;
-  const shown = SERIES.filter((sr) => !hidden.includes(sr.key));
-  // Click hides or re-shows a series; ctrl/cmd-click shows only it (again: all back).
-  const toggle = (key, only) => setHidden((h) => {
-    const others = SERIES.map((sr) => sr.key).filter((k) => k !== key);
-    if (only) return !h.includes(key) && h.length === others.length ? [] : others;
-    return h.includes(key) ? h.filter((k) => k !== key) : [...h, key];
-  });
-  // Y fits the tallest bar in view, so small peaks grow when zoomed in.
-  const peak = hist
-    ? Math.max(0, ...shown.map((sr) => Math.max(...hist[sr.key].slice(domain[0], domain[1] + 1))))
-    : 0;
-  const pct = (key) => (hist[key][hover] == null ? "–" : `${(hist[key][hover] * 100).toFixed(1)}%`);
-
   return (
     <>
       <div className="hsv-hist-title">HSV histogram</div>
-      <div className="hsv-hist-legend">
-        {SERIES.slice().reverse().map((sr) => (
-          <button key={sr.key} type="button" aria-pressed={!hidden.includes(sr.key)} title="Click to hide, Ctrl-click to show only this"
-            onClick={(e) => toggle(sr.key, e.ctrlKey || e.metaKey)}>
-            <i style={{ background: sr.swatch }} /> {sr.label}
-          </button>
-        ))}
-      </div>
+      <div className="hsv-hist-legend">% of sky at each number · drag to zoom</div>
       <div className="hsv-hist-plot">
-        {/* Over the plot rather than in the legend, so zooming never changes the layout; hidden while the hover chip shows. */}
-        {zoomed && hover == null && <div className="hsv-hist-zoom">{`${domain[0]}-${domain[1]} · double-click to reset`}</div>}
-        {hist ? (
-          <ParentSize>
-            {({ width, height }) => {
-              if (!width) return null;
-              const left = M.left, right = width - M.right, bottom = height - M.bottom;
-              const x = scaleLinear({ domain, range: [left, right] });
-              const binAt = (e) => Math.round(x.invert(e.clientX - e.currentTarget.getBoundingClientRect().left));
-              const clampBin = (b) => Math.max(domain[0], Math.min(domain[1], b));
-              const xTicks = zoomed ? x.ticks(5) : X_TICKS;
-              const y = scaleLinear({ domain: [0, peak || 1], range: [bottom, M.top], nice: true });
-              return (
-                <>
-                <svg
-                  width={width}
-                  height={height}
-                  onMouseDown={(e) => {
-                    e.preventDefault(); // no text selection while dragging
-                    const b = clampBin(binAt(e));
-                    setDrag([b, b]);
-                  }}
-                  onMouseMove={(e) => {
-                    const bin = binAt(e);
-                    setHover(bin < domain[0] || bin > domain[1] ? null : bin);
-                    if (drag) setDrag([drag[0], clampBin(bin)]);
-                  }}
-                  onMouseUp={() => {
-                    if (drag) {
-                      const [a, b] = [Math.min(...drag), Math.max(...drag)];
-                      if (b - a >= 3) setDomain([a, b]);
-                      setDrag(null);
-                    }
-                  }}
-                  onMouseLeave={() => {
-                    setHover(null);
-                    setDrag(null);
-                  }}
-                  onDoubleClick={() => setDomain(FULL)}
-                >
-                  <clipPath id={clipId}>
-                    <rect x={left} y={0} width={right - left} height={bottom} />
-                  </clipPath>
-                  {xTicks.map((t) => (
-                    <g key={`x${t}`}>
-                      <line className="hsv-hist-grid" x1={x(t)} x2={x(t)} y1={M.top} y2={bottom} />
-                      {(zoomed || t % 50 === 0) && <text className="hsv-hist-tick" x={x(t)} y={bottom + 13} textAnchor="middle">{t}</text>}
-                    </g>
-                  ))}
-                  {y.ticks(4).map((t) => (
-                    <g key={`y${t}`}>
-                      <line className="hsv-hist-grid" x1={left} x2={right} y1={y(t)} y2={y(t)} />
-                      <text className="hsv-hist-tick" x={left - 4} y={y(t) + 3} textAnchor="end">{+(t * 100).toFixed(1)}</text>
-                    </g>
-                  ))}
-                  <g clipPath={`url(#${clipId})`}>
-                    {marks.map(({ color, hue }) => (
-                      <rect key={color} x={x(hue[0] - 0.5)} width={x(hue[1] + 0.5) - x(hue[0] - 0.5)} y={M.top} height={bottom - M.top}
-                        fill={COLOR_META[color].swatch} fillOpacity={0.25} />
-                    ))}
-                    {shown.map((sr) => (
-                      <AreaClosed key={sr.key} data={hist[sr.key]} x={(_, i) => x(i)} y={(d) => y(Math.min(d, y.domain()[1]))} yScale={y}
-                        curve={curveMonotoneX} fill={sr.fill} fillOpacity={sr.opacity} />
-                    ))}
-                  </g>
-                  {drag && drag[0] !== drag[1] && (
-                    <rect className="hsv-hist-brush" x={x(Math.min(...drag))} y={M.top}
-                      width={Math.abs(x(drag[1]) - x(drag[0]))} height={bottom - M.top} />
-                  )}
-                  <line className="hsv-hist-axis-line" x1={left} x2={right} y1={bottom} y2={bottom} />
-                  {hover != null && <line className="hsv-hist-cursor" x1={x(hover)} x2={x(hover)} y1={M.top} y2={bottom} />}
-                  <text className="hsv-hist-axis-label" x={(left + right) / 2} y={height - 2} textAnchor="middle">
-                    Channel value (0-255)
-                  </text>
-                  <text className="hsv-hist-axis-label" transform={`translate(10 ${(M.top + bottom) / 2}) rotate(-90)`} textAnchor="middle">
-                    % of sky
-                  </text>
-                </svg>
-                {hover != null && !drag && (
-                  // The channel value under the cursor; flips left past the middle to stay inside the plot.
-                  <div className="scatter-tip hsv-hist-tip" style={x(hover) > width / 2
-                    ? { right: width - x(hover) + 10, top: 4 } : { left: x(hover) + 10, top: 4 }}>
-                    {/* x is the channel's own number (OpenCV: hue 0-179 = half-degrees, saturation and value 0-255);
-                        each % is the share of the sky's pixels that have exactly that number. */}
-                    <div className="scatter-tip-title">% of sky at this number</div>
-                    {shown.slice().reverse().map((sr) => (
-                      <div key={sr.key}>
-                        <span>{sr.key === "hue" ? `Hue ${hover}${hover < 180 ? ` (${hover * 2}°)` : ""}` : `${sr.label} ${hover}`}</span>
-                        <b>{sr.key === "hue" && hover >= 180 ? "–" : pct(sr.key)}</b>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                </>
-              );
-            }}
-          </ParentSize>
-        ) : (
-          <div className="skeleton" style={{ height: "100%" }} />
-        )}
+        {hist ? SERIES.map((sr) => (
+          <Strip key={sr.key} sr={sr} data={hist[sr.key]} marks={marks.map((b) => ({ color: b.color, range: sr.range(b) }))} />
+        )) : <div className="skeleton" style={{ height: "100%" }} />}
       </div>
     </>
+  );
+}
+
+// Drag across a strip to zoom into that range; double-click to zoom back out.
+function Strip({ sr, data, marks }) {
+  const full = [0, data.length - 1];
+  const [hover, setHover] = useState(null);
+  const [domain, setDomain] = useState(full);
+  const [drag, setDrag] = useState(null); // [startBin, currentBin] while dragging
+  const clipId = useId();
+  const zoomed = domain[0] !== full[0] || domain[1] !== full[1];
+  // Y fits the tallest bar in view, so small peaks grow when zoomed in.
+  const peak = Math.max(...data.slice(domain[0], domain[1] + 1));
+
+  return (
+    <div className="hsv-hist-strip">
+      <div className="hsv-hist-name">{sr.label}{zoomed && ` ${domain[0]}-${domain[1]} · double-click to reset`}</div>
+      <ParentSize>
+        {({ width, height }) => {
+          if (!width) return null;
+          const left = M.left, right = width - M.right, bottom = height - M.bottom;
+          const x = scaleLinear({ domain, range: [left, right] });
+          const binAt = (e) => Math.round(x.invert(e.clientX - e.currentTarget.getBoundingClientRect().left));
+          const clampBin = (b) => Math.max(domain[0], Math.min(domain[1], b));
+          const y = scaleLinear({ domain: [0, peak || 1], range: [bottom, M.top], nice: true });
+          return (
+            <>
+            <svg
+              width={width}
+              height={height}
+              onMouseDown={(e) => {
+                e.preventDefault(); // no text selection while dragging
+                const b = clampBin(binAt(e));
+                setDrag([b, b]);
+              }}
+              onMouseMove={(e) => {
+                const bin = binAt(e);
+                setHover(bin < domain[0] || bin > domain[1] ? null : bin);
+                if (drag) setDrag([drag[0], clampBin(bin)]);
+              }}
+              onMouseUp={() => {
+                if (drag) {
+                  const [a, b] = [Math.min(...drag), Math.max(...drag)];
+                  if (b - a >= 3) setDomain([a, b]);
+                  setDrag(null);
+                }
+              }}
+              onMouseLeave={() => {
+                setHover(null);
+                setDrag(null);
+              }}
+              onDoubleClick={() => setDomain(full)}
+            >
+              <clipPath id={clipId}>
+                <rect x={left} y={0} width={right - left} height={bottom} />
+              </clipPath>
+              {x.ticks(6).map((t) => (
+                <g key={`x${t}`}>
+                  <line className="hsv-hist-grid" x1={x(t)} x2={x(t)} y1={M.top} y2={bottom} />
+                  <text className="hsv-hist-tick" x={x(t)} y={bottom + 11} textAnchor="middle">{t}</text>
+                </g>
+              ))}
+              {y.ticks(2).map((t) => (
+                <g key={`y${t}`}>
+                  <line className="hsv-hist-grid" x1={left} x2={right} y1={y(t)} y2={y(t)} />
+                  <text className="hsv-hist-tick" x={left - 4} y={y(t) + 3} textAnchor="end">{`${+(t * 100).toFixed(1)}%`}</text>
+                </g>
+              ))}
+              <g clipPath={`url(#${clipId})`}>
+                {marks.map(({ color, range }) => (
+                  <rect key={color} x={x(range[0])} width={x(range[1]) - x(range[0])} y={M.top} height={bottom - M.top}
+                    fill={COLOR_META[color].swatch} fillOpacity={0.25} />
+                ))}
+                <AreaClosed data={data} x={(_, i) => x(i)} y={(d) => y(Math.min(d, y.domain()[1]))} yScale={y}
+                  curve={curveMonotoneX} fill={sr.fill} fillOpacity={sr.opacity} />
+              </g>
+              {drag && drag[0] !== drag[1] && (
+                <rect className="hsv-hist-brush" x={x(Math.min(...drag))} y={M.top}
+                  width={Math.abs(x(drag[1]) - x(drag[0]))} height={bottom - M.top} />
+              )}
+              <line className="hsv-hist-axis-line" x1={left} x2={right} y1={bottom} y2={bottom} />
+              {hover != null && <line className="hsv-hist-cursor" x1={x(hover)} x2={x(hover)} y1={M.top} y2={bottom} />}
+            </svg>
+            {hover != null && !drag && (
+              // The share of the sky's pixels at exactly the number under the cursor; flips left past the middle to stay inside.
+              <div className="scatter-tip hsv-hist-tip" style={x(hover) > width / 2
+                ? { right: width - x(hover) + 10, top: 2 } : { left: x(hover) + 10, top: 2 }}>
+                <div>
+                  <span>{sr.key === "hue" ? `Hue ${hover} (${hover * 2}°)` : `${sr.label} ${hover}`}</span>
+                  <b>{`${(data[hover] * 100).toFixed(1)}%`}</b>
+                </div>
+              </div>
+            )}
+            </>
+          );
+        }}
+      </ParentSize>
+    </div>
   );
 }
