@@ -115,14 +115,15 @@ export default function ScoreOverlay({ imageUrl, camera, interactive = false, on
       <div className="rank-media overlay-split" ref={ref}>
         <div className="overlay-split-body">
           {photo}
-          <div className="overlay-picker" role="group" aria-label="Colors the score counts: hover to preview on the photo, click to pin">
+          <div className="overlay-picker" role="group" aria-label="Colors the score counts: hover to preview on the photo, click to pin"
+            // cleared on leaving the whole list, not each row, so crossing the gap between rows doesn't flash back
+            onPointerLeave={(e) => e.pointerType === "mouse" && hover(null)}>
             <p className="overlay-help">{matchMedia("(hover: hover)").matches ? "Hover" : "Tap"} to overlay color</p>
             {COLORS.map((c) => (
               <button key={c} type="button" className={`overlay-pick${shown.has(c) ? " pinned" : ""}`}
                 style={{ "--swatch": COLOR_META[c].swatch }} aria-pressed={shown.has(c)} disabled={!sky}
                 // mouse only: a tap on a phone fires pointerenter too, and would leave the color stuck on
                 onPointerEnter={(e) => e.pointerType === "mouse" && hover(c)}
-                onPointerLeave={(e) => e.pointerType === "mouse" && hover(null)}
                 onClick={() => toggle(c)}>
                 <span className="overlay-pick-name">
                   <i />
