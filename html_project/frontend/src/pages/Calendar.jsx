@@ -52,9 +52,13 @@ export default function Calendar({ data, camera, onLoadToHsv, admin = false }) {
   const { ranked_images: rankedImages, all_data: allData, sunset_data: sunsetData } = data;
   const [params, setParams] = useSearchParams();
 
-  // One entry per captured day, keyed by "YYYY-MM-DD"
-  const byDate = useMemo(() => new Map(sunsetData.map((item) => [item.Date, item])), [sunsetData]);
   const rankedByDate = useMemo(() => new Map(rankedImages.map((r) => [r.Date, r])), [rankedImages]);
+  // One entry per captured day, keyed by "YYYY-MM-DD": the day's best (highest-scoring) shot, or the
+  // at-sunset shot when none can be the best (all thumbed down).
+  const byDate = useMemo(() => new Map([
+    ...sunsetData.map((item) => [item.Date, item]),
+    ...rankedImages.map((r) => [r.Date, { ...r, Image: r["Raw Image"] }]),
+  ]), [sunsetData, rankedImages]);
 
   if (!sunsetData.length) {
     return (
