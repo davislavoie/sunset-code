@@ -75,7 +75,7 @@ export default function Calendar({ data, camera, onLoadToHsv, admin = false }) {
       for (const [k, v] of Object.entries(changes)) v == null ? p.delete(k) : p.set(k, v);
       return p;
     });
-  const goTo = (newDate) => update({ date: newDate, open: null });
+  const goTo = (newDate) => update({ date: newDate, open: null, mark: null });
 
   const viewProps = { date, goTo, byDate, allData, onLoadToHsv, permalinkFor: dayPath };
 
@@ -95,9 +95,15 @@ export default function Calendar({ data, camera, onLoadToHsv, admin = false }) {
             </button>
           ))}
         </div>
-        <button className="btn today-btn" onClick={() => goTo(toISODate(new Date()))}>
-          Today
-        </button>
+        <div className="view-tab-group">
+          {/* mark: the day the month view outlines, until you move to another month or day */}
+          {view === "day" && (
+            <button className="btn" onClick={() => update({ view: "month", date, mark: date })}>Show in month</button>
+          )}
+          <button className="btn today-btn" onClick={() => goTo(toISODate(new Date()))}>
+            Today
+          </button>
+        </div>
       </div>
 
       {view === "day" && <DayView key={date} {...viewProps} camera={camera} admin={admin} best={rankedByDate.get(date)} />}
@@ -109,7 +115,8 @@ export default function Calendar({ data, camera, onLoadToHsv, admin = false }) {
         <MonthView
           {...viewProps}
           expanded={expanded}
-          setExpanded={(d) => update({ open: d })}
+          mark={params.get("mark")}
+          setExpanded={(d) => update({ open: d, mark: null })}
         />
       )}
     </>
@@ -438,7 +445,7 @@ function expandedWeek(expanded, year, month, startWeekday, day) {
 // ---------------------------------------------------------------------------
 // Month view (the original calendar grid)
 // ---------------------------------------------------------------------------
-function MonthView({ date, goTo, byDate, allData, onLoadToHsv, permalinkFor, expanded, setExpanded }) {
+function MonthView({ date, goTo, byDate, allData, onLoadToHsv, permalinkFor, expanded, mark, setExpanded }) {
   const focus = fromISODate(date);
   const year = focus.getFullYear();
   const month = focus.getMonth();
@@ -480,7 +487,7 @@ function MonthView({ date, goTo, byDate, allData, onLoadToHsv, permalinkFor, exp
             const cell = (
               <div
                 key={iso}
-                className={`calendar-cell${entry ? " has-image" : ""}${iso === expanded ? " selected" : ""}`}
+                className={`calendar-cell${entry ? " has-image" : ""}${iso === expanded || iso === mark ? " selected" : ""}`}
                 onClick={entry ? () => setExpanded(iso === expanded ? null : iso) : undefined}
               >
                 <div className="day-number">{day}</div>
