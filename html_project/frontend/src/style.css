@@ -2692,7 +2692,9 @@ main#content.is-stale { opacity: 0.5; pointer-events: none; }
 /* Source and overall share on their own line under the title, level with the histogram's legend. */
 .rank-media .cp-source { display: block; font-size: 12px; min-height: 18px; }
 .overlay-picker { min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 4px; }
-.overlay-picks { display: flex; flex-direction: column; gap: 4px; }
+/* The rows share the full height of the photo beside them, so there is no dead space above or below. */
+.overlay-picks { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+.overlay-picks .overlay-pick { flex: 1; align-content: center; }
 .overlay-split .ranked-img-cell { margin-top: 0; align-self: start; }
 .overlay-pick {
   display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 5px 8px;
