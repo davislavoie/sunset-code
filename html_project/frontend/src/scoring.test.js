@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { paintMasks } from "./scoring.js";
+import { bandHistograms, paintMasks } from "./scoring.js";
 
 // The same file sunset_process.py reads.
 const config = JSON.parse(readFileSync(new URL("../../../sunset_code/helpers/hsv_score.json", import.meta.url)));
@@ -17,6 +17,13 @@ test("only the sky half is painted and counted", () => {
   const { overlay, coverage } = paintMasks(solid([255, 0, 0]), config);
   assert.equal(coverage.red, 0.5); // the whole sky, out of the whole image, as sunset_process.py stores it
   assert.deepEqual([...overlay.slice(8, 12)], [255, 0, 0, 255]);
+});
+
+test("a band's saturation and value histograms hold only its own sky pixels", () => {
+  const hist = bandHistograms(solid([255, 0, 0]), config);
+  assert.equal(hist.red.saturation[255], 1); // every sky pixel is fully saturated red
+  assert.equal(hist.red.value[255], 1);
+  assert.equal(hist.pink.value.reduce((a, b) => a + b), 0);
 });
 
 test("grey sky is left untouched", () => {

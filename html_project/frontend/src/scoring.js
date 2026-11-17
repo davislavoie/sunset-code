@@ -40,6 +40,31 @@ export function skyShare(config, camera) {
   return sky[camera] ?? sky.default;
 }
 
+// The band a pixel counts toward, or undefined. Rounds like OpenCV's 8-bit HSV conversion so boundary
+// pixels land in the same band as in Python.
+function bandOf(bands, r, g, b) {
+  const [h, s, v] = rgbToHsv(r, g, b);
+  const hue = Math.round(h * 180) % 180, sat = Math.round(s * 255), val = Math.round(v * 255);
+  const color = COLORS.find((c) => {
+    const band = bands[c];
+    return hue >= band.hue[0] && hue <= band.hue[1] && sat >= band.sat_min && val >= band.val_min;
+  });
+  return color && { color, sat, val };
+}
+
+/** Saturation and value histograms (0-255) of each band's counted pixels, as shares of the sky's pixels. */
+export function bandHistograms({ data, width, height }, config, camera) {
+  const n = Math.floor(height * skyShare(config, camera)) * width;
+  const out = Object.fromEntries(COLORS.map((c) => [c, { saturation: new Array(256).fill(0), value: new Array(256).fill(0) }]));
+  for (let i = 0; i < n * 4; i += 4) {
+    const m = bandOf(config.bands, data[i], data[i + 1], data[i + 2]);
+    if (!m) continue;
+    out[m.color].saturation[m.sat] += 1 / n;
+    out[m.color].value[m.val] += 1 / n;
+  }
+  return out;
+}
+
 export function paintMasks({ data, width, height }, config, camera, show = COLORS) {
   const { bands } = config;
   const paint = new Set(show);
@@ -48,15 +73,7 @@ export function paintMasks({ data, width, height }, config, camera, show = COLOR
   const counts = Object.fromEntries(COLORS.map((c) => [c, 0]));
 
   for (let i = 0; i < skyHeight * width * 4; i += 4) {
-    const [h, s, v] = rgbToHsv(data[i], data[i + 1], data[i + 2]);
-    // Round like OpenCV's 8-bit HSV conversion so boundary pixels land in the same band as in Python.
-    const hue = Math.round(h * 180) % 180;
-    const sat = Math.round(s * 255);
-    const val = Math.round(v * 255);
-    const match = COLORS.find((c) => {
-      const b = bands[c];
-      return hue >= b.hue[0] && hue <= b.hue[1] && sat >= b.sat_min && val >= b.val_min;
-    });
+    const match = bandOf(bands, data[i], data[i + 1], data[i + 2])?.color;
     if (!match) continue;
     counts[match]++;
     if (!paint.has(match)) continue;
