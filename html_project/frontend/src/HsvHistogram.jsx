@@ -110,11 +110,12 @@ const SERIES = [
 const M = { top: 4, right: 6, bottom: 15, left: 30 };
 
 // marks: highlighted score colors. Their hue range is shaded on the hue strip; the saturation and value strips
-// show only the pixels counted as those colors (byColor), each in the color's tint.
+// fade the whole sky and draw the pixels counted as those colors (byColor) on top, each in the color's tint.
 function HistChart({ hist, byColor, marks }) {
   const tinted = byColor && marks.length > 0;
   const layers = (sr) => (sr.key !== "hue" && tinted
-    ? marks.map(({ color }) => ({ key: color, label: COLOR_META[color].label, data: byColor[color][sr.key], fill: COLOR_META[color].swatch, opacity: 0.6 }))
+    ? [{ ...sr, data: hist[sr.key], opacity: 0.2 },
+      ...marks.map(({ color }) => ({ key: color, label: COLOR_META[color].label, data: byColor[color][sr.key], fill: COLOR_META[color].swatch, opacity: 0.85 }))]
     : [{ ...sr, data: hist[sr.key] }]);
   return (
     <>
@@ -131,7 +132,7 @@ function HistChart({ hist, byColor, marks }) {
 }
 
 // Drag across a strip to zoom into that range; double-click to zoom back out.
-// layers: the areas drawn on it, all on the same axis.
+// layers: the areas drawn on it, all on the same axis; the first (the whole sky) sets the scale.
 function Strip({ sr, layers, marks }) {
   const full = [0, layers[0].data.length - 1];
   const [hover, setHover] = useState(null);
@@ -139,8 +140,8 @@ function Strip({ sr, layers, marks }) {
   const [drag, setDrag] = useState(null); // [startBin, currentBin] while dragging
   const clipId = useId();
   const zoomed = domain[0] !== full[0] || domain[1] !== full[1];
-  // Y fits the tallest bar in view, so small peaks grow when zoomed in.
-  const peak = Math.max(...layers.flatMap((l) => l.data.slice(domain[0], domain[1] + 1)));
+  // Y fits the whole sky's tallest bar in view, so small peaks grow when zoomed in but highlighting a color never rescales.
+  const peak = Math.max(...layers[0].data.slice(domain[0], domain[1] + 1));
 
   return (
     <div className="hsv-hist-strip">
